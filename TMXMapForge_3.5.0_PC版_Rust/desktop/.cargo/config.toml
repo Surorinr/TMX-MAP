@@ -1,0 +1,14 @@
+# 本文件仅为本机构建提供国内 crates 镜像与网络兜底，可安全删除。
+# 背景：开发机系统代理（127.0.0.1）未运行时，cargo 默认读取系统代理会连不上 crates.io。
+# 字节跳动 rsproxy 镜像（sparse 索引），同时代理索引与 crate 静态下载。
+[source.crates-io]
+replace-with = 'rsproxy-sparse'
+
+[source.rsproxy-sparse]
+registry = "sparse+https://rsproxy.cn/index/"
+
+[registries.rsproxy]
+index = "sparse+https://rsproxy.cn/index/"
+
+[net]
+git-fetch-with-cli = true

@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0b1220">
+<title>铁锈战争地图生成器 · 完整离线版</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M3 19 L9 8 L13 14.5 L16 10 L21 19 Z' fill='%2337d39b'/%3E%3Ccircle cx='17.6' cy='6' r='1.7' fill='%23ffd45c'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="style.css">
+</head>
+<body data-theme="dark">
+<div id="splash" class="splash" aria-hidden="true">
+  <div class="splash-logo"><svg viewBox="0 0 24 24"><defs><linearGradient id="slg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#64a0ff"/><stop offset="1" stop-color="#37d39b"/></linearGradient></defs><path d="M3 19 L9 8 L13 14.5 L16 10 L21 19 Z" fill="url(#slg)"/><circle cx="17.6" cy="6" r="1.7" fill="#ffd45c"/></svg></div>
+  <div class="splash-title">铁锈战争地图生成器</div>
+  <div class="splash-bar"><i></i></div>
+</div>
+
+<header class="topbar">
+  <button id="menuBtn" class="icon-btn" aria-label="打开编辑面板" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button>
+  <div class="brand">
+    <span class="logo" aria-hidden="true"><svg viewBox="0 0 24 24"><defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#64a0ff"/><stop offset="1" stop-color="#37d39b"/></linearGradient></defs><path d="M3 19 L9 8 L13 14.5 L16 10 L21 19 Z" fill="url(#lg)" opacity=".92"/><circle cx="17.6" cy="6" r="1.7" fill="#ffd45c"/></svg></span>
+    <div class="brand-title">铁锈战争地图生成器</div>
+    <span class="badge">完全离线</span><span class="badge sub" id="versionBadge">v—</span>
+  </div>
+  <div class="top-actions">
+    <div class="runtime" id="runtimePill"><span class="dot"></span><span id="runtime" aria-live="polite">引擎初始化中…</span></div>
+    <button id="themeToggle" class="icon-btn" aria-label="切换主题" title="切换主题"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9 7 7 0 0 1-9-9z"/></svg></button>
+    <button id="helpBtn" class="icon-btn" aria-label="快捷键与帮助" title="快捷键与帮助"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.5 2.5 0 1 1 3.6 2.3c-.8.4-1.2 1-1.2 1.9M12 17h.01"/></svg></button>
+  </div>
+</header>
+
+<main>
+<aside class="sidebar" id="sidebar" aria-label="地图编辑面板">
+  <div class="sidebar-scroll" id="sidebarScroll">
+
+  <section class="card" data-card="mode">
+    <button class="section-title" type="button"><span>生成方式</span><i class="chev"></i></button>
+    <div class="card-body"><div>
+      <div class="tabs" role="tablist"><button id="quickTab" class="active" role="tab">快速生成</button><button id="wizardTab" role="tab">分步编辑</button><span class="tab-ink" aria-hidden="true"></span></div>
+      <label class="wide-label"><span>地图名称 <small>（导出文件名，可留空自动命名）</small></span>
+        <input id="mapName" type="text" maxlength="60" placeholder="自动：[p人数]铁锈地图_时间" autocomplete="off" spellcheck="false"></label>
+    </div></div>
+  </section>
+
+  <section class="card" data-card="params">
+    <button class="section-title" type="button"><span>地图基本参数</span><i class="chev"></i></button>
+    <div class="card-body"><div>
+    <div class="field-grid">
+      <label><span>地图宽度</span><input id="width" type="number" value="160" min="40" max="2000" inputmode="numeric"><small>40～2000</small></label>
+      <label><span>地图高度</span><input id="height" type="number" value="160" min="40" max="2000" inputmode="numeric"><small>40～2000</small></label>
+      <label><span>地形模板</span><select id="tileset"><option value="1">模板1 丛林</option><option value="2">模板2 雪山</option><option value="3">模板3 火山</option><option value="4">模板4 沙漠</option><option value="5" selected>模板5 森林</option></select></label>
+      <label><span>高度层级</span><input id="heightLevels" type="number" value="7" min="1" max="32" inputmode="numeric"></label>
+      <label><span>海洋层级</span><input id="oceanLevels" type="number" value="3" min="0" max="32" inputmode="numeric"></label>
+      <label><span>资源点数量</span><input id="resources" type="number" value="12" min="0" max="500" inputmode="numeric"></label>
+      <label class="span2"><span>出生点数量</span><input id="players" type="number" value="10" min="0" max="50" inputmode="numeric"><small>指挥中心/出生点 · 最大 50 · 3V3=6，25V25=50</small></label>
+      <label class="span2"><span>出生点对称</span><select id="mirror"><option value="none">不对称</option><option value="horizontal">X 轴对称</option><option value="vertical" selected>Y 轴对称</option><option value="diagonal1">主对角线对称</option><option value="diagonal2">副对角线对称</option><option value="both">XY 双轴对称</option></select><small id="mirrorHint">当前模式会自动保持出生点成对分布</small></label>
+    </div>
+    <div class="size-presets" aria-label="尺寸预设"><span>尺寸预设</span><button data-size="80">80²</button><button data-size="120">120²</button><button data-size="160">160²</button><button data-size="256">256²</button><button data-size="400">400²</button></div>
+    </div></div>
+  </section>
+
+  <section class="card v3-card" id="spawnSec" data-card="spawn">
+    <button class="section-title" type="button"><span>出生点 / 队伍控制台</span><i class="chev"></i></button>
+    <div class="card-body"><div>
+    <div class="v3-summary">
+      <div><b id="terrainSummary">—</b><small>地形尺寸</small></div>
+      <div><b id="spawnSummary">0</b><small>出生点</small></div>
+      <div class="gauge-cell"><svg class="gauge" viewBox="0 0 36 36" aria-hidden="true"><circle class="gauge-bg" cx="18" cy="18" r="15.5"/><circle id="gaugeArc" class="gauge-arc" cx="18" cy="18" r="15.5" pathLength="100"/></svg><b id="fairnessSummary">—</b><small>公平度</small></div>
+    </div>
+    <div class="field-grid compact-fields">
+      <label><span>模式预设</span><select id="gamePreset"><option value="1v1">1V1</option><option value="2v2">2V2</option><option value="3v3">3V3</option><option value="4v4">4V4</option><option value="5v5" selected>5V5</option><option value="10v10">10V10</option><option value="20v20">20V20</option><option value="25v25">25V25</option><option value="free">自由配置</option></select></label>
+      <label><span>设为玩家 1（交换槽位）</span><select id="humanSlot" aria-label="选择作为玩家 1 起始槽位的出生点"></select></label>
+      <label><span>对称强度</span><select id="symmetryStrength"><option value="strict">严格</option><option value="balanced" selected>平衡</option><option value="soft">柔性（不镜像）</option></select></label>
+      <label><span>槽位顺序</span><select id="slotOrder"><option value="alternate" selected>A/B 交替（奇偶分队）</option><option value="grouped">A 队在前</option><option value="engine">保持原顺序</option></select></label>
+    </div>
+    <div class="toolrow v3-tools">
+      <button id="spawnAuto" class="primary-soft">智能重新布置</button><button id="smartToggle" class="active">自动优化：开</button><button id="spawnReorder">按队伍排槽位</button>
+      <button id="spawnAnalyze">公平度分析</button><button id="slotTable">槽位映射表</button><button id="spawnUndo">撤销</button><button id="spawnRedo">重做</button>
+    </div>
+    <div id="slotBadge" class="slot-badge" hidden aria-live="polite"></div>
+    <div class="layer-row" role="group" aria-label="图层">
+      <button id="layerTerrain" class="chip active">地形</button><button id="layerSpawns" class="chip active">出生点</button><button id="layerResources" class="chip active">资源</button><button id="layerWalls" class="chip active">墙体</button><button id="layerGrid" class="chip">网格</button>
+    </div>
+    <div id="spawnList" class="spawn-list"></div>
+    <div id="fairnessReport" class="analysis-report">生成地图后可查看：出生点间距、边缘距离、资源距离、两队平衡度。</div>
+    </div></div>
+  </section>
+
+  <section class="card" id="gridSec" data-card="coast">
+    <button class="section-title" type="button"><span>海岸线模板</span><i class="chev"></i></button>
+    <div class="card-body"><div>
+    <div class="hint">点击方格开关陆地区域：<span class="hint-demo on-demo">✓ 陆地</span> / <span class="hint-demo off-demo">✕ 水域</span>。开启出生点对称后，镜像方格会同步联动。</div>
+    <div id="grid" class="grid"></div>
+    <div class="toolrow"><button id="gridRandom">随机模板</button><button id="gridInvert">反转</button><button id="gridDefault">默认</button></div>
+    </div></div>
+  </section>
+
+  <section class="card" id="wizardSec" data-card="wizard" hidden>
+    <button class="section-title" type="button"><span>地图编辑步骤</span><i class="chev"></i></button>
+    <div class="card-body"><div>
+    <div id="steps" class="steps"></div>
+    <div class="step-progress" aria-hidden="true"><i id="stepProgress"></i></div>
+
+    <div class="editor-block" data-step="0">
+      <div class="block-title">① 海岸线</div>
+      <div class="toolrow"><button data-act="run_coastline" class="primary-soft">生成海岸线</button><button id="imageImport">从图片导入</button></div>
+      <input id="imageFile" type="file" accept="image/*" hidden>
+      <div id="imageName" class="mini-status">未导入图片 · 暗色=水域，亮色=陆地，绿色=缺口</div>
+    </div>
+
+    <div class="editor-block" data-step="1">
+      <div class="block-title">② 墙体 / 丘陵</div>
+      <div class="toolrow"><button id="brushMode" class="active">画笔</button><button id="polygonMode">多边形分层</button></div>
+      <div id="brushControls">
+        <div class="toolrow compact"><button id="wallBrush" class="active">墙体</button><button id="gapBrush">缺口</button><button id="eraseBrush">橡皮</button></div>
+        <label class="range-label">画笔大小 <b id="brushSizeText">3</b><input id="brushSize" type="range" min="1" max="9" step="2" value="3"></label>
+        <div class="toolrow compact"><button data-act="undo_brush">撤销</button><button data-act="redo_brush">重做</button><button data-act="clear_brush_walls">清空</button></div>
+      </div>
+      <div id="polygonControls" hidden>
+        <div class="mini-status">点击地图逐点绘制；再次点击起点闭合多边形。嵌套区域会形成更高地形层级。</div>
+        <div class="toolrow compact"><button id="cancelPolygon">取消绘制</button><button data-act="undo_polygons">撤销</button><button data-act="redo_polygons">重做</button></div>
+        <div class="toolrow compact"><button id="deletePolygon">删除选中</button><button id="toggleGap">切换边缘缺口</button><button data-act="clear_all_polygons">清空全部</button></div>
+        <div id="polygonInfo" class="mini-status">暂无多边形</div>
+      </div>
+    </div>
+
+    <div class="editor-block" data-step="2">
+      <div class="block-title">③ 高度与海洋</div>
+      <label class="range-label">墙体吸附强度 <b id="magnetText">0</b><input id="wallMagnetism" type="range" min="0" max="100" step="5" value="0"></label>
+      <label class="wide-label inline"><span>随机种子</span><input id="seed" type="number" inputmode="numeric" placeholder="留空 = 随机"></label>
+      <div class="toolrow"><button data-act="run_height_ocean" class="primary-soft">生成高度与海洋</button><button id="fitMap">适应画布</button></div>
+    </div>
+
+    <div class="editor-block" data-step="3">
+      <div class="block-title">④ 指挥中心 / 出生点</div>
+      <div class="toolrow compact"><button id="ccManual" class="active">手动放置</button><button id="ccRandom">智能随机</button><button data-act="undo_cc">撤销</button><button data-act="clear_cc">清空</button></div>
+      <div class="mini-status">手动模式下点击放置（自动按对称镜像）；拖动出生点可移动；右键/长按删除。</div>
+    </div>
+
+    <div class="editor-block" data-step="4">
+      <div class="block-title">⑤ 资源点</div>
+      <div class="toolrow compact"><button id="resManual" class="active">手动放置</button><button id="resRandom">随机</button><button data-act="undo_resource">撤销</button><button data-act="clear_resource">清空</button></div>
+      <div class="mini-status">手动模式下点击放置资源点；右键/长按删除附近资源点。</div>
+    </div>
+
+    <div class="editor-block" data-step="5">
+      <div class="block-title">⑥ 完成与导出</div>
+      <div class="toolrow"><button data-act="run_finalize" class="primary-soft">完成地图并生成 TMX</button><button id="exportZip" disabled>导出 ZIP 包</button></div>
+      <div class="mini-status">导出时自动附带小地图图片：地图文件名去掉 .tmx 后加 <em>_map</em>，如 <code>[p2](2)泥沼by_MP97.tmx</code> → <code>[p2](2)泥沼by_MP97_map.png</code>（≤500×500、≤512KB，与画布一样显示出生点编号和资源点，样式可在底部「小地图」中选择）。</div>
+    </div>
+    </div></div>
+  </section>
+
+  <section class="card v3-card" data-card="project">
+    <button class="section-title" type="button"><span>项目 / 恢复</span><i class="chev"></i></button>
+    <div class="card-body"><div>
+    <div class="toolrow quad"><button id="projectNew">新建</button><button id="projectSave">保存项目</button><button id="projectLoad">恢复项目</button><button id="projectExport">导出项目</button></div>
+    <div class="toolrow quad"><button id="tmxImport">导入 TMX/项目</button><button id="undoGlobal">全局撤销</button><button id="redoGlobal">全局重做</button><button id="autoSaveToggle" class="active">自动保存：开</button></div>
+    <input id="tmxFile" type="file" accept=".tmx,.xml,.json,application/json,text/xml" hidden>
+    <label class="switch-row"><span>生成过程动画</span><button id="animToggle" class="switch on" role="switch" aria-checked="true"><i></i></button></label>
+    <div class="mini-status" id="projectInfo">项目草稿保存在本机（IndexedDB），不会上传。支持恢复上次编辑状态。</div>
+    </div></div>
+  </section>
+
+  </div>
+  <section class="action-card" id="actionCard">
+    <button id="generate" class="primary"><span class="btn-label">生成地图</span></button>
+    <div class="action-row"><button id="reset">恢复默认</button><button id="export" disabled>导出 TMX+小地图</button></div>
+    <div class="png-row"><label class="png-style"><span>小地图</span><select id="mapPngStyle" aria-label="小地图样式"><option value="full" selected>标注：编号 + 资源</option><option value="dots">标注：仅点位</option><option value="terrain">纯地形</option></select></label><button id="pngPreview" disabled>预览</button></div>
+    <div class="footer-note">导出 TMX 时同时保存同名 <em>_map.png</em> 小地图（≤500×500、≤512KB，含出生点与资源点）。所有操作均在本机完成，无需联网。<span id="dirtyNote" class="dirty-note" hidden>· 地图已修改，导出时将重新生成 TMX</span></div>
+  </section>
+</aside>
+
+<article class="map-panel" id="mapPanel">
+  <div class="toolbar">
+    <div class="status-wrap"><span class="status-label">状态</span><span id="status" aria-live="polite">等待本地生成引擎…</span></div>
+    <span id="stats" class="stats"></span><span id="coord" class="coord" aria-live="off">—</span>
+  </div>
+  <canvas id="map" aria-label="地图画布"></canvas>
+  <div class="empty-state" id="emptyState">
+    <div class="empty-art" aria-hidden="true"><svg viewBox="0 0 120 80"><path d="M6 70 L38 26 L58 52 L72 36 L114 70 Z" fill="currentColor" opacity=".18"/><path d="M6 70 L38 26 L58 52 L72 36 L114 70" fill="none" stroke="currentColor" stroke-width="2" opacity=".55"/><circle cx="92" cy="18" r="6" fill="#ffd45c" opacity=".8"/></svg></div>
+    <b>还没有地图</b>
+    <span>设置参数后点击「生成地图」，或导入 TMX / 项目文件</span>
+  </div>
+
+  <div class="tool-palette" id="toolPalette" hidden role="toolbar" aria-label="画布工具">
+    <button data-tool="pan" class="active" title="平移 / 选择（拖动出生点可移动）"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v18M3 12h18M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3"/></svg><span>平移</span></button>
+    <button data-tool="brush" title="画笔：绘制墙体/缺口"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20c3 0 5-1.5 5-4a2.5 2.5 0 0 0-5 0M9 16l11-11-2-2L7 14"/></svg><span>画笔</span></button>
+    <button data-tool="polygon" title="多边形分层"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 3l8 6-3 11H7L4 9z"/></svg><span>多边形</span></button>
+    <button data-tool="cc" title="放置出生点"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/></svg><span>出生点</span></button>
+    <button data-tool="resource" title="放置资源点"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 3l7 9-7 9-7-9z"/></svg><span>资源</span></button>
+  </div>
+
+  <div class="map-controls" role="group" aria-label="视图控制">
+    <button id="zoomIn" title="放大 (+)" aria-label="放大"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+    <button id="zoomOut" title="缩小 (-)" aria-label="缩小"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14"/></svg></button>
+    <button id="zoomReset" title="1:1 像素 (0)" aria-label="一比一"><span class="txt">1:1</span></button>
+    <button id="clearView" title="适应画布 (F)" aria-label="适应画布"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+  </div>
+
+  <div class="minimap-wrap" id="minimapWrap"><span class="minimap-label">小地图</span><canvas id="minimap" aria-label="地图小地图" width="256" height="256"></canvas></div>
+  <div class="legend" id="legend">
+    <span class="legend-tip" id="legendTip"><b>拖动</b>平移 · <b>双指/滚轮</b>缩放 · <b>点出生点</b>选中 · <b>拖出生点</b>移动 · <b>右键/长按</b>删除</span>
+    <span class="legend-item"><i class="legend-dot cc"></i>出生点</span>
+    <span class="legend-item"><i class="legend-dot res"></i>资源点</span>
+    <span class="legend-item"><i class="legend-dot wall"></i>墙体</span>
+  </div>
+  <div id="busy" class="busy" hidden role="status" aria-live="assertive">
+    <div class="busy-inner">
+      <div class="spinner"><i></i><i></i><i></i></div>
+      <span id="busyText">正在处理…</span>
+      <div class="progress-track"><div id="progressBar" class="progress-bar indeterminate"></div></div>
+      <span id="busyStage"></span>
+      <span id="busyElapsed" class="busy-elapsed"></span>
+      <div class="busy-actions"><button id="busySkip" hidden>跳过动画</button><button id="busyCancel" class="ghost-danger">取消</button></div>
+    </div>
+  </div>
+  <div class="fab-group" id="fabGroup" role="group" aria-label="快捷操作">
+    <button id="fabUndo" class="fab" title="全局撤销" aria-label="全局撤销" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></button>
+    <button id="fabExport" class="fab" title="导出 TMX+小地图" aria-label="导出 TMX 与小地图" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></button>
+    <button id="fabGenerate" class="fab fab-main" title="生成地图" aria-label="生成地图"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg></button>
+  </div>
+  <div id="toastBox" class="toast-box" role="status" aria-live="polite"></div>
+</article>
+</main>
+<div id="drawerBackdrop"></div>
+
+<div id="modal" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+  <div class="modal-card">
+    <div class="modal-title" id="modalTitle"></div>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-actions"><button id="modalCancel">取消</button><button id="modalOk" class="primary-soft">确定</button></div>
+  </div>
+</div>
+
+<!-- 3.5.0：PC 版桥接（仅在 Rust/Tauri 宿主中生效，Android 上为空操作） -->
+<script src="desktop-bridge.js"></script>
+<script type="module" src="app.js"></script>
+</body>
+</html>

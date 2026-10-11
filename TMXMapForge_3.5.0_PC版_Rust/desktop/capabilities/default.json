@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "主窗口：核心 API（应用自身的 Rust 命令默认对所有窗口开放）",
+  "windows": ["main"],
+  "permissions": ["core:default"]
+}
