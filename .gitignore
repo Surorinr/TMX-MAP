@@ -19,11 +19,14 @@ captures/
 local.properties
 
 # ==== 签名与密钥（严禁提交） ====
+# 签名密钥、密码与本地签名说明统一放在 signing/ 目录，仅保留在本机
+signing/
 *.jks
 *.keystore
 *.p12
 *.pfx
 *.key
+keystore.properties
 google-services.json
 
 # ==== Rust（original-rust-map-gen 参考源码） ====
