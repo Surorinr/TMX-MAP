@@ -1,9 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- 3.15.0：配合新图标（海陆战区地图）的背景：石板蓝 → 深海军蓝，自上而下。颜色与 tools/icon/make-icons.py 中 BG_TOP / BG_BOTTOM 一致 -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
     android:shape="rectangle">
     <gradient
         android:type="linear"
-        android:angle="135"
-        android:startColor="#0E2A52"
-        android:endColor="#071327" />
+        android:angle="270"
+        android:startColor="#3E506C"
+        android:endColor="#111A2C" />
 </shape>

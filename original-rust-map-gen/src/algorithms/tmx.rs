@@ -153,7 +153,7 @@ fn ensure_triggers_map_info(root: &mut Element, w: usize, h: usize) {
             .insert("name".to_string(), "introText".to_string());
         intro_prop.attributes.insert(
             "value".to_string(),
-            "Map generated with Rusted Warfare Map Generator by STORM\\nhttps://web-two-delta-61.vercel.app"
+            "欢迎回来，指挥官。核弹井已就位，实验工厂没偷懒——这次别炸自己家。"
                 .to_string(),
         );
         properties.children.push(XMLNode::Element(type_prop));

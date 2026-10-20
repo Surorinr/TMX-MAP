@@ -1,5 +1,49 @@
 /*
  * 铁锈战争地图生成器 · TMX MapForge Offline
+ * 版本 3.17.0 —— 第十五轮全局审查：修复取消 / 失败的生成清空当前地图的队伍 / 撤销记录 / 近家资源标记、Toast 去重吞掉新的「撤销」、
+ *              测距模式右键误删出生点、恢复默认 / 新建项目后测距模式残留、历史面板二次确认取消后整个面板消失、主题面板上下键跨组落错列、
+ *              方向菜单里按字母键误触画布快捷键、关闭自动保存后排队中的保存仍写入、近家资源距离输入框上限与代码不一致；
+ *              新增「配方码」（整套参数 + 形态种子编成短码，带校验，可夹在聊天文字里粘贴）、「实时体检徽章」（编辑后空闲时自动评分，
+ *              ▲/▼ 显示涨跌）、「触屏放大镜」（拖动出生点 / 测距 / 画墙时在手指上方放大落点）、「专注模式」（Z，画布铺满）、
+ *              「当前视图截图」（含已开启的图层与水印）；配套动效全部遵循「减少动态效果」（详见 README）。
+ * 版本 3.16.0 —— 新增 5 套动态主题（极光 / 熔岩 / 星云 / 深潮 / 樱雾，画布区动态背景 + 顶栏流光，纯 CSS 合成器动画）与
+ *              2 个自动主题（跟随系统 / 昼夜流转：按本机时间在 5 套主题间切换）；主题按钮改为选择面板（色板预览、方向键导航、
+ *              「动态背景」开关）；主题存储从下标改为 id（兼容旧版）；亮色覆盖规则改为按色调 data-tone 匹配（详见 README）。
+ * 版本 3.15.0 —— 新图标；第十四轮全局审查：修复 Toast「撤销」撤错步骤（总是撤销最新一步）、近家资源点删除补丁在换图后被重做到新地图、
+ *              近家资源点撤销时连带复活其他已删除的点、生成 / 引擎处理中仍可删除 / 拖动 / 改队伍出生点、连续崩溃后引擎永久停用只能重启 App、
+ *              安卓返回键一次就丢掉测量结果；新增「命令面板」（Ctrl+K，拼音首字母搜索）、「测距地形剖面」、「随机地图起名」、
+ *              「复制小地图图片」；UI 动效打磨（详见 README）。
+ * 版本 3.14.0 —— 第十三轮全局审查（首次使用真实浏览器 Chromium 动态测试）：修复近家资源点键（nearResKeys）跨地图累积导致的误路由、
+ *              近家资源点新增 / 删除与自动保存之间的 TMX 写回竞态、历史快照整数组读改写（并发丢记录 / 大地图写入量巨大）、
+ *              空状态小地图白框、长弹窗按钮被挤出视口、数字输入框只在失焦时约束、手机抽屉没有关闭入口；
+ *              新增「测距工具」（直线 + 步行距离 + 绕路比例）、「历史收藏 / 重命名」、「导出全部候选 ZIP」、「地图密度提示」、
+ *              「Android 导出后一键分享」；UI 动效打磨（详见 README）。
+ * 版本 3.13.0 —— 第十二轮全局审查：动效可访问性（prefers-reduced-motion）、触屏粘滞 hover、冒烟测试改为静态 HTTP 测试（详见 README）。
+ *              （3.15.0 更正：此前这里误抄了 3.11.0 的说明。）
+ * 版本 3.10.0 —— 修复「屏幕方向锁定不能持久化」（核心）：方向模式改由原生层持久化并在 Activity 创建时立即恢复，
+ *              顶栏方向按钮升级为「自动旋转 / 锁定竖屏 / 锁定横屏 / 锁定当前方向」菜单；
+ *              第九轮全局审查：偏好防抖写入在切后台 / 关闭窗口时丢失、忙碌遮罩每次进度更新都跨线程切换屏幕常亮、
+ *              旋转屏幕后（未适应画布时）视图中心漂移、横屏手机（宽 > 900px、高 ≤ 500px）落入桌面布局导致侧栏挤压画布；
+ *              UI 动效升级（顶栏毛玻璃、方向菜单弹出、按钮按压反馈、卡片悬停、焦点环、横屏紧凑布局等，详见 README）。
+ * 版本 3.9.0 —— 新增「近家资源点」：无论地图多大、出生点多少、是否对称/怎么对称，生成/完成地图后自动在每个
+ *              出生点周边 10～20 格直线距离内补足 ≥2 个可用资源点（陆路可达、不压墙/悬崖、严格对称镜像，
+ *              数量/距离范围可调，支持导入地图手动补齐、单点删除撤销、画布近家圈图层）；
+ *              第八轮全局审查：修复 analysisSig() 缓存签名漏算资源点（体检/领地/接敌路线在资源点变化后不刷新）、
+ *              Android 自定义导出文件夹授权失效时提示位置与实际落点不符的竞态、itemTileInfo() 解析内嵌瓦片集时
+ *              被自闭合 <tile> 标签误导致资源池瓦片 GID 识别错位（详见 README）。
+ * 版本 3.8.0 —— 新增「地形形态」：移植 11 套形态模板（岛屿 / 半岛 / 群岛 / 双河 / 山湖 / 大陆 / 沙漠 / 雪原 / 火山 / 迷宫 / 两岸狭路），
+ *              含对称镜像、浅滩、高地坡道、自动凿通道等可对战化处理与所见即所得预览；Android 新增「另存为 / 导出位置」；
+ *              第七轮全局审查（详见 README）。
+ * 版本 3.7.0 —— 第六轮审查：修复「TMX 写回竞态（保存与生成并发时新地图被旧 TMX 覆盖）」「Android 10+ 重名改名后 TMX 与
+ *              _map.png 不再成对」「局部 / 全局撤销栈上限不同步」「返回键在生成中直接退出」等；
+ *              新增「择优生成」（一次生成多张候选并自动体检评分、缩略图对比）、「接敌（Rush）距离分析 + 路线图层」、
+ *              「体检精确化」（读取 TMX 悬崖 / 水域瓦片，导入地图也能精确体检并显示悬崖）、「分享海报」导出。
+ * 版本 3.6.0 —— 第五轮审查：合并 Android 3.4.x 与 PC 3.5.0 两条分支（找回被丢失的屏幕方向锁定 / 签名配置）；
+ *              修复「取消」被当作崩溃导致引擎永久停用、小地图拖动监听泄漏、空格键劫持按钮、输入框内 Ctrl+S 失效等；
+ *              新增「地图体检」（出生点连通性 / 领地平衡 / 资源分配 / 地形构成）与领地图层、生成前保护与「找回上一张地图」、
+ *              「我的参数方案」。
+ * 版本 3.5.0 —— PC 版（Rust + Tauri 2，desktop/）：与 Android 共用本前端；新增 saveFile 的 PC 分支、
+ *              关闭前自动保存可等待（__onAppPause 返回 Promise）、导出提示「打开文件夹」。逻辑与布局不变。
  * 版本 3.4.0 —— 小地图 PNG 重写（与预览一致显示出生点编号 / 资源点，≤500×500、≤512KB），PNG 预览与样式选择；
  *              第四轮审查：删除/放置出生点后槽位奇偶错乱、拖动跨中轴队伍改变、多边形同步乱序、导入地图队伍推断等
  * 版本 3.3.0 —— 第三轮全局审查：修复「出生点序号 ↔ 游戏玩家（team）映射错误」（核心），
@@ -16,8 +60,8 @@
  *   Pointer    —— 统一手势状态机：平移 / 双指缩放 / 画笔 / 多边形 / 放置 / 拖动出生点 / 长按删除
  *   Project    —— IndexedDB 项目存储（可保存大体积 TMX），兼容旧版 localStorage 草稿
  */
-const APP_VERSION = '3.4.0';
-const PROJECT_FORMAT = 340;
+const APP_VERSION = '3.18.0';
+const PROJECT_FORMAT = 3180; // 3.18.0：仅记录写入版本（读取时不校验），按 主.次.修 编码，保持单调递增
 const $ = id => document.getElementById(id);
 const MAX_SPAWN_POINTS = 50;
 const MAX_MAP_DIMENSION = 2000;
@@ -41,11 +85,28 @@ const PREF_KEY = 'rmtool_prefs_v2';
 const THEME_KEY = 'tmx_theme';
 const UI_KEY = 'tmx_ui_v31';
 const LEGACY_PROJECT_KEY = 'tmx_mapforge_project_v3_3';
+/* 3.16.0：主题从 3 套扩充为 8 套具体主题 + 2 个自动主题。
+ * tone = 'light' 的主题共用亮色专用的样式覆盖（body[data-tone="light"]）与系统栏深色图标；fx = 带动态背景（见 style.css「3.16.0 · 动态主题」）。
+ * 本机存储从「下标」改为「主题 id」；3.15.0 及更早保存的下标 0 / 1 / 2 按 LEGACY_THEME_ORDER 迁移。 */
 const THEMES = [
-  { id: 'dark', name: '深空', bar: '#0b1220', lightIcons: false },
-  { id: 'teal', name: '青岚', bar: '#071a21', lightIcons: false },
-  { id: 'light', name: '亮白', bar: '#f4f7fb', lightIcons: true }
+  { id: 'dark', name: '深空', group: '经典', bar: '#0b1220', tone: 'dark', desc: '默认深色，长时间编辑不刺眼' },
+  { id: 'teal', name: '青岚', group: '经典', bar: '#071a21', tone: 'dark', desc: '青绿冷色调的深色主题' },
+  { id: 'light', name: '亮白', group: '经典', bar: '#f4f7fb', tone: 'light', desc: '强光环境 / 投屏演示更清楚' },
+  { id: 'aurora', name: '极光', group: '动态', bar: '#08151f', tone: 'dark', fx: true, desc: '星空下缓缓摆动的极光带，星点闪烁' },
+  { id: 'ember', name: '熔岩', group: '动态', bar: '#1a0d09', tone: 'dark', fx: true, desc: '底部呼吸的熔岩光晕与不断上升的火星' },
+  { id: 'nebula', name: '星云', group: '动态', bar: '#110a22', tone: 'dark', fx: true, desc: '缓慢旋转的紫粉星云，偶尔有流星划过' },
+  { id: 'tide', name: '深潮', group: '动态', bar: '#051c27', tone: 'dark', fx: true, desc: '海底交错的光纹、摇曳的光束与上浮气泡' },
+  { id: 'sakura', name: '樱雾', group: '动态', bar: '#fffafc', tone: 'light', fx: true, desc: '浅粉薄雾与斜斜飘落的花瓣（亮色）' }
 ];
+const THEME_AUTO = [
+  { id: 'system', name: '跟随系统', group: '自动', desc: '跟随系统深浅色：浅色用「亮白」，深色用「深空」' },
+  { id: 'cycle', name: '昼夜流转', group: '自动', desc: '按本机时间自动换：清晨樱雾 · 白天亮白 · 傍晚熔岩 · 入夜极光 · 深夜星云' }
+];
+const THEME_CHOICES = [...THEMES, ...THEME_AUTO];
+const LEGACY_THEME_ORDER = ['dark', 'teal', 'light'];
+const THEME_FX_KEY = 'tmx_theme_fx'; // '0' = 关闭动态背景（停在静止画面）
+/* 昼夜流转时间表：[起始小时, 主题, 时段名]，按起始小时升序 */
+const THEME_CYCLE = [[0, 'nebula', '深夜'], [5, 'sakura', '清晨'], [7, 'light', '白天'], [17, 'ember', '傍晚'], [19, 'aurora', '入夜'], [23, 'nebula', '深夜']];
 /* 引擎侧依赖已有状态的操作：导入地图或引擎重启后不能直接执行 */
 const ENGINE_STATEFUL = new Set([
   'run_height_ocean', 'draw_brush_walls', 'undo_brush', 'redo_brush', 'clear_brush_walls',
@@ -53,6 +114,9 @@ const ENGINE_STATEFUL = new Set([
   'undo_resource', 'clear_resource', 'run_finalize', 'set_hill_drawing_mode'
 ]);
 const NON_MUTATING = new Set(['init', 'get_state_snapshot', 'set_hill_drawing_mode', 'reset_state']);
+/* 3.9.0：这些引擎操作各自会返回一份全新的快照，且引擎自身并不知道「近家资源点」的存在（见下方近家资源点模块），
+ * 用于在 applyEngineResult 里判断要不要重新静默补齐一次，避免手动资源操作把它们从画布上悄悄冲掉。 */
+const RESOURCE_ENGINE_OPS = new Set(['place_resource_random', 'place_resource_manual', 'remove_resource_manual', 'undo_resource', 'clear_resource']);
 
 /* ------------------------------------------------------------------ 全局状态 */
 const S = {
@@ -70,17 +134,21 @@ const S = {
   teamOverrides: new Map(),// "r,c" -> 'A' | 'B'
   selectedSpawn: -1,
   spawnHistory: [], spawnRedo: [],
+  spawnRev: 0,             // 3.15.0：出生点修订号（任何出生点历史变化 +1），用于判断 Toast「撤销」是否仍对应同一步
   history: [], redoHistory: [],
   brushValue: 1, brushSize: 3, brushErasing: false, hillMode: 'brush',
   polygons: [], drawingPolygon: null, selectedPolygonId: null, selectedEdgeIndex: null,
   polygonSeq: 1, polyUndo: [], polyRedo: [],
   randomResourceKeys: new Set(),
   smartPlacement: true, autoSave: true, animate: true,
-  layers: { terrain: true, spawns: true, resources: true, walls: true, grid: false },
+  orientMode: 'auto',      // 3.10.0：'auto' | 'portrait' | 'landscape'（Android 原生层持久化，网页只做显示与兼容备份）
+  orientLegacy: false,     // 3.10.0：3.9.0 及更早版本只保存了 orient=true，首次启动时用于迁移
+  layers: { terrain: true, spawns: true, resources: true, walls: true, grid: false, territory: false, routes: false, nearRes: true },
   view: { zoom: 1, x: 0, y: 0, fitted: false },
   locked: false,
   fadeStart: 0,
-  themeIndex: 0,
+  themeChoice: 'system',   // 3.16.0：用户的选择（具体主题 id，或 'system' / 'cycle'）
+  themeId: 'dark',         // 3.16.0：实际生效的主题 id
   slotVerified: null       // 最近一次导出前读回校验结果：true / false / null（未校验或已修改）
 };
 
@@ -126,7 +194,7 @@ function bytesToBase64(input) {
 async function streamTransform(input, kind, compress) {
   const bytes = input instanceof Uint8Array ? input : new Uint8Array(input || []);
   const Stream = compress ? globalThis.CompressionStream : globalThis.DecompressionStream;
-  if (typeof Stream !== 'function') throw new Error('当前 Android WebView 不支持压缩流，请升级系统 WebView');
+  if (typeof Stream !== 'function') throw new Error('当前系统 WebView 不支持压缩流（Android：请升级 Android System WebView；PC：请升级 WebView2 / WebKitGTK）');
   // pipeThrough + Response 一次性排空，避免手写 writer 在解压（输出>输入）时背压死锁
   const stream = new Response(bytes).body.pipeThrough(new Stream(kind));
   return new Uint8Array(await new Response(stream).arrayBuffer());
@@ -155,8 +223,10 @@ function armToast(t, ms) {
 function toast(msg, type = 'info', ms = 2800, opts = {}) {
   const box = $('toastBox'); if (!box) return null;
   if (opts.action) ms = Math.max(ms, 5000);
-  for (const t of box.children) {
-    if (t.dataset.msg === msg && !t.classList.contains('leaving')) {
+  /* 3.17.0 修复：带操作按钮（如「撤销」）的提示不再参与去重。旧版连续两次删除同一序号的玩家时两条文字相同，
+   * 第二条被合并进第一条，但按钮仍绑定第一步的操作，最新一步无法从提示条撤销。 */
+  if (!opts.action) for (const t of box.children) {
+    if (t.dataset.msg === msg && !t.classList.contains('leaving') && !t.classList.contains('has-action')) {
       t.classList.remove('bump'); void t.offsetWidth; t.classList.add('bump');
       armToast(t, ms);
       return t;
@@ -222,11 +292,17 @@ function busy(on, text = '正在处理…', stage = '', progress = null, opts = 
       if (tk !== busyToken) return;
       el.hidden = true;
       clearInterval(busyClock); busyClock = null;
+      clearBusyThumbs();
       if ($('busyElapsed')) $('busyElapsed').textContent = '';
     }, 220);
   }
-  try { window.AndroidBridge?.setKeepScreenOn?.(!!on); } catch { /* 旧版桥接无此方法 */ }
+  // 3.10.0：只在状态变化时调用原生桥接（旧版每次进度更新都会调用一次，跨线程投递到 UI 线程）
+  if (keepScreenOn !== !!on) {
+    keepScreenOn = !!on;
+    try { window.AndroidBridge?.setKeepScreenOn?.(keepScreenOn); } catch { /* 旧版桥接无此方法 */ }
+  }
 }
+let keepScreenOn = false;
 
 /* ------------------------------------------------------------------ UI 基础：模态对话框（替代 WebView 中不可用的 confirm()） */
 /* 3.2.0 修复：旧实现关闭弹窗时用无条件的 200ms 定时器设置 hidden，若在此期间又弹出下一个对话框
@@ -250,15 +326,18 @@ function uiChoice(title, body, buttons, opts = {}) {
     buttons.forEach(b => {
       const btn = document.createElement('button');
       btn.textContent = b.label;
-      if (b.primary) btn.className = 'primary-soft';
-      if (b.danger) btn.className = 'danger';
+      if (b.primary) btn.classList.add('primary-soft');
+      if (b.danger) btn.classList.add('danger');
+      if (b.className) btn.classList.add(b.className);
       btn.style.setProperty('--d', `${60 + actions.children.length * 40}ms`);
       btn.onclick = () => closeModal(b.key);
       actions.appendChild(btn);
     });
     m.hidden = false;
     requestAnimationFrame(() => m.classList.add('show'));
-    setTimeout(() => actions.querySelector('.primary-soft,.danger')?.focus(), 60);
+    // 3.6.0 修复：长弹窗（体检 / 槽位映射表 / 小地图预览）在手机上打开后，聚焦主按钮会把弹窗卷到底部，标题和顶部内容被滚出视野
+    m.querySelector('.modal-card').scrollTop = 0;
+    setTimeout(() => { actions.querySelector('.primary-soft,.danger')?.focus({ preventScroll: true }); m.querySelector('.modal-card').scrollTop = 0; }, 60);
   });
 }
 function uiConfirm(title, body, okLabel = '确定', danger = false) {
@@ -270,7 +349,8 @@ function closeModal(key = null) {
   m.classList.remove('show');
   const tk = modalToken;
   clearTimeout(modalHideTimer);
-  modalHideTimer = setTimeout(() => { if (tk === modalToken) { m.hidden = true; try { modalLastFocus?.focus?.({ preventScroll: true }); } catch { /* ignore */ } } }, 200);
+  // 3.15.0：命令面板已打开时不还原焦点（否则 200ms 后会把焦点从面板搜索框抢走，输入落空）
+  modalHideTimer = setTimeout(() => { if (tk === modalToken) { m.hidden = true; if (!cmdk.open) { try { modalLastFocus?.focus?.({ preventScroll: true }); } catch { /* ignore */ } } } }, 200);
   const r = modalResolve; modalResolve = null;
   r?.(key);
   return true;
@@ -324,15 +404,19 @@ const Engine = {
   failAll(err) { for (const p of this.pending.values()) p.reject(err); this.pending.clear(); },
   restart(reason) {
     const now = Date.now();
+    // 3.6.0 修复：用户点「取消」也会走重启，旧版把它和真正的崩溃一起计入「10 秒内 >4 次即停止自动重启」，
+    // 连续取消几次生成后引擎被永久停用，只能重启 App。取消不是崩溃，不再计数。
     this.restarts = this.restarts.filter(t => now - t < 10000);
-    this.restarts.push(now);
+    if (reason !== 'cancel') this.restarts.push(now);
     try { this.worker?.terminate(); } catch { /* ignore */ }
     this.failAll(new EngineError(reason === 'cancel' ? '操作已取消' : '本地引擎已重启', { fatal: reason !== 'cancel', cancelled: reason === 'cancel' }));
     S.engineEpoch++;
     if (this.restarts.length > 4) {
-      setRuntime('引擎连续崩溃，已停止自动重启', 'err');
-      toast('本地引擎连续崩溃，请重启应用', 'error', 5000);
-      this.ready = Promise.reject(new EngineError('本地引擎不可用', { fatal: true }));
+      /* 3.15.0：旧版在这里永久停用引擎，只能整个重启 App（未导出的地图编辑随之丢失）。现在暂停自动重启，
+       * 但提供「重新启动引擎」：提示条按钮 / 点击顶栏红色状态胶囊 / 命令面板均可手动拉起一个全新的 Worker。 */
+      setRuntime('引擎已暂停 · 点此重启', 'err');
+      toast('本地引擎连续崩溃，已暂停自动重启', 'error', 9000, { action: { label: '重新启动引擎', fn: () => this.manualRestart() } });
+      this.ready = Promise.reject(new EngineError('本地引擎不可用，请点击顶栏「点此重启」', { fatal: true }));
       this.ready.catch(() => {});
       return;
     }
@@ -343,10 +427,24 @@ const Engine = {
   async call(action, params = {}, transfer) {
     await this.ready;
     return this.raw(action, params, transfer);
+  },
+  /** 3.15.0：手动重启（清空崩溃计数）。当前地图仍可编辑出生点 / 导出；地形分步编辑需从「① 海岸线」重新开始 */
+  manualRestart() {
+    if (S.locked) { toast('正在处理中，请稍候…', 'warn'); return; }
+    this.restarts = [];
+    try { this.worker?.terminate(); } catch { /* ignore */ }
+    this.failAll(new EngineError('本地引擎已重启', { fatal: true }));
+    S.engineEpoch++;
+    setRuntime('引擎重启中…', 'warn');
+    this.start().then(() => { setRuntime('本地运行 · 无网络依赖', 'ok'); toast('本地引擎已重新启动', 'success'); })
+      .catch(e => { setRuntime('引擎初始化失败 · 点此重试', 'err'); toast('引擎初始化失败：' + e.message, 'error', 5000); });
   }
 };
 
 /* ------------------------------------------------------------------ 参数 */
+const PARAM_LIMITS = [['width', 40, MAX_MAP_DIMENSION, DEFAULTS.width], ['height', 40, MAX_MAP_DIMENSION, DEFAULTS.height], ['heightLevels', 1, 32, DEFAULTS.heightLevels], ['oceanLevels', 0, 32, DEFAULTS.oceanLevels], ['players', 0, MAX_SPAWN_POINTS, DEFAULTS.players], ['resources', 0, MAX_RESOURCES, DEFAULTS.resources]];
+/** 3.14.0：把数字输入框里的越界 / 非法值改回合法值并回显（只在生成等明确动作前调用，不在用户输入途中调用） */
+function normalizeParamInputs() { PARAM_LIMITS.forEach(([id, mn, mx, dft]) => clampInput(id, mn, mx, dft)); }
 function params() {
   return {
     grid: getGrid(),
@@ -364,6 +462,32 @@ function effectiveSpawnMode(mode) {
   if ($('symmetryStrength').value === 'soft') return 'none';
   return SYMMETRY_MODES.has(mode) ? mode : 'none';
 }
+/* ------------------------------------------------------------------ 地图密度提示（3.14.0 新增）
+ * 新手最常见的失误是「小图塞太多人」或「大图只有两个人」：前者出生点挤在一起、一开局就接敌，
+ * 后者行军半天碰不到对手。这里按「人均面积 = 宽 × 高 ÷ 出生点数」给出判断，并提供一键套用推荐尺寸。
+ * 经验值：约 6000 格² / 人时，对战节奏最舒服（1V1 ≈ 110²，5V5 ≈ 250²）。 */
+const DENSITY_TARGET = 6000;
+function densityInfo(w, h, n) {
+  const per = Math.round(w * h / n);
+  let level = 'ok', label = '密度适中，对战节奏舒适';
+  if (per < 1800) { level = 'bad'; label = '过于拥挤：开局就会接敌'; }
+  else if (per < 3200) { level = 'warn'; label = '偏拥挤：前期节奏会很快'; }
+  else if (per > 16000) { level = 'info'; label = '很空旷：行军时间长，前期不易接敌'; }
+  else if (per > 11000) { level = 'info'; label = '偏空旷：适合喜欢运营的对局'; }
+  const k = Math.sqrt(n * DENSITY_TARGET / (w * h));
+  const rw = clamp(Math.round(w * k / 10) * 10, 40, MAX_MAP_DIMENSION), rh = clamp(Math.round(h * k / 10) * 10, 40, MAX_MAP_DIMENSION);
+  return { per, level, label, rw, rh };
+}
+function updateDensityHint() {
+  const el = $('densityHint'); if (!el) return;
+  const n = intOf('players', 0, MAX_SPAWN_POINTS, DEFAULTS.players);
+  if (n < 2) { el.hidden = true; return; }
+  const w = intOf('width', 40, MAX_MAP_DIMENSION, DEFAULTS.width), h = intOf('height', 40, MAX_MAP_DIMENSION, DEFAULTS.height);
+  const d = densityInfo(w, h, n);
+  el.hidden = false; el.dataset.level = d.level;
+  const off = d.level === 'ok' || (d.rw === w && d.rh === h);
+  el.innerHTML = `<i class="dh-dot" aria-hidden="true"></i><span class="dh-text">人均 <b>${d.per.toLocaleString('zh-CN')}</b> 格² · ${d.label}</span>${off ? '' : `<button type="button" class="dh-apply" data-w="${d.rw}" data-h="${d.rh}" title="按每人约 ${DENSITY_TARGET} 格²推算">套用 ${d.rw}×${d.rh}</button>`}`;
+}
 function updateMirrorHint() {
   const el = $('mirrorHint');
   const m = $('mirror').value, n = intOf('players', 0, MAX_SPAWN_POINTS, 10);
@@ -375,6 +499,7 @@ function updateMirrorHint() {
   else if (m !== 'none' && n % 2 === 1) { text = `${MIRROR_LABELS[m]}：${n} 为奇数，最后 1 个点无法成对，将放在最均衡的位置`; accent = true; }
   el.textContent = text;
   el.classList.toggle('accent-hint', accent);
+  updateDensityHint();
 }
 
 /* ------------------------------------------------------------------ 海岸线 5×5 模板 */
@@ -444,7 +569,7 @@ const dims = () => dimsOf(S.snapshot);
 
 /* ------------------------------------------------------------------ 出生点：合法性
  * 与 Rust 引擎 add_command_centers / run_place_cc_manual 的判定对齐：
- *   中心 3×3 必须是陆地；半径 1 内不能有墙线；半径 2 内不能有资源池；距地图边缘 ≥2 格。
+ *   中心 3×3 必须是陆地；半径 2 内不能有墙线（3.8.0 起，见下）/ 资源池；距地图边缘 ≥2 格。
  * 修复：旧实现把多边形模式的「分层深度」也当作墙体（深度>0 即判非法），导致多边形内部无法放出生点。
  */
 function spawnCellValid(s, r, c) {
@@ -456,15 +581,31 @@ function spawnCellValid(s, r, c) {
   }
   const wall = getMatrix('wall_matrix', s);
   if (wall?.data && wall.shape?.[1] === cols) {
+    /* 3.8.0 修复：墙线检查半径由 1 扩大到 2。完成地图（run_finalize）后墙体 / 悬崖会写入 Items 图层，而出生点规则要求
+     * 「半径 2 内 Items 为空」—— 旧版在完成前按半径 1 放置的出生点，完成后有一部分紧贴悬崖，立刻被判为冲突并被自动挪走
+     * （提示「N 个出生点与新地形/资源冲突，已自动重新安置」，手动摆好的位置也会变）。现在完成前后使用同一标准。 */
     if ((s?.meta?.hill_drawing_mode || 'brush') === 'polygon') {
-      const d0 = wall.data[r * cols + c];
-      for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
-        const d = wall.data[(r + dr) * cols + c + dc];
-        if (Math.abs(d) !== Math.abs(d0)) return false; // 处于分层边界（墙线）上
-      }
+      const D = (rr, cc) => wall.data[rr * cols + cc];
+      const isWallCell = (rr, cc) => {
+        const d = D(rr, cc); if (d <= 0) return false; // 0 = 平地；负数 = 缺口（坡道），都不画悬崖
+        for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) {
+          const y = rr + a, x = cc + b;
+          if (y < 0 || x < 0 || y >= rows || x >= cols) continue;
+          if (Math.abs(D(y, x)) < d) return true;
+        }
+        return false;
+      };
+      const d0 = Math.abs(D(r, c));
+      for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) if (Math.abs(D(r + dr, c + dc)) !== d0) return false; // 处于分层边界（墙线）上
+      for (let dr = -2; dr <= 2; dr++) for (let dc = -2; dc <= 2; dc++) if (isWallCell(r + dr, c + dc)) return false;
     } else {
-      for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) if (wall.data[(r + dr) * cols + c + dc] === 1) return false;
+      for (let dr = -2; dr <= 2; dr++) for (let dc = -2; dc <= 2; dc++) if (wall.data[(r + dr) * cols + c + dc] === 1) return false;
     }
+  }
+  // 3.7.0：导入地图 / 已完成地图读取了 TMX 悬崖瓦片（cliff_mask），出生点同样不能压在悬崖上
+  const cliff = getMatrix('cliff_mask', s);
+  if (cliff?.count && cliff.shape?.[1] === cols) {
+    for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) if (cliff.data[(r + dr) * cols + c + dc]) return false;
   }
   const items = getMatrix('items_matrix', s);
   if (items?.data && items.shape?.[1] === cols) {
@@ -661,6 +802,9 @@ function enginePositionsBySlot(s) {
 function currentSpawns() { return (S.snapshot?.cc_positions || []).map(p => [p[0], p[1]]); }
 /* 出生点弹出动画：新出现 / 移动到新位置的出生点在画布上以弹性缩放出现 */
 const spawnPop = new Map();
+/* 3.9.0：资源点「掉落」动画——近家资源点新放置时，在画布上以从上方淡入落下的方式出现，而不是突然冒出来 */
+const resPop = new Map();
+function markResPop(points) { const now = performance.now(); for (const p of points || []) resPop.set(keyOf(p), now); if (resPop.size > 300) resPop.clear(); }
 function markSpawnPop(list, all = false) {
   const old = all ? new Set() : new Set((S.snapshot?.cc_positions || []).map(keyOf)), now = performance.now();
   for (const p of list || []) if (!old.has(keyOf(p))) spawnPop.set(keyOf(p), now);
@@ -675,10 +819,14 @@ function setSpawns(positions, { s = S.snapshot, markDirty = true } = {}) {
   if (markDirty && S.lastTmx) { S.unitsDirty = true; S.slotVerified = null; queueMicrotask(updateSlotBadge); }
 }
 function spawnState() { return { pos: currentSpawns(), teams: [...S.teamOverrides] }; }
+/* 3.7.0 修复：局部撤销栈有上限（出生点 60 / 多边形 40），全局栈上限 200。旧版局部栈丢弃最早一条时全局栈仍保留对应记录，
+ * 连续操作超过 60 次后「全局撤销」会有 N 次按了没反应并提示「没有可撤销的出生点操作」。现在两边同步裁剪。 */
+function dropOldestGlobal(type) { const i = S.history.indexOf(type); if (i >= 0) S.history.splice(i, 1); }
 function pushSpawnHistory() {
   if (!S.snapshot) return;
+  S.spawnRev++;
   S.spawnHistory.push(spawnState());
-  if (S.spawnHistory.length > 60) S.spawnHistory.shift();
+  if (S.spawnHistory.length > 60) { S.spawnHistory.shift(); dropOldestGlobal('spawn'); }
   S.spawnRedo = [];
   pushGlobal('spawn');
 }
@@ -688,8 +836,10 @@ function restoreSpawnState(st) {
   setSpawns(st.pos);
   afterSpawnChange();
 }
-function undoSpawn(fromGlobal = false) {
+function undoSpawn(fromGlobal = false, inLock = false) {
+  if (!fromGlobal && !inLock && !guard()) return false; // 3.15.0：处理中（生成 / 引擎操作）不允许改出生点
   if (!S.spawnHistory.length) { toast('没有可撤销的出生点操作'); return false; }
+  S.spawnRev++;
   if (!fromGlobal) syncLocal('spawn', 'undo');
   S.spawnRedo.push(spawnState());
   restoreSpawnState(S.spawnHistory.pop());
@@ -697,12 +847,27 @@ function undoSpawn(fromGlobal = false) {
   return true;
 }
 function redoSpawn(fromGlobal = false) {
+  if (!fromGlobal && !guard()) return false;
   if (!S.spawnRedo.length) { toast('没有可重做的出生点操作'); return false; }
+  S.spawnRev++;
   if (!fromGlobal) syncLocal('spawn', 'redo');
   S.spawnHistory.push(spawnState());
   restoreSpawnState(S.spawnRedo.pop());
   toast('已重做出生点操作');
   return true;
+}
+/* 3.15.0 修复：Toast 上的「撤销」按钮。旧版直接调用 undoSpawn()，撤销的是「当前最新的一步」而不是这条提示对应的那一步：
+ * 删除玩家 4 → 又删除玩家 1 → 点第一条提示的「撤销」，恢复的是玩家 1（真机复现：10 → 9 → 8 → 9，玩家 4 仍然丢失）；
+ * 生成新地图后、或生成过程中点旧提示的「撤销」也会作用到错误的状态上。
+ * 现在提示创建时记下「出生点修订号 + 快照」，点击时两者都没变才执行撤销，否则说明原因并引导用 Ctrl+Z 逐步撤销。 */
+function spawnUndoAction() {
+  const rev = S.spawnRev, snap = S.snapshot;
+  return { action: { label: '撤销', fn: () => {
+    if (S.locked) { toast('正在处理中，请稍候…', 'warn'); return; }
+    if (S.snapshot !== snap) { toast('地图已经变化，这条提示的撤销已失效', 'warn'); return; }
+    if (S.spawnRev !== rev) { toast('之后又有新的出生点操作，请用「撤销」按钮或 Ctrl+Z 逐步撤销', 'warn', 4200); return; }
+    undoSpawn();
+  } } };
 }
 function afterSpawnChange() {
   updateUndoButtons();
@@ -759,7 +924,7 @@ function updateUndoButtons() {
 /* ------------------------------------------------------------------ 出生点：编辑操作 */
 function minManualGap() { const [r, c] = dims(); return Math.max(3, Math.min(r, c) * 0.02); }
 function placeSpawnAt(cell) {
-  const s = S.snapshot; if (!s) return;
+  const s = S.snapshot; if (!s || !guard()) return;
   const [rows, cols] = dims();
   const cur = currentSpawns();
   if (cur.length >= MAX_SPAWN_POINTS) { toast(`出生点已达上限 ${MAX_SPAWN_POINTS} 个`, 'warn'); return; }
@@ -798,7 +963,7 @@ function removeSpawnAt(cell) {
 }
 function removeSpawnIndex(idx) {
   const p = currentSpawns();
-  if (idx < 0 || idx >= p.length) return;
+  if (idx < 0 || idx >= p.length || !guard()) return; // 3.15.0：处理中按 Delete / 点列表 ✕ 不再改动出生点
   pushSpawnHistory();
   const [gone] = p.splice(idx, 1);
   S.teamOverrides.delete(keyOf(gone));
@@ -808,11 +973,11 @@ function removeSpawnIndex(idx) {
   S.selectedSpawn = -1;
   afterSpawnChange();
   setStatus(`已删除玩家 ${idx + 1}${moved ? '，其余槽位已按队伍规则整理' : ''}`);
-  toast(`已删除玩家 ${idx + 1}${moved ? ' · 槽位已整理' : ''}`, 'info', 4200, { action: { label: '撤销', fn: () => undoSpawn() } });
+  toast(`已删除玩家 ${idx + 1}${moved ? ' · 槽位已整理' : ''}`, 'info', 4200, spawnUndoAction());
 }
 function moveSpawn(idx, cell) {
   const s = S.snapshot, p = currentSpawns();
-  if (!s || idx < 0 || idx >= p.length) return false;
+  if (!s || idx < 0 || idx >= p.length || !guard()) return false;
   const target = [cell.row, cell.col];
   if (target[0] === p[idx][0] && target[1] === p[idx][1]) return true;
   if (!spawnCellValid(s, target[0], target[1])) { toast('目标位置不合法：需要陆地、远离墙线与资源', 'warn'); return false; }
@@ -846,6 +1011,7 @@ async function smartPlaceAll(wanted, { history = true, quiet = false, allowParti
   setSpawns(positions);
   afterSpawnChange();
   if (!quiet) toast(`已智能布置 ${positions.length} 个出生点`, 'success');
+  setStatus(`已智能布置 ${positions.length} 个出生点`); // 3.7.0：旧版状态栏仍停留在上一步（如「生成高度与海洋完成」）
   return positions;
 }
 
@@ -891,7 +1057,7 @@ function animateNumber(el, to, suffix = '') {
 function renderFairness() {
   const f = spawnFairness();
   const arc = $('gaugeArc');
-  if (f.score) {
+  if (f.min !== undefined) { // 3.6.0：得分为 0 也是有效结果，旧版 if (f.score) 会把它显示成「无数据」
     animateNumber($('fairnessSummary'), f.score);
     arc.style.strokeDasharray = `${f.score} 100`;
     arc.dataset.level = f.score >= 80 ? 'good' : f.score >= 60 ? 'warn' : 'bad';
@@ -921,6 +1087,7 @@ function updateStats() {
   $('stats').textContent = `${w} × ${h} · 出生点 ${s.cc_positions?.length || 0} · 资源 ${s.resource_positions?.length || 0} · ${MIRROR_LABELS[s.meta?.mirroring] || '不对称'}`;
 }
 function updateSpawnUI() {
+  queueHealthBadge(); // 3.17.0：实时体检徽章（防抖 + 空闲时计算，结果按 analysisSig 缓存）
   updateStats();
   const p = currentSpawns();
   const [h, w] = dims();
@@ -1010,6 +1177,7 @@ async function showSlotTable() {
   [{ key: 'reorder', label: '按队伍重排槽位' }, { key: 'ok', label: '知道了', primary: true }], { wide: true }).then(k => { if (k === 'reorder') $('spawnReorder').click(); });
 }
 function changeSpawnTeam(pos, team) {
+  if (!guard()) { updateSpawnUI(); return; } // 还原下拉框显示
   pushSpawnHistory();
   S.teamOverrides.set(keyOf(pos), team);
   const before = currentSpawns();
@@ -1018,7 +1186,7 @@ function changeSpawnTeam(pos, team) {
     const oldI = before.findIndex(q => keyOf(q) === keyOf(pos)), newI = after.findIndex(q => keyOf(q) === keyOf(pos));
     if (after.some((q, i) => keyOf(q) !== keyOf(before[i]))) {
       setSpawns(after); S.selectedSpawn = newI;
-      toast(`队伍已改为 ${team}，玩家槽位已重排${oldI !== newI ? `：玩家 ${oldI + 1} → 玩家 ${newI + 1}` : ''}`, 'success', 3600, { action: { label: '撤销', fn: () => undoSpawn() } });
+      toast(`队伍已改为 ${team}，玩家槽位已重排${oldI !== newI ? `：玩家 ${oldI + 1} → 玩家 ${newI + 1}` : ''}`, 'success', 3600, spawnUndoAction());
     }
   } else if (S.lastTmx) { S.unitsDirty = true; S.slotVerified = null; }
   afterSpawnChange();
@@ -1028,7 +1196,7 @@ function changeSpawnTeam(pos, team) {
  * 其他模式只交换两个槽位；被交换的两点同时交换队伍归属，其余玩家的编号与队伍完全不变。 */
 function makePlayerOne(idx) {
   const p = currentSpawns();
-  if (idx <= 0 || idx >= p.length) return;
+  if (idx <= 0 || idx >= p.length || !guard()) return;
   pushSpawnHistory();
   const swapTeams = (i, j) => {
     const ki = keyOf(p[i]), kj = keyOf(p[j]), ti = teamOf(p[i], i), tj = teamOf(p[j], j);
@@ -1044,7 +1212,7 @@ function makePlayerOne(idx) {
     if (idx % 2) swapTeams(0, 1);
   } else swapTeams(0, idx);
   setSpawns(p); S.selectedSpawn = 0; afterSpawnChange();
-  toast(`已将原玩家 ${idx + 1} 设为玩家 1（其余玩家槽位不变）`, 'success', 3600, { action: { label: '撤销', fn: () => undoSpawn() } });
+  toast(`已将原玩家 ${idx + 1} 设为玩家 1（其余玩家槽位不变）`, 'success', 3600, spawnUndoAction());
 }
 function selectSpawn(i, center = false) {
   S.selectedSpawn = i;
@@ -1069,6 +1237,7 @@ function setSnapshot(s, { fit = false, fade = false } = {}) {
   const done = s.meta?.completed_step ?? -1;
   if (S.source === 'engine' && done + 1 > S.step) S.step = clamp(done + 1, 0, 5);
   $('emptyState').classList.toggle('hide', true);
+  $('mapPanel').classList.remove('no-map'); // 3.14.0：有地图后才显示小地图
   if (fade) S.fadeStart = performance.now();
   updateSpawnUI();
   updateSteps(done);
@@ -1116,6 +1285,10 @@ async function applyEngineResult(action, r, label) {
   else if (S.lastTmx && r.snapshot && !NON_MUTATING.has(action)) S.tmxDirty = true;
   if (!r.snapshot) return;
   const s = r.snapshot;
+  // 3.14.0 修复：引擎返回的快照里不含 JS 侧补的近家资源点（旧快照被整体替换后它们已从画布消失），
+  // 旧版却保留着过期的键，之后在这些坐标上删除引擎资源点会被误路由到 JS 删除路径。先记下“此前补过”，再清空。
+  const hadNearRes = S.nearResKeys.size > 0;
+  S.nearResKeys = new Set();
   S.source = 'engine';
   S.snapshotEpoch = S.engineEpoch;
   const prev = S.snapshot;
@@ -1127,11 +1300,25 @@ async function applyEngineResult(action, r, label) {
   const [nr, nc] = dimsOf(s), [or, oc] = prev ? dimsOf(prev) : [0, 0];
   if (fresh) { S.selectedSpawn = -1; }
   setSnapshot(s, { fit: fresh && (nr !== or || nc !== oc || !S.view.fitted), fade: fresh });
+  if (r.tmx_bytes?.length) attachCliffMask(s, r.tmx_bytes);
+  if (action === 'set_coastline_from_image') syncImportedDepthUI(s);
+  else if (action === 'run_coastline' || action === 'quick_generate') S.importedDepth = false;
   if (S.animate && r.frames?.length) await playFrames(r.frames.map(f => ({ height: f })), label);
   if (S.animate && r.quick_frames?.length) await playFrames(r.quick_frames.map(f => ({ height: f.height_map, items: f.items_matrix, units: f.units_matrix })), label);
+  // 3.9.0：地图刚完成（quick_generate 一步到位，或分步/大地图优化走到 run_finalize）时自动补齐近家资源点。
+  // 放在这里（而不是各个调用处分别调用）是因为所有生成流程最终都会经过 applyEngineResult 这一个收口点，
+  // 包括「大地图分步」「地形形态」「分步编辑完成地图」「导出前重新生成」等，一处接入即可全部覆盖。
+  if ((action === 'run_finalize' || action === 'quick_generate') && r.tmx_bytes?.length) {
+    try { await autoApplyNearSpawnResources(); } catch (e) { console.warn('近家资源点自动补齐失败', e); }
+  } else if (RESOURCE_ENGINE_OPS.has(action) && hadNearRes && S.lastTmx) {
+    // 地图已完成过一次（S.lastTmx 存在）之后，用户又回到「资源点」步骤做了手动放置/随机/撤销/清空：
+    // 这些操作各自从引擎拿回一份全新快照，引擎并不知道近家资源点的存在，直接覆盖会把它们从画布上悄悄抹掉。
+    // 静默重新补齐一次（不弹「已补齐」提示，避免每点一下引擎资源按钮就跳一条），保持与用户心智一致。
+    try { await autoApplyNearSpawnResources({ silent: true }); } catch (e) { console.warn('近家资源点重新同步失败', e); }
+  }
   updateDirtyNote();
 }
-function setExportEnabled(on) { $('export').disabled = !on; $('exportZip').disabled = !on; if ($('fabExport')) $('fabExport').disabled = !on; if ($('pngPreview')) $('pngPreview').disabled = !on; }
+function setExportEnabled(on) { for (const id of ['export', 'exportZip', 'exportZipQuick', 'saveAsBtn', 'fabExport', 'pngPreview', 'posterBtn']) { const el = $(id); if (el) el.disabled = !on; } }
 function updateDirtyNote() { $('dirtyNote').hidden = !(S.lastTmx && S.tmxDirty && S.source === 'engine'); }
 
 /* ------------------------------------------------------------------ 操作执行（统一忙碌、错误、自动保存） */
@@ -1150,7 +1337,7 @@ async function locked(fn) {
 function engineStateUsable(action) {
   if (!ENGINE_STATEFUL.has(action)) return true;
   if (S.source === 'import') { toast('导入/恢复的地图仅支持出生点编辑与导出；如需完整编辑请先「生成海岸线」或重新生成地图', 'warn', 4200); return false; }
-  if (S.source === 'engine' && S.snapshotEpoch !== S.engineEpoch) { toast('引擎已重启，旧的分步编辑进度已失效，请从「① 海岸线」重新开始', 'warn', 4200); return false; }
+  if (S.source === 'engine' && S.snapshotEpoch !== S.engineEpoch) { toast('引擎状态已被新的生成覆盖（或引擎已重启），这张地图的地形 / 墙体 / 资源分步编辑已失效；出生点仍可编辑、可导出。如需完整编辑请从「① 海岸线」重新开始', 'warn', 5200); return false; }
   return true;
 }
 async function run(action, payload = {}, label = '正在处理…', opts = {}) {
@@ -1184,20 +1371,103 @@ function resetEditorState() {
   S.polyUndo = []; S.polyRedo = []; S.polygonSeq = 1;
   S.spawnAuthority = null; S.teamOverrides.clear(); S.selectedSpawn = -1;
   S.spawnHistory = []; S.spawnRedo = []; S.history = []; S.redoHistory = [];
+  S.spawnRev++;
   S.randomResourceKeys.clear();
+  S.importedDepth = false;
+  S.nearResKeys = new Set(); // 3.14.0 修复：新地图 / 导入 / 恢复时必须清空，否则旧地图的坐标会误判新地图里的引擎资源点
+  S.mapShape = null; // 3.8.0：当前地图的形态信息（ZIP 说明.txt 使用），新地图 / 导入时清空
   spawnPop.clear();
+  resetHealthBadge(); // 3.17.0：新地图从头计分，不显示与旧地图比较的涨跌
   updatePolygonInfo();
   updateUndoButtons();
 }
+/* 3.17.0 修复：生成开始前会先 resetEditorState()，旧版取消或失败后画布仍显示旧地图，但手动指定的队伍、撤销历史、
+ * 近家资源点标记、多边形和形态信息都已丢失（实测：玩家 1 的队伍被悄悄改回，撤销栈从 1 步变成 0 步）。
+ * 现在开始前拍下这些状态；只要地图本身没有被替换（快照与 TMX 都还是原来的对象），就原样还原。 */
+function captureEditorState() {
+  return {
+    snapshot: S.snapshot, lastTmx: S.lastTmx,
+    polygons: S.polygons, drawingPolygon: S.drawingPolygon, selectedPolygonId: S.selectedPolygonId, selectedEdgeIndex: S.selectedEdgeIndex,
+    polyUndo: S.polyUndo, polyRedo: S.polyRedo, polygonSeq: S.polygonSeq,
+    spawnAuthority: S.spawnAuthority, teamOverrides: new Map(S.teamOverrides), selectedSpawn: S.selectedSpawn,
+    spawnHistory: S.spawnHistory, spawnRedo: S.spawnRedo, history: S.history, redoHistory: S.redoHistory,
+    randomResourceKeys: new Set(S.randomResourceKeys), importedDepth: S.importedDepth, nearResKeys: S.nearResKeys, mapShape: S.mapShape,
+    healthScore: health.score
+  };
+}
+function restoreEditorState(k) {
+  if (!k || !k.snapshot || S.snapshot !== k.snapshot || S.lastTmx !== k.lastTmx) return false;
+  const { snapshot, lastTmx, healthScore, ...rest } = k;
+  Object.assign(S, rest);
+  S.spawnRev++; // 旧 Toast 上的「撤销」一律失效，避免与还原后的历史错位
+  health.score = healthScore; health.sig = '';
+  updatePolygonInfo(); updateUndoButtons(); updateSpawnUI(); scheduleRender();
+  return true;
+}
+/* ------------------------------------------------------------------ 生成保护与「找回上一张地图」（3.6.0 新增）
+ * 旧版点「生成地图」（或 Ctrl+Enter / 手机悬浮按钮）会立刻覆盖当前地图：精心摆好的出生点、画好的墙体、多边形全部消失，
+ * 自动保存的草稿也会在 1.5 秒后被新地图覆盖，等于无法找回。现在：
+ *   ① 当前地图含手动编辑时先询问（只是连续「试生成」的未编辑地图不会打扰）；
+ *   ② 生成前把当前 TMX 地图备份到 IndexedDB 的「previous」槽，生成完成的提示里带「找回上一张」按钮；
+ *   ③ 「项目 / 恢复」里的「上一张地图 ⇄」按钮可来回切换（找回时会把当前地图换进备份槽）。
+ * 注意：备份的是已生成的 TMX 地图；找回后按导入地图处理（出生点可编辑、可导出，地形不可再用引擎编辑）。 */
+const hasManualWork = () => !!S.snapshot && (S.history.length > 0 || S.spawnHistory.length > 0 || S.polygons.length > 0 || (!!S.lastTmx && S.tmxDirty));
+async function backupCurrent() {
+  if (!S.lastTmx) return false;
+  try {
+    if (S.unitsDirty) await syncTmxUnits();
+    await ProjectStore.put('previous', projectPayload());
+    updatePrevButton(true);
+    return true;
+  } catch (e) { console.warn('备份当前地图失败', e); return false; }
+}
+function updatePrevButton(has) {
+  const b = $('projectPrev'); if (!b) return;
+  if (typeof has === 'boolean') { b.disabled = !has; return; }
+  ProjectStore.get('previous').then(p => { b.disabled = !p?.tmx; }).catch(() => { b.disabled = true; });
+}
+async function restorePrevious() {
+  await locked(async () => {
+    try {
+      const prev = await ProjectStore.get('previous').catch(() => null);
+      if (!prev?.tmx) { toast('没有可找回的上一张地图'); updatePrevButton(false); return; }
+      busy(true, '正在找回上一张地图…', '', null, { cancellable: false });
+      let cur = null;
+      if (S.lastTmx) { if (S.unitsDirty) await syncTmxUnits(); cur = projectPayload(); }
+      await restoreProject(prev, '上一张地图');
+      if (cur) await ProjectStore.put('previous', cur); else await ProjectStore.del('previous');
+      updatePrevButton();
+      queueAutoSave();
+    } catch (e) { toast('找回失败：' + e.message, 'error'); }
+    finally { busy(false); }
+  });
+}
 async function generate() {
+  if (!guard()) return;
+  if (hasManualWork()) {
+    const safe = !!S.lastTmx;
+    const c = await uiChoice('重新生成地图？', `当前地图包含手动编辑（出生点 / 墙体 / 多边形等），重新生成会覆盖它们。<br>${safe ? '生成前会自动备份当前地图，之后可在「项目 / 恢复」里<b>找回上一张地图</b>。' : '这张地图尚未生成 TMX，<b>无法备份</b>，覆盖后不可找回。'}`,
+      [{ key: 'cancel', label: '取消' }, { key: 'export', label: '先导出当前地图', hidden: !safe }, { key: 'go', label: safe ? '备份并重新生成' : '覆盖并重新生成', primary: safe, danger: !safe }].filter(b => !b.hidden));
+    if (c === 'export') { await exportPair(); return; }
+    if (c !== 'go') return;
+  }
+  return generateNow();
+}
+async function generateNow() {
   return locked(async () => {
     stopAnimation();
+    normalizeParamInputs();
     const p = params(), area = p.width * p.height;
+    const backedUp = await backupCurrent();
+    const kept = captureEditorState(); // 3.17.0
     resetEditorState();
     S.mode === 'wizard' || (S.tool = 'pan');
     const t0 = performance.now();
+    let shapeInfo = null;
     try {
-      if (area > LARGE_MAP_AREA) {
+      if (shapeActive()) {
+        shapeInfo = await generateShapePipeline(p);
+      } else if (area > LARGE_MAP_AREA) {
         // 大地图：分步生成，避免 quick_generate 一次性返回大量动画帧导致内存峰值。
         // 优化：先放资源再由 JS 放出生点（出生点会自动避开资源池），并省去一次多余的整图快照传输。
         await run('run_coastline', p, '正在生成海岸线（大地图优化）…', { keepBusy: true, stage: '1/4' });
@@ -1224,11 +1494,16 @@ async function generate() {
       }
       const sec = ((performance.now() - t0) / 1000).toFixed(1);
       setStatus(`地图生成完成（${sec}s）`);
-      toast(`地图生成完成 · ${p.width}×${p.height} · 出生点 ${currentSpawns().length}${S.lastOptimized ? ` · 已自动优化布局（公平度 +${S.lastOptimized}）` : ''}`, 'success', 3400);
+      if (shapeInfo) setStatus(`「${shapeInfo.label}」地图生成完成（${sec}s · 种子 ${shapeInfo.seed}${shapeSummary(shapeInfo.stats) ? ' · ' + shapeSummary(shapeInfo.stats) : ''}）`);
+      toast(`${shapeInfo ? `「${shapeInfo.label}」` : ''}地图生成完成 · ${p.width}×${p.height} · 出生点 ${currentSpawns().length}${S.lastOptimized ? ` · 已自动优化布局（公平度 +${S.lastOptimized}）` : ''}`, 'success', 3400,
+        backedUp ? { action: { label: '找回上一张', fn: () => restorePrevious() } } : {});
       S.lastOptimized = 0;
       pulseMap();
+      pushHistorySnapshot('自动生成').catch(() => {}); // 3.11.0：每次生成自动入历史（失败仅记日志，不打断流程）
     } catch (e) {
-      if (!e.cancelled && !/^操作失败/.test($('status').textContent)) { setStatus('生成失败：' + e.message); toast('生成失败：' + e.message, 'error', 4200); }
+      restoreEditorState(kept); // 3.17.0：地图未被替换时还原队伍 / 撤销记录 / 近家资源标记 / 多边形 / 形态信息
+      if (e.cancelled) { setStatus('已取消生成'); if (shapeActive()) toast('已取消生成，当前画布保持不变', 'info'); }
+      else if (!/^操作失败/.test($('status').textContent)) { setStatus('生成失败：' + e.message); toast('生成失败：' + e.message, 'error', 4200); }
     } finally { busy(false); }
   });
 }
@@ -1236,8 +1511,31 @@ async function action(a, fromGlobal = false) {
   return locked(async () => {
     const p = params();
     if (a === 'run_coastline') {
+      /* 3.18.0 修复：本分支与 generateNow() 一样会先 resetEditorState()，但旧版没有配套的 capture/restore。
+       * 当引擎状态不可用（导入过 TMX，或引擎已重启导致快照失效）时，run() 会在真正调用引擎前抛错；
+       * 形态模式下用户点忙碌条「取消」也会中断计算。这两条失败路径下画布与导出仍是旧地图，而手动指定的
+       * 队伍、撤销/重做历史、多边形、近家资源标记、形态信息已被悄悄清空（实测：队伍被改回、撤销栈清空）。
+       * 现在按 generateNow() 同款方式在失败/取消时还原 —— restoreEditorState 只在快照未被替换时生效。 */
+      const kept = captureEditorState();
       resetEditorState(); setStep(0, false);
-      return run(a, p, '正在生成海岸线…');
+      if (shapeActive()) {
+        try {
+          const m = shapeMeta(shapeState.id), seed = shapeSeed();
+          const r = await computeShape(p, seed, '1/1');
+          const out = await importShapeToEngine(p, r, m);
+          afterShapeGenerated(seed, r.stats);
+          toast(`「${m.label}」形态已导入（种子 ${seed}${shapeSummary(r.stats) ? ' · ' + shapeSummary(r.stats) : ''}），下一步可绘制墙体或直接生成高度`, 'success', 4200);
+          setStep(1);
+          return out;
+        } catch (e) {
+          restoreEditorState(kept);
+          if (!e.cancelled && !(e instanceof EngineError)) toast('形态生成失败：' + e.message, 'error');
+          return undefined;
+        }
+        finally { busy(false); }
+      }
+      try { return await run(a, p, '正在生成海岸线…'); }
+      catch (e) { restoreEditorState(kept); throw e; }
     }
     if (a === 'run_height_ocean') {
       const seedRaw = $('seed').value.trim();
@@ -1255,11 +1553,11 @@ async function action(a, fromGlobal = false) {
       } catch (e) { toast('随机布置失败：' + e.message, 'error', 4200); } finally { busy(false); }
       return;
     }
-    if (a === 'undo_cc') { if (S.spawnHistory.length) undoSpawn(); else { const c = currentSpawns(); if (!c.length) { toast('没有可撤销的出生点'); return; } pushSpawnHistory(); const gone = c.pop(); S.teamOverrides.delete(keyOf(gone)); setSpawns(c); afterSpawnChange(); } return; }
+    if (a === 'undo_cc') { if (S.spawnHistory.length) undoSpawn(false, true); else { const c = currentSpawns(); if (!c.length) { toast('没有可撤销的出生点'); return; } pushSpawnHistory(); const gone = c.pop(); S.teamOverrides.delete(keyOf(gone)); setSpawns(c); afterSpawnChange(); } return; }
     if (a === 'clear_cc') {
       if (!currentSpawns().length) return;
       pushSpawnHistory(); S.teamOverrides.clear(); setSpawns([]); afterSpawnChange();
-      toast('已清空全部出生点', 'info', 5000, { action: { label: '撤销', fn: () => undoSpawn() } }); return;
+      toast('已清空全部出生点', 'info', 5000, spawnUndoAction()); return;
     }
     if (a === 'place_resource_random') {
       setStep(4);
@@ -1296,8 +1594,26 @@ async function runFinalize() {
 }
 
 /* ------------------------------------------------------------------ 多边形 */
+/* 3.8.0 修复：地形形态 / 图片导入的高地保存在引擎的「多边形分层」深度矩阵里。旧版导入后界面仍停留在「画笔」模式：
+ * 之后画的画笔墙体在完成地图时被引擎忽略（引擎处于多边形模式），而一旦切到画笔或新画一个多边形，导入的高地又会被
+ * 静默清空。现在导入后界面自动切到多边形模式，并在这两种会替换导入高地的操作前先确认。 */
+async function confirmReplaceImportedDepth(what) {
+  const ok = await uiConfirm('替换导入的高地？', `当前地图的高地（悬崖与坡道）来自${S.mapShape ? `地形形态「${escapeHtml(S.mapShape.label)}」` : '图片导入'}。引擎会按多边形 / 画笔重新计算全部高地，${what}后这些高地将被替换，且无法撤销。`, '继续', true);
+  if (ok) { S.importedDepth = false; toast(`可以开始${what === '绘制多边形' ? '点击地图绘制多边形' : '使用画笔'}了`, 'info'); }
+  return ok;
+}
+function syncImportedDepthUI(snap) {
+  const has = snap?.meta?.hill_drawing_mode === 'polygon' && !S.polygons.length;
+  S.importedDepth = has;
+  if (!has) return;
+  S.hillMode = 'polygon';
+  $('brushMode').classList.remove('active'); $('polygonMode').classList.add('active');
+  $('brushControls').hidden = true; $('polygonControls').hidden = false;
+  if (S.mode === 'wizard' && S.tool === 'brush') setTool('polygon', false);
+  updatePolygonInfo();
+}
 const clonePolys = () => S.polygons.map(p => ({ ...p, vertices: p.vertices.map(v => [...v]), edgeGaps: [...(p.edgeGaps || [])] }));
-function pushPolyUndo() { S.polyUndo.push(clonePolys()); if (S.polyUndo.length > 40) S.polyUndo.shift(); S.polyRedo = []; pushGlobal('polygon'); }
+function pushPolyUndo() { S.polyUndo.push(clonePolys()); if (S.polyUndo.length > 40) { S.polyUndo.shift(); dropOldestGlobal('polygon'); } S.polyRedo = []; pushGlobal('polygon'); }
 /* 3.4.0：多边形同步串行化。闭合多边形时 applyPolygons 未 await，连续快速编辑会让多个 update_polygons 响应
  * 乱序到达，较早的响应覆盖较新的快照（多边形“回退”）。现在排队执行，并且只应用最后一次请求的结果。 */
 let polySyncChain = Promise.resolve(), polySyncSeq = 0;
@@ -1339,6 +1655,7 @@ async function clearPolygonsLocal() {
 function polygonClickAt(p) {
   if (!S.drawingPolygon) {
     if (S.polygons.length) { selectPolygon(p); if (S.selectedPolygonId !== null) return; }
+    if (S.importedDepth) { confirmReplaceImportedDepth('绘制多边形'); return; }
     S.drawingPolygon = { id: S.polygonSeq++, vertices: [[p.row, p.col]], edgeGaps: [], closed: false };
     updatePolygonInfo(); scheduleRender(); return;
   }
@@ -1402,6 +1719,21 @@ async function deleteSelectedPolygon() {
 const baseCache = new WeakMap();
 const wallCache = new WeakMap();
 const LAND_STOPS = [[0, [214, 197, 130]], [0.18, [128, 182, 92]], [0.42, [74, 140, 70]], [0.62, [122, 104, 70]], [0.8, [140, 140, 142]], [1, [236, 241, 244]]];
+/* 3.8.0：画布 / 小地图按地形模板（贴图主题）着色，与游戏内贴图一致 —— 旧版所有主题都画成「蓝水 + 绿地」，
+ * 火山主题的「海」在游戏里其实是岩浆、沙漠主题的「海」是干涸的岩坑、雪山主题陆地全是冰雪，预览与成品差别很大。
+ * water：[浅, 深] 两端颜色；land：高度层级色带。0 = 通用配色（导入地图等无法确定主题时）。 */
+const THEME_PALETTES = {
+  0: { water: [[46, 126, 190], [10, 40, 86]], shore: [30, 40, 30], land: LAND_STOPS },
+  1: { water: [[46, 126, 190], [10, 40, 86]], shore: [30, 40, 30], land: [[0, [226, 196, 160]], [0.2, [70, 140, 60]], [0.45, [150, 110, 80]], [0.62, [112, 72, 48]], [0.78, [120, 120, 124]], [1, [228, 234, 240]]] },
+  2: { water: [[52, 120, 200], [14, 40, 96]], shore: [40, 50, 40], land: [[0, [180, 196, 212]], [0.35, [214, 226, 238]], [0.7, [232, 240, 248]], [1, [250, 252, 255]]] },
+  3: { water: [[214, 72, 34], [120, 24, 16]], shore: [40, 30, 0], land: [[0, [48, 44, 46]], [0.3, [74, 72, 76]], [0.55, [118, 116, 120]], [0.8, [168, 132, 106]], [1, [196, 160, 128]]] },
+  4: { water: [[140, 102, 74], [84, 58, 44]], shore: [26, 20, 12], land: [[0, [222, 184, 146]], [0.65, [230, 194, 154]], [0.82, [84, 150, 70]], [1, [56, 112, 170]]] },
+  5: { water: [[28, 84, 96], [8, 34, 44]], shore: [30, 40, 34], land: [[0, [150, 140, 116]], [0.22, [160, 150, 108]], [0.45, [80, 126, 66]], [0.66, [116, 158, 96]], [0.84, [112, 80, 58]], [1, [66, 48, 38]]] }
+};
+function paletteId(s = S.snapshot) {
+  const p = Number(s?.meta?.pattern);
+  return S.source === 'engine' && THEME_PALETTES[p] ? p : 0;
+}
 function lerpStops(stops, t) {
   for (let i = 1; i < stops.length; i++) {
     if (t <= stops[i][0]) {
@@ -1424,7 +1756,8 @@ function sampleMatrix(m, maxW = 1024) {
 }
 function baseCanvasFor(m) {
   if (!m?.shape || !m?.data) return null;
-  const hit = baseCache.get(m); if (hit) return hit;
+  const pid = paletteId(), pal = THEME_PALETTES[pid];
+  const hit = baseCache.get(m); if (hit && hit.pid === pid) return hit.canvas;
   const sm = sampleMatrix(m); if (!sm) return null;
   let mn = Infinity, mx = -Infinity;
   for (const v of sm.data) { if (v < mn) mn = v; if (v > mx) mx = v; }
@@ -1435,13 +1768,13 @@ function baseCanvasFor(m) {
     const v = sm.data[i];
     let r, g, b;
     if (v <= 0) {
-      const q = clamp((Math.abs(v) + 1) / deep, 0, 1);
-      r = 46 - 36 * q; g = 126 - 86 * q; b = 190 - 104 * q;
+      const q = clamp((Math.abs(v) + 1) / deep, 0, 1), [w0, w1] = pal.water;
+      r = w0[0] + (w1[0] - w0[0]) * q; g = w0[1] + (w1[1] - w0[1]) * q; b = w0[2] + (w1[2] - w0[2]) * q;
       // 浅滩：紧邻陆地的水面提亮
       const x = i % W, y = (i / W) | 0;
-      if ((x > 0 && sm.data[i - 1] > 0) || (x < W - 1 && sm.data[i + 1] > 0) || (y > 0 && sm.data[i - W] > 0) || (y < sm.rows - 1 && sm.data[i + W] > 0)) { r += 30; g += 40; b += 30; }
+      if ((x > 0 && sm.data[i - 1] > 0) || (x < W - 1 && sm.data[i + 1] > 0) || (y > 0 && sm.data[i - W] > 0) || (y < sm.rows - 1 && sm.data[i + W] > 0)) { r += pal.shore[0]; g += pal.shore[1]; b += pal.shore[2]; }
     } else {
-      [r, g, b] = lerpStops(LAND_STOPS, clamp((v - 1) / landSpan, 0, 1));
+      [r, g, b] = lerpStops(pal.land, clamp((v - 1) / landSpan, 0, 1));
       const x = i % W, y = (i / W) | 0;
       if (x > 0 && y > 0) {
         const nw = sm.data[i - W - 1];
@@ -1451,8 +1784,27 @@ function baseCanvasFor(m) {
     d[i * 4] = r; d[i * 4 + 1] = g; d[i * 4 + 2] = b; d[i * 4 + 3] = 255;
   }
   oc.putImageData(img, 0, 0);
-  baseCache.set(m, off);
+  baseCache.set(m, { pid, canvas: off });
   return off;
+}
+/** 3.7.0：墙体图层来源 —— 画笔 / 多边形用 wall_matrix；没有 wall_matrix 时（导入地图）显示 TMX 中读取的悬崖 */
+const wallComposite = new WeakMap();
+function wallLayerFor(s = S.snapshot) {
+  const wm = getMatrix('wall_matrix', s), cm = getMatrix('cliff_mask', s);
+  if (wm?.data) {
+    const poly = s?.meta?.hill_drawing_mode === 'polygon', c = wallCanvasFor(wm, poly ? 'polygon' : 'brush');
+    // 3.8.0：多边形 / 地形形态地图在生成 TMX 后叠加真实悬崖线（旧版只显示半透明的高地范围，看不出悬崖与坡道的位置）
+    if (poly && c && cm?.count) {
+      const hit = wallComposite.get(cm); if (hit?.base === c) return hit.canvas;
+      const cl = wallCanvasFor(cm, 'cliff'); if (!cl) return c;
+      const off = document.createElement('canvas'); off.width = c.width; off.height = c.height;
+      const oc = off.getContext('2d'); oc.drawImage(c, 0, 0); oc.drawImage(cl, 0, 0, c.width, c.height);
+      wallComposite.set(cm, { base: c, canvas: off });
+      return off;
+    }
+    if (c || poly) return c;
+  }
+  return cm?.count ? wallCanvasFor(cm, 'cliff') : null;
 }
 function wallCanvasFor(m, kind = 'brush') {
   if (!m?.shape || !m?.data) return null;
@@ -1542,7 +1894,9 @@ const toScreen = (r, c) => [S.view.x + (c + 0.5) * S.view.zoom, S.view.y + (r + 
 /* ------------------------------------------------------------------ 渲染：主画布 */
 function cssVar(name) { return getComputedStyle(document.body).getPropertyValue(name).trim(); }
 let canvasBg = '#050b14';
+let canvasClear = false; // 3.16.0：动态主题下画布透明清屏，露出下面的 .theme-fx 背景图层（地图本身仍铺 canvasBg 底色，见 drawFrame）
 function paintBackground(ctx, w, h) {
+  if (canvasClear) { ctx.clearRect(0, 0, w, h); return; }
   ctx.fillStyle = canvasBg; ctx.fillRect(0, 0, w, h);
 }
 function drawImageLayer(ctx, canvas, rows, cols, alpha = 1) {
@@ -1559,16 +1913,53 @@ function drawFrame(ctx, rows, cols) {
   ctx.fillRect(S.view.x, S.view.y, cols * S.view.zoom, rows * S.view.zoom);
   ctx.restore();
 }
-function drawResources(ctx, positions) {
-  const z = S.view.zoom, s = clamp(z * 1.3, 3, 9);
+function drawResources(ctx, positions, now = performance.now()) {
+  const z = S.view.zoom, s0 = clamp(z * 1.3, 3, 9);
   ctx.save();
-  ctx.lineWidth = 1.4; ctx.strokeStyle = 'rgba(6,40,26,.85)'; ctx.fillStyle = '#55e6a5';
+  ctx.lineWidth = 1.4; ctx.strokeStyle = 'rgba(6,40,26,.85)';
+  let animating = false;
   for (const [r, c] of positions || []) {
     const [x, y] = toScreen(r, c);
-    ctx.beginPath(); ctx.moveTo(x, y - s); ctx.lineTo(x + s, y); ctx.lineTo(x, y + s); ctx.lineTo(x - s, y); ctx.closePath();
+    const isNear = S.nearResKeys.has(keyOf([r, c]));
+    let s = s0, dy = 0, alpha = 1;
+    // 3.9.0：近家资源点新放置时的「掉落」动效——从上方淡入落下，380ms ease-out
+    const t0 = resPop.get(keyOf([r, c]));
+    if (t0 !== undefined) {
+      const k = (now - t0) / 380;
+      if (k >= 1) resPop.delete(keyOf([r, c]));
+      else { const e = 1 - Math.pow(1 - k, 3); dy = (1 - e) * -14; alpha = e; animating = true; }
+    }
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = isNear ? '#7cf0c0' : '#55e6a5';
+    ctx.beginPath(); ctx.moveTo(x, y - s + dy); ctx.lineTo(x + s, y + dy); ctx.lineTo(x, y + s + dy); ctx.lineTo(x - s, y + dy); ctx.closePath();
     ctx.fill(); ctx.stroke();
+    if (isNear && z > 1.4) { // 近家资源点加一圈细描边，和引擎随机放置的区分开（纯视觉提示，不影响导出）
+      ctx.save(); ctx.globalAlpha = alpha * 0.85; ctx.strokeStyle = 'rgba(55,211,155,.9)'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(x, y + dy, s + 3, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
+    }
   }
+  ctx.globalAlpha = 1;
   ctx.restore();
+  return animating;
+}
+/* 3.9.0：选中出生点时，画出它的「近家资源范围」10–20 格圈——内圈=最小距离、外圈=最大距离，中间环带呼吸发光，
+ * 提示「资源点会落在这个环带里」。纯提示性图层，不影响任何判定逻辑。 */
+function drawNearResRange(ctx, now) {
+  if (!S.layers.nearRes || S.selectedSpawn < 0 || !S.nearRes.enabled) return false;
+  const p = currentSpawns(); if (S.selectedSpawn >= p.length) return false;
+  const [x, y] = toScreen(...p[S.selectedSpawn]), z = S.view.zoom;
+  const rMin = S.nearRes.min * z, rMax = S.nearRes.max * z;
+  if (rMax < 8) return false; // 缩得太小时圈挤在一起，不画，避免糊成一团
+  const pulse = 0.5 + 0.5 * Math.sin(now / 900);
+  ctx.save();
+  ctx.beginPath(); ctx.arc(x, y, rMax, 0, Math.PI * 2); ctx.arc(x, y, rMin, 0, Math.PI * 2, true);
+  ctx.fillStyle = `rgba(55,211,155,${0.05 + 0.04 * pulse})`; ctx.fill('evenodd');
+  ctx.setLineDash([6, 5]); ctx.lineDashOffset = -(now / 60) % 11;
+  ctx.strokeStyle = `rgba(55,211,155,${0.55 + 0.25 * pulse})`; ctx.lineWidth = 1.4;
+  ctx.beginPath(); ctx.arc(x, y, rMin, 0, Math.PI * 2); ctx.stroke();
+  ctx.beginPath(); ctx.arc(x, y, rMax, 0, Math.PI * 2); ctx.stroke();
+  ctx.restore();
+  return true;
 }
 function spawnRadius() { return clamp(S.view.zoom * 1.8, 6, 13); }
 function drawSpawns(ctx, now) {
@@ -1616,7 +2007,8 @@ function drawSpawns(ctx, now) {
   });
   // 选中点标签：玩家号 / team / 队伍
   if (sel >= 0 && sel < p.length) {
-    const [x, y] = toScreen(...p[sel]), label = `玩家 ${sel + 1} · team ${sel} · ${teamOf(p[sel], sel)} 队`;
+    const rt = S.layers.routes ? routeCache?.routes?.find(r => r.i === sel) : null;
+    const [x, y] = toScreen(...p[sel]), label = `玩家 ${sel + 1} · team ${sel} · ${teamOf(p[sel], sel)} 队${rt ? ` · 接敌 ${Math.round(rt.d)} 格` : ''}`;
     ctx.font = '600 11px system-ui,sans-serif';
     const w = ctx.measureText(label).width + 14, h = 20, bx = x - w / 2, by = y - R0 - h - 8;
     ctx.fillStyle = 'rgba(10,16,28,.86)'; ctx.strokeStyle = TEAM_COLORS[teamOf(p[sel], sel)]; ctx.lineWidth = 1.2;
@@ -1732,17 +2124,26 @@ function renderMap() {
     drawFrame(ctx, rows, cols);
     const fadeK = S.fadeStart ? clamp((now - S.fadeStart) / 380, 0, 1) : 1;
     if (S.layers.terrain) drawImageLayer(ctx, baseCanvasFor(terrainMatrix() || getMatrix('id_matrix')), rows, cols, fadeK);
-    if (S.layers.walls) drawImageLayer(ctx, wallCanvasFor(getMatrix('wall_matrix'), S.snapshot.meta?.hill_drawing_mode === 'polygon' ? 'polygon' : 'brush'), rows, cols, fadeK);
+    if (S.layers.walls) drawImageLayer(ctx, wallLayerFor(), rows, cols, fadeK);
+    let terrAnim = false;
+    if (S.layers.territory) terrAnim = drawTerritory(ctx, rows, cols, fadeK);   // 3.6.0 领地图层
+    if (S.layers.routes) drawRoutes(ctx, now);                                  // 3.7.0 接敌路线
     drawGrid(ctx, rows, cols);
     drawPolygons(ctx);
-    if (S.layers.resources) drawResources(ctx, S.snapshot.resource_positions);
+    const nearRingShown = drawNearResRange(ctx, now);
+    let resAnimating = false;
+    if (S.layers.resources) resAnimating = drawResources(ctx, S.snapshot.resource_positions, now);
     drawBrushPreview(ctx);
     let popping = false;
     if (S.layers.spawns) { popping = drawSpawns(ctx, now); drawDragGhost(ctx); }
     drawHover(ctx);
-    if (fadeK < 1 || popping) scheduleRender(); else S.fadeStart = 0;
+    drawMeasure(ctx);
+    drawProfileCursor(ctx); // 3.15.0：地形剖面光标
+    drawLoupe(); // 3.17.0：触屏放大镜（复制本帧画面，必须在所有图层画完之后）
+    if (fadeK < 1 || popping || terrAnim || resAnimating) scheduleRender(); else if (fadeK >= 1) S.fadeStart = 0;
     // 3.2.0：选中光环的循环重绘在页面不可见（App 切到后台）时暂停，避免持续耗电
-    if (S.selectedSpawn >= 0 && S.layers.spawns && !document.hidden) { clearTimeout(pulseLoop); pulseLoop = setTimeout(scheduleRender, 50); }
+    const routesAnim = S.layers.routes && S.animate && routeCache?.routes?.length;
+    if (((S.selectedSpawn >= 0 && S.layers.spawns) || routesAnim || nearRingShown) && !document.hidden) { clearTimeout(pulseLoop); pulseLoop = setTimeout(scheduleRender, routesAnim && S.selectedSpawn < 0 ? 66 : 50); }
   }
   renderMinimap();
 }
@@ -1862,6 +2263,7 @@ const TOOL_TIPS = {
   resource: '<b>点击</b>放置资源点（自动镜像） · <b>右键/长按</b>删除附近资源'
 };
 function setTool(tool, fromUser = true) {
+  if (fromUser && measure.on) setMeasure(false, { quiet: true }); // 3.14.0：选了别的工具就退出测距
   if (S.mode !== 'wizard') tool = 'pan';
   S.tool = tool;
   document.querySelectorAll('#toolPalette [data-tool]').forEach(b => b.classList.toggle('active', b.dataset.tool === tool));
@@ -1875,6 +2277,142 @@ function setTool(tool, fromUser = true) {
   }
   if (tool !== 'polygon' && S.drawingPolygon) { S.drawingPolygon = null; updatePolygonInfo(); }
   scheduleRender();
+}
+
+/* ------------------------------------------------------------------ 测距工具（3.14.0 新增，快捷键 U）
+ * 做图时经常要回答「这两个点到底多远」：近家资源是否在 10～20 格内、两个基地之间要走多远、绕路多不多。
+ * 以前只能数格子。这里在画布上点两个点（或按住拖出一条线）即可得到：
+ *   · 直线距离（格）；
+ *   · 步行距离（格）：复用体检的通行网格与 8 邻接最短路（斜行 ×1.4，遇墙 / 悬崖 / 水域绕行），并画出实际走法；
+ *   · 绕路比例：步行比直线多走了百分之多少；陆路不通时直接标「陆路不通」。
+ * 点到出生点（16px 内）会自动吸附并显示玩家编号，资源点同理。再点一次空白处开始新的一次测量。 */
+const measure = { on: false, a: null, b: null, walk: null, path: null, blocked: false, straight: 0, snap: 0, final: false }; // 3.15.0：final = 已完成一次测量（显示地形剖面）
+let measureGridCache = null;
+function measureGridFor() {
+  const sn = S.snapshot; if (!sn) return null;
+  const key = snapId(sn) + (getMatrix('cliff_mask', sn) ? 'c' : '');
+  if (measureGridCache?.key === key) return measureGridCache.g;
+  const g = buildGrid(sn, 420);
+  measureGridCache = { key, g };
+  return g;
+}
+/** 把屏幕点吸附到附近的出生点 / 资源点，返回 { r, c, label } */
+function snapMeasurePoint(cell) {
+  const rad = 16 / Math.max(S.view.zoom, 0.05);
+  if (S.layers.spawns) {
+    const sp = currentSpawns(); let best = -1, bd = rad;
+    sp.forEach((q, i) => { const d = Math.hypot(q[0] - cell.row, q[1] - cell.col); if (d <= bd) { bd = d; best = i; } });
+    if (best >= 0) return { r: sp[best][0], c: sp[best][1], label: `玩家 ${best + 1}` };
+  }
+  if (S.layers.resources) {
+    let best = null, bd = Math.min(rad, 3);
+    for (const q of S.snapshot?.resource_positions || []) { const d = Math.hypot(q[0] - cell.row, q[1] - cell.col); if (d <= bd) { bd = d; best = q; } }
+    if (best) return { r: best[0], c: best[1], label: '资源点' };
+  }
+  return { r: cell.row, c: cell.col, label: '' };
+}
+function computeMeasure() {
+  const m = measure; m.walk = null; m.path = null; m.blocked = false;
+  if (!m.a || !m.b) return;
+  m.straight = Math.hypot(m.a.r - m.b.r, m.a.c - m.b.c);
+  const g = measureGridFor(); if (!g) return;
+  const ka = snapToGrid(g, m.a.r, m.a.c), kb = snapToGrid(g, m.b.r, m.b.c);
+  if (ka < 0 || kb < 0) { m.blocked = true; return; }
+  const dist = costField(g, [ka]);
+  if (dist[kb] === PATH_INF) { m.blocked = true; return; }
+  m.walk = dist[kb] / 10 * g.scale;
+  const pts = simplifyPath(g, tracePath(g, dist, kb));
+  if (pts.length) { pts[0] = [m.b.r, m.b.c]; pts[pts.length - 1] = [m.a.r, m.a.c]; }
+  m.path = pts;
+}
+function measureText() {
+  const m = measure; if (!m.a || !m.b) return '';
+  const names = m.a.label || m.b.label ? `${m.a.label || '起点'} → ${m.b.label || '终点'}：` : '';
+  const walk = m.walk != null ? ` · 步行 ${Math.round(m.walk)} 格${m.walk > m.straight * 1.05 && m.straight > 0 ? `（绕路 +${Math.round((m.walk / m.straight - 1) * 100)}%）` : ''}` : m.blocked ? ' · 陆路不通' : '';
+  return `${names}直线 ${m.straight.toFixed(1)} 格${walk}`;
+}
+function clearMeasurePoints() { measure.a = measure.b = measure.walk = measure.path = null; measure.blocked = false; measure.final = false; profileHover.t = -1; renderProfile(); }
+function setMeasure(on, { quiet = false } = {}) {
+  on = !!on && !!S.snapshot;
+  if (measure.on === on) { if (!on) clearMeasurePoints(); return; }
+  measure.on = on;
+  if (!on) renderProfile();
+  measure.snap = on ? snapId(S.snapshot) : 0; // 必须在开启时就记下当前快照：drawMeasure 以它判断「地图是否换了」，初始 0 会把第一帧渲染前的首个点误清除
+  if (!on) clearMeasurePoints();
+  const b = $('measureBtn'); if (b) { b.classList.toggle('active', on); b.setAttribute('aria-pressed', String(on)); }
+  $('mapPanel').classList.toggle('measuring', on);
+  if (on) {
+    if (S.tool !== 'pan') setTool('pan', false);
+    $('legendTip').innerHTML = '<b>测距</b>：依次点两个点，或按住拖出一条线 · 点出生点 / 资源点自动吸附 · <b>Esc</b> 退出';
+    // 3.14.0：不用 Toast 提示——提示条盖在画布上沿，会吞掉用户开启后的第一下点击；底部提示条与状态栏已足够
+    if (!quiet) setStatus('测距已开启：点两个点（或拖动画线），可量直线与步行距离');
+  } else {
+    $('legendTip').innerHTML = TOOL_TIPS[S.tool] || TOOL_TIPS.pan;
+    if (!quiet) setStatus('已退出测距');
+  }
+  scheduleRender();
+}
+function measureTap(cell) {
+  const pt = snapMeasurePoint(cell), m = measure;
+  m.snap = snapId(S.snapshot);
+  if (!m.a || (m.a && m.b)) { clearMeasurePoints(); m.a = pt; }
+  else { m.b = pt; computeMeasure(); m.final = true; setStatus(measureText()); renderProfile(); }
+  scheduleRender();
+}
+function measureDragTo(start, cell, final) {
+  const m = measure;
+  m.snap = snapId(S.snapshot);
+  m.a = start; m.b = snapMeasurePoint(cell); m.final = !!final;
+  if (final) { computeMeasure(); setStatus(measureText()); renderProfile(); }
+  else { m.straight = Math.hypot(m.a.r - m.b.r, m.a.c - m.b.c); m.walk = null; m.path = null; m.blocked = false; }
+  scheduleRender();
+}
+function drawMeasure(ctx) {
+  const m = measure; if (!S.snapshot || (!m.on && !m.a)) return;
+  const sid = snapId(S.snapshot);
+  if (m.snap !== sid) { if (m.a) clearMeasurePoints(); m.snap = sid; }
+  if (!m.a) return;
+  const z = S.view.zoom, [ax, ay] = toScreen(m.a.r, m.a.c);
+  ctx.save(); ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  const dot = (x, y, ch, col) => {
+    ctx.beginPath(); ctx.arc(x, y, 8, 0, Math.PI * 2); ctx.fillStyle = col; ctx.fill();
+    ctx.lineWidth = 2; ctx.strokeStyle = '#fff'; ctx.stroke();
+    ctx.fillStyle = '#0b1220'; ctx.font = '800 10px system-ui,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(ch, x, y + 0.5);
+  };
+  const chip = (x, y, lines, accents) => {
+    ctx.font = '700 12px system-ui,sans-serif';
+    const tw = Math.max(...lines.map(t => ctx.measureText(t).width)) + 18, th = lines.length * 17 + 8;
+    const rx = clamp(x - tw / 2, 6, Math.max(6, ctx.canvas.clientWidth - tw - 6)), ry = clamp(y - th - 12, 6, Math.max(6, ctx.canvas.clientHeight - th - 6));
+    ctx.fillStyle = 'rgba(10,16,28,.9)'; ctx.strokeStyle = 'rgba(255,255,255,.28)'; ctx.lineWidth = 1;
+    ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(rx, ry, tw, th, 10); else ctx.rect(rx, ry, tw, th); ctx.fill(); ctx.stroke();
+    ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    lines.forEach((t, i) => { ctx.fillStyle = accents[i] || '#fff'; ctx.fillText(t, rx + 9, ry + 4 + 8.5 + i * 17); });
+  };
+  if (!m.b) {
+    // 只有起点：脉冲环提示再点一下
+    const ph = (performance.now() % 1200) / 1200;
+    ctx.beginPath(); ctx.arc(ax, ay, 8 + ph * 14, 0, Math.PI * 2); ctx.strokeStyle = `rgba(255,212,92,${(1 - ph) * 0.8})`; ctx.lineWidth = 2; ctx.stroke();
+    dot(ax, ay, 'A', '#ffd45c');
+    chip(ax, ay, [m.a.label ? `${m.a.label} · 再点一个点` : '再点一个点'], ['#ffd45c']);
+    ctx.restore();
+    if (!document.hidden) { clearTimeout(pulseLoop); pulseLoop = setTimeout(scheduleRender, 50); }
+    return;
+  }
+  const [bx, by] = toScreen(m.b.r, m.b.c);
+  if (m.path && m.path.length > 1) {
+    ctx.beginPath(); m.path.forEach(([r, c], i) => { const [x, y] = toScreen(r, c); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
+    ctx.setLineDash([]); ctx.strokeStyle = 'rgba(0,0,0,.55)'; ctx.lineWidth = 6; ctx.stroke();
+    ctx.strokeStyle = '#ffd45c'; ctx.lineWidth = 3; ctx.stroke();
+  }
+  ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by);
+  ctx.setLineDash([7, 6]); ctx.strokeStyle = 'rgba(0,0,0,.5)'; ctx.lineWidth = 3.6; ctx.stroke();
+  ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.8; ctx.stroke(); ctx.setLineDash([]);
+  dot(ax, ay, 'A', '#ffd45c'); dot(bx, by, 'B', '#55e6a5');
+  const lines = [`直线 ${m.straight.toFixed(1)} 格`], acc = ['#ffffff'];
+  if (m.walk != null) { lines.push(`步行 ${Math.round(m.walk)} 格${m.walk > m.straight * 1.05 && m.straight > 0 ? ` · 绕路 +${Math.round((m.walk / m.straight - 1) * 100)}%` : ''}`); acc.push('#ffd45c'); }
+  else if (m.blocked) { lines.push('陆路不通'); acc.push('#ff8a8a'); }
+  chip((ax + bx) / 2, (ay + by) / 2, lines, acc);
+  ctx.restore();
 }
 
 /* ------------------------------------------------------------------ 画布手势状态机
@@ -1895,6 +2433,7 @@ function beginGesture(e) {
   const g = { id: e.pointerId, sx: e.clientX, sy: e.clientY, lx: e.clientX, ly: e.clientY, cell, moved: false, button: e.button, touch: e.pointerType === 'touch', type: 'pan' };
   if (e.button === 1 || (e.button === 0 && spaceHeld)) { g.type = 'pan'; return g; }
   if (e.button === 2) { g.type = 'context'; return g; }
+  if (measure.on && validCell(cell)) { g.type = 'measure'; g.start = snapMeasurePoint(cell); return g; }
   const tool = S.tool;
   if ((tool === 'pan' || tool === 'cc') && S.layers.spawns && cell) {
     const idx = spawnIndexNear(cell);
@@ -1907,17 +2446,27 @@ function beginGesture(e) {
   return g;
 }
 async function contextDelete(cell) {
+  // 3.17.0 修复：测距模式下右键点到出生点会直接把它删掉；现在右键 / 长按只清除测量
+  if (measure.on) { if (measure.a) { clearMeasurePoints(); setStatus('已清除测量'); scheduleRender(); } return; }
   if (!validCell(cell)) return;
   if (S.tool === 'polygon') { selectPolygon(cell); return; }
   if (S.tool === 'resource') { await removeResourceAt(cell); return; }
   if (S.layers.spawns && removeSpawnAt(cell)) return;
-  if (S.tool === 'pan' && S.source === 'engine' && (S.snapshot?.resource_positions || []).some(q => Math.max(Math.abs(q[0] - cell.row), Math.abs(q[1] - cell.col)) <= 3)) { await removeResourceAt(cell); return; }
+  // 3.9.0：导入的地图补齐近家资源后 S.source 仍是 'import'，这里放宽条件，只要附近有资源点（引擎放置的，
+  // 或是近家功能新增的）就允许在平移工具下长按删除，而不再要求必须是引擎生成的地图。
+  if (S.tool === 'pan' && (S.source === 'engine' || S.nearResKeys.size) && (S.snapshot?.resource_positions || []).some(q => Math.max(Math.abs(q[0] - cell.row), Math.abs(q[1] - cell.col)) <= 3)) { await removeResourceAt(cell); return; }
   toast('附近没有可删除的对象（请在出生点/资源点 3 格内操作）');
 }
 async function removeResourceAt(cell) {
-  if (!guard() || !engineStateUsable('remove_resource_manual')) return;
+  if (!guard()) return;
   const near = (S.snapshot?.resource_positions || []).filter(q => Math.max(Math.abs(q[0] - cell.row), Math.abs(q[1] - cell.col)) <= 3);
   if (!near.length) { toast('附近没有资源点（3 格内）'); return; }
+  // 3.9.0：近家资源点是 JS 侧管理的，引擎并不知道它们存在，remove_resource_manual 这个引擎 RPC 对它们无效，
+  // 必须单独路由。优先处理离点击位置最近的一个（通常也就是用户想删的那个）。
+  const nearJs = near.filter(q => S.nearResKeys.has(keyOf(q)));
+  // 3.15.0：加锁执行。旧版在 await 写回 TMX 期间不加锁，用户此时点「生成」，删除补丁会被重做到新地图上（见 mutateTmx）
+  if (nearJs.length) { await locked(() => removeNearSpawnResourceAt(nearJs[0])); return; }
+  if (!engineStateUsable('remove_resource_manual')) return;
   if (near.some(q => S.randomResourceKeys.has(keyOf(q))) && S.randomResourceKeys.size > 1) {
     const ok = await uiConfirm('删除随机资源点', `随机生成的资源点在引擎中属于同一组，删除将同时移除全部 <b>${S.randomResourceKeys.size}</b> 个随机资源点。是否继续？`, '全部删除', true);
     if (!ok) return;
@@ -1954,6 +2503,11 @@ function endGesture(g, e) {
   const cell = cellFromPoint(e.clientX, e.clientY);
   switch (g.type) {
     case 'paint': drag = null; commitStroke(g.points); return;
+    case 'measure':
+      if (g.moved && validCell(cell)) measureDragTo(g.start, cell, true);
+      else if (!g.moved && validCell(cell)) measureTap(cell);
+      else scheduleRender();
+      return;
     case 'spawn':
       drag = null;
       if (g.moved && g.target) moveSpawn(g.index, g.target);
@@ -2008,12 +2562,13 @@ function bindCanvas() {
       if (drag) drag.cancelled = true; // 第二根手指落下：取消单指手势（未提交的笔画/拖动作废）
       const [a, b] = [...pointers.values()];
       pinch = { d: pdist(a, b), zoom: S.view.zoom, mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2 };
+      hideLoupe();
       scheduleRender();
       return;
     }
     if (pointers.size > 2) return;
     drag = beginGesture(e);
-    if (drag.touch && drag.type !== 'paint') {
+    if (drag.touch && drag.type !== 'paint' && drag.type !== 'measure') {
       const g = drag;
       longPressTimer = setTimeout(() => {
         if (drag !== g || g.moved) return;
@@ -2053,6 +2608,8 @@ function bindCanvas() {
         if (validCell(c2)) appendStrokeCell(g.points, c2.row, c2.col);
       }
       scheduleRender();
+    } else if (g.type === 'measure') {
+      if (g.moved && validCell(cell)) measureDragTo(g.start, cell, false);
     } else if (g.type === 'spawn') {
       if (g.moved && validCell(cell)) { g.target = { row: cell.row, col: cell.col }; scheduleRender(); }
     } else if (g.moved && g.type !== 'context') {
@@ -2060,10 +2617,12 @@ function bindCanvas() {
       scheduleRender();
     }
     g.lx = e.clientX; g.ly = e.clientY;
+    updateLoupe(g, e); // 3.17.0
   });
   const up = e => {
     if (!pointers.has(e.pointerId)) return;
     pointers.delete(e.pointerId);
+    hideLoupe(); // 3.17.0
     clearLongPress();
     const wasPinch = !!pinch;
     if (pointers.size < 2) pinch = null;
@@ -2269,9 +2828,32 @@ function readSpawnSlots(units, cols, cc) {
   list.sort((a, b) => (a.team < 0 ? 1e9 : a.team) - (b.team < 0 ? 1e9 : b.team) || a.p[0] - b.p[0] || a.p[1] - b.p[1]);
   const teams = list.map(x => x.team), seen = new Set(), dups = new Set();
   teams.forEach(t => { if (seen.has(t)) dups.add(t); seen.add(t); });
-  const maxT = Math.max(-1, ...teams);
+  /* 3.18.0 修复：team 取自 TMX 瓦片属性，buildCcMap 只校验了「非负整数」，没有上限。旧实现按 maxT 线性
+   * 枚举缺号，遇到损坏/恶意数据（team="1000000000"）会循环十亿次并生成同量级数组，主线程直接卡死甚至 OOM。
+   * 队伍号合法范围为 0..MAX_SPAWN_POINTS-1，把枚举上界钉在该范围即可（合法地图的 maxT 远小于此，行为不变）。 */
+  const maxT = Math.min(MAX_SPAWN_POINTS - 1, Math.max(-1, ...teams));
   const gaps = []; for (let t = 0; t <= maxT; t++) if (!seen.has(t)) gaps.push(t);
   return { list, gaps, dups: [...dups], unknown: teams.filter(t => t < 0).length };
+}
+/** 3.8.0：从内嵌瓦片集读取资源池瓦片 GID（属性 res_pool）与悬崖瓦片集 GID 区间
+ * 3.9.0 修复：旧实现自己用一条正则 /<tile\b[^>]*\bid="(\d+)"[^>]*>([\s\S]*?)<\/tile>/g 扫描瓦片集里的 <tile> 元素，
+ * 没有处理「自闭合的 <tile id=".." .../>」——本工具内置瓦片集里资源池前面恰好有好几个这种自闭合 <tile> 标签
+ * （只带 terrain 属性，没有 properties，Tiled 省略了闭合写法）。这条正则遇到自闭合标签时不会跳过，而是把
+ * [^>]* 一路吃到标签末尾的 "/"，再找「最近的下一个 </tile>」——结果找到的其实是后面某个不相关的 <tile> 的
+ * 闭合标签，把它的大段内容和前面自闭合标签的 id 错误拼在一起，于是「谁是 id」和「res_pool 属性在不在」对不上号。
+ * 实测：firstgid=1、真正带 res_pool 的是 id=11（GID 12），这个旧实现却返回 GID 1（id=0，资源池左上角那格，
+ * 碰巧本身也在每个资源池的 3×3 里，所以「识别资源点」这个具体场景里长期没有现出明显症状，但它并不是设计要
+ * 检查的那个瓦片，一旦某个不相关的物件也用到 GID 1，就会被误判成资源点）。
+ * 现在复用已经正确处理自闭合标签的 parseTilesets()（3.3.0 起一直在给指挥中心槽位映射用，经过验证），
+ * 不再自己写一遍容易出错的瓦片级正则。 */
+function itemTileInfo(xml) {
+  const resGids = new Set(), cliffRange = [];
+  for (const ts of parseTilesets(xml)) {
+    if (!ts.firstgid) continue;
+    if (/cliff/i.test(ts.name || '')) cliffRange.push([ts.firstgid, ts.firstgid + (ts.tilecount || 64)]);
+    for (const [id, props] of ts.tiles) if ('res_pool' in props) resGids.add(ts.firstgid + id);
+  }
+  return { resGids, cliffRange };
 }
 async function parseTmx(bytes) {
   const xml = typeof bytes === 'string' ? bytes : new TextDecoder().decode(bytes);
@@ -2306,11 +2888,27 @@ async function parseTmx(bytes) {
     for (let i = 0; i < height.length; i++) { const g = ground[i] & 0x1fffffff; height[i] = g ? 1 + (g % 6) : 0; }
   }
   const itemsRaw = layerOf('Items');
-  const items = itemsRaw ? Int32Array.from(itemsRaw, v => (v & 0x1fffffff) ? 1 : 0) : new Int32Array(rows * cols);
+  /* 3.8.0 修复：旧版把 Items 图层里「任何非空瓦片的连通块」都算作资源点 —— 悬崖、墙体、石块也被计入
+   * （迷宫 / 高地地图导出后再导入，12 个资源被识别成 26 个），公平度与体检里的资源平衡随之失真；
+   * 「找回上一张地图」走的也是这条路径。现在：只有包含资源池瓦片（瓦片属性 res_pool）的连通块才算资源点，
+   * 悬崖瓦片集（名称含 cliff）一律排除；TMX 未声明 res_pool（外部瓦片集等）时退回旧规则但仍排除悬崖。 */
+  const { resGids, cliffRange } = itemTileInfo(xml);
+  const isCliffGid = g => cliffRange.some(([a, b]) => g >= a && g < b);
+  const items = itemsRaw ? Int32Array.from(itemsRaw, v => { const g = v & 0x1fffffff; return g && !isCliffGid(g) ? 1 : 0; }) : new Int32Array(rows * cols);
+  let resources = components(items, rows, cols);
+  if (itemsRaw && resGids.size) {
+    resources = resources.filter(([r, c]) => {
+      for (let dr = -2; dr <= 2; dr++) for (let dc = -2; dc <= 2; dc++) {
+        const y = r + dr, x = c + dc;
+        if (y >= 0 && x >= 0 && y < rows && x < cols && resGids.has(itemsRaw[y * cols + x] & 0x1fffffff)) return true;
+      }
+      return false;
+    });
+  }
   const unitsRaw = layerOf('Units');
   const spawns = readSpawnSlots(unitsRaw, cols, cc);
   return {
-    rows, cols, height, items, resources: components(items, rows, cols),
+    rows, cols, height, items, resources,
     positions: spawns.list.slice(0, MAX_SPAWN_POINTS).map(x => x.p),
     slots: spawns, ccSource: cc.source,
     mirroring: detectSymmetry(height, rows, cols), approximate: unknown > height.length * 0.4
@@ -2318,14 +2916,21 @@ async function parseTmx(bytes) {
 }
 async function loadTmxBytes(bytes, name, { fromProject = false } = {}) {
   const t = await parseTmx(bytes);
+  // 3.7.0：读取悬崖 / 水域瓦片属性 —— 导入地图也能显示悬崖、精确体检；非标准瓦片地图用 water 属性修正水域
+  let mk = null;
+  try { mk = await tmxTerrainMasks(bytes); } catch (e) { console.warn('读取悬崖 / 水域瓦片失败', e); }
+  if (mk && (mk.rows !== t.rows || mk.cols !== t.cols)) mk = null;
+  if (mk && t.approximate && mk.nWater) { for (let i = 0; i < t.height.length; i++) if (mk.water[i]) t.height[i] = 0; t.mirroring = detectSymmetry(t.height, t.rows, t.cols); }
   resetEditorState();
   S.source = 'import';
   S.snapshotEpoch = -1;
   const snap = {
     meta: { height: t.rows, width: t.cols, mirroring: t.mirroring, num_command_centers: t.positions.length, num_resource_pulls: t.resources.length, completed_step: 5, current_step: 5, hill_drawing_mode: 'brush' },
     cc_positions: t.positions, resource_positions: t.resources,
-    matrices: { height_map: { shape: [t.rows, t.cols], data: t.height }, items_matrix: { shape: [t.rows, t.cols], data: t.items } }
+    matrices: { height_map: { shape: [t.rows, t.cols], data: t.height }, items_matrix: { shape: [t.rows, t.cols], data: t.items },
+      ...(mk ? { cliff_mask: { shape: [t.rows, t.cols], data: mk.cliff, count: mk.nCliff } } : {}) }
   };
+  t.cliffs = mk?.nCliff || 0;
   S.lastTmx = bytes; S.tmxDirty = false; S.unitsDirty = false; S.slotVerified = null;
   S.spawnAuthority = t.positions.map(p => [...p]);
   // 3.3.0：team 缺号 / 重号 / 未知时，导出前统一重写为连续的 team 0..n-1（游戏中缺号会少玩家、重号会两个出生点同属一个玩家）
@@ -2361,6 +2966,7 @@ async function importFile(file) {
       setStatus(`TMX 导入完成：${t.cols} × ${t.rows} · 出生点 ${t.positions.length} · 资源 ${t.resources.length}`);
       toast(`已导入 ${file.name}${t.mirroring !== 'none' ? ` · 检测到${MIRROR_LABELS[t.mirroring]}` : ''}`, 'success');
       if (t.approximate) toast('该 TMX 使用了非标准地形瓦片，地形预览为近似显示', 'warn', 4200);
+      if (t.cliffs) setStatus(`TMX 导入完成：${t.cols} × ${t.rows} · 出生点 ${t.positions.length} · 资源 ${t.resources.length} · 悬崖 ${t.cliffs} 格`);
       if (t.slotIssues) {
         const si = t.slotIssues, parts = [];
         if (si.gaps.length) parts.push(`缺少玩家 ${si.gaps.slice(0, 6).map(x => x + 1).join('、')}${si.gaps.length > 6 ? '…' : ''}`);
@@ -2369,6 +2975,7 @@ async function importFile(file) {
         toast(`该 TMX 的出生点槽位不连续（${parts.join('；')}），已按 team 顺序重新编号，导出时会写成连续槽位`, 'warn', 6500);
       }
       queueAutoSave();
+      pushHistorySnapshot('导入').catch(() => {}); // 3.11.0：导入的地图也入历史，方便回溯
     } catch (e) { toast('TMX 导入失败：' + e.message, 'error', 4200); setStatus('TMX 导入失败：' + e.message); }
     finally { busy(false); $('tmxFile').value = ''; }
   });
@@ -2378,21 +2985,43 @@ async function importFile(file) {
  * 只替换出生点 GID（保留图层中其他单位）。出生点 i 写入「team 属性 = i」的那个 GID（见 buildCcMap）。
  * 3.3.0 修复：旧版按「firstgid + 序号」写入，与瓦片 team 属性不一致，导致出生点序号 ↔ 游戏玩家映射错乱。
  */
-function findUnitsLayer(xml) {
-  const re = /<layer\b[^>]*>/g; let m;
-  while ((m = re.exec(xml))) { const a = xmlAttrs(m[0]); if (String(a.name || '').toLowerCase() === 'units') return { m, attrs: a }; }
+/** 3.9.0：从 TMX 自带的瓦片集里找到带 res_pool 属性的瓦片，推出它所在的 3×3 资源池 GID 块（见上面 itemTileInfo
+ * 的说明——这里同样复用 parseTilesets()，不用容易被自闭合 <tile> 标签搞错位的手写正则）。不写死具体数值——
+ * 不同模板（tileset 1~5）的 firstgid 可能不同，这里按「该瓦片的 firstgid + 本地 id」加减瓦片集的 columns
+ * 算出上下左右 8 个邻居的 GID，兼容任何模板，只要素材本身仍是 3×3 的九宫格资源池贴图。 */
+function resourcePoolGids(xml) {
+  for (const ts of parseTilesets(xml)) {
+    if (!ts.firstgid || !ts.columns) continue;
+    for (const [id, props] of ts.tiles) {
+      if (!('res_pool' in props)) continue;
+      const block = [];
+      for (let dr = -1; dr <= 1; dr++) { const row = []; for (let dc = -1; dc <= 1; dc++) row.push(ts.firstgid + id + dr * ts.columns + dc); block.push(row); }
+      return block;
+    }
+  }
   return null;
 }
-async function readUnitsLayer(xml) {
-  const hit = findUnitsLayer(xml); if (!hit) return null;
+/* 3.9.0：把「按图层名查找 / 解码」从 Units 专用改为通用（新增 Items 图层的近家资源修补复用同一套逻辑） */
+function findLayerByName(xml, name) {
+  const re = /<layer\b[^>]*>/g; let m, want = String(name).toLowerCase();
+  while ((m = re.exec(xml))) { const a = xmlAttrs(m[0]); if (String(a.name || '').toLowerCase() === want) return { m, attrs: a }; }
+  return null;
+}
+async function readLayerByName(xml, name) {
+  const hit = findLayerByName(xml, name); if (!hit) return null;
   const mapA = xmlAttrs(xml.match(/<map\b[^>]*>/)[0]);
   const cols = Number(mapA.width), rows = Number(mapA.height);
   const dataStart = xml.indexOf('<data', hit.m.index), tagEnd = dataStart < 0 ? -1 : xml.indexOf('>', dataStart), dataEnd = tagEnd < 0 ? -1 : xml.indexOf('</data>', tagEnd);
   if (dataStart < 0 || tagEnd < 0 || dataEnd < 0) return null;
   const da = xmlAttrs(xml.slice(dataStart, tagEnd + 1));
   if (/<chunk/.test(xml.slice(tagEnd, dataEnd))) throw new Error('不支持分块（chunk）图层');
-  const units = await decodeLayerData(da, xml.slice(tagEnd + 1, dataEnd).trim(), rows * cols);
-  return { units, rows, cols, da, tagEnd, dataEnd };
+  const cells = await decodeLayerData(da, xml.slice(tagEnd + 1, dataEnd).trim(), rows * cols);
+  return { cells, rows, cols, da, tagEnd, dataEnd };
+}
+function findUnitsLayer(xml) { return findLayerByName(xml, 'units'); }
+async function readUnitsLayer(xml) {
+  const r = await readLayerByName(xml, 'units'); if (!r) return null;
+  return { units: r.cells, rows: r.rows, cols: r.cols, da: r.da, tagEnd: r.tagEnd, dataEnd: r.dataEnd };
 }
 async function patchTmxUnits(tmx, positions) {
   const xml = new TextDecoder().decode(tmx);
@@ -2424,6 +3053,39 @@ async function patchTmxUnits(tmx, positions) {
   }
   return { tmx: new TextEncoder().encode(xml.slice(0, tagEnd + 1) + body + xml.slice(dataEnd)), changed: true, truncated, source: cc.source };
 }
+/** 3.9.0：近家资源点修补 Items 图层（与 patchTmxUnits 同构：读层 → 改数组 → 按原编码/压缩写回）。
+ * addPoints 是新增资源点的中心坐标；每个点按 resourcePoolGids 算出的 3×3 块写入 GID。
+ * 找不到 res_pool 瓦片（非本工具生成的第三方 TMX）时返回 noPool，调用方据此提示「资源点只在画布可见，未写入导出文件」。 */
+async function patchTmxItems(tmx, addPoints) {
+  if (!addPoints?.length) return { tmx, changed: false };
+  const xml = new TextDecoder().decode(tmx);
+  const L = await readLayerByName(xml, 'Items');
+  if (!L) return { tmx, changed: false, missing: true };
+  const block = resourcePoolGids(xml);
+  if (!block) return { tmx, changed: false, noPool: true };
+  const { cells, rows, cols, da, tagEnd, dataEnd } = L;
+  let changed = false;
+  for (const [r, c] of addPoints) {
+    for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+      const rr = r + dr, cc = c + dc; if (rr < 0 || cc < 0 || rr >= rows || cc >= cols) continue;
+      const gid = block[dr + 1][dc + 1], idx = rr * cols + cc;
+      if (cells[idx] !== gid) { cells[idx] = gid; changed = true; }
+    }
+  }
+  if (!changed) return { tmx, changed: false };
+  const bytes = new Uint8Array(cells.buffer, cells.byteOffset, cells.byteLength);
+  let body;
+  if (da.encoding === 'csv') {
+    const lines = []; for (let r = 0; r < rows; r++) lines.push(Array.from(cells.subarray(r * cols, (r + 1) * cols)).join(','));
+    body = '\n' + lines.join(',\n') + '\n';
+  } else {
+    let packed = bytes;
+    if (da.compression === 'gzip') packed = await gzip(bytes);
+    else if (da.compression === 'zlib') packed = await streamTransform(bytes, 'deflate', true);
+    body = bytesToBase64(packed);
+  }
+  return { tmx: new TextEncoder().encode(xml.slice(0, tagEnd + 1) + body + xml.slice(dataEnd)), changed: true };
+}
 /** 3.3.0：读回 TMX，逐个核对「出生点 i 的坐标」与「team = i 的指挥中心坐标」，保证导出结果与界面编号完全一致 */
 async function verifySpawnMapping(tmx, positions) {
   const xml = new TextDecoder().decode(tmx);
@@ -2439,28 +3101,416 @@ async function verifySpawnMapping(tmx, positions) {
   const extra = back.list.length - rowsOut.filter(r => r.ok).length;
   return { ok: rowsOut.every(r => r.ok) && extra === 0 && !back.dups.length, rows: rowsOut, extra, dups: back.dups, source: cc.source, capacity: cc.capacity };
 }
-async function syncTmxUnits() {
+/* 3.14.0 修复：对 S.lastTmx 的「读 → 异步压缩 → 写回」统一用比较后交换（CAS）。
+ * 近家资源点的新增 / 删除过去直接读 S.lastTmx、await 压缩后无条件写回；期间若自动保存的 syncTmxUnits 先写回了
+ * 带新出生点的 TMX，这里会用旧基底把它覆盖，而 unitsDirty 已被清除，出生点修改就静默丢失。
+ * 这类补丁（写入 GID / 清零格子）都是幂等的，基底变了就在新基底上重做，最多 4 次。 */
+/* 3.15.0 修复：CAS 只比较 TMX 字节对象，不比较「是哪张地图」。补丁计算期间若换成了另一张地图（生成 / 恢复历史 / 导入），
+ * 旧版会把「在 (r,c) 清零 / 写入资源池」的补丁在新地图的 TMX 上重做一遍——新地图的 Items 图层被凭空挖掉一块或多出一个资源池。
+ * 现在补丁绑定到开始时的快照对象，快照被替换就放弃（返回 null），只在同一张地图内重做。 */
+async function mutateTmx(patchFn) {
+  const owner = S.snapshot;
+  for (let i = 0; i < 4; i++) {
+    const src = S.lastTmx;
+    if (!src || S.snapshot !== owner) return null;
+    const r = await patchFn(src);
+    if (S.snapshot !== owner) return null;
+    if (S.lastTmx === src) { if (r?.changed && r.tmx) S.lastTmx = r.tmx; return r; }
+  }
+  throw new Error('TMX 正在被其他操作修改，请稍后重试');
+}
+/* 3.7.0 修复：TMX 写回竞态。
+ * 旧版 syncTmxUnits 先读 S.lastTmx、await 压缩（大地图要几百毫秒），再无条件写回 S.lastTmx 并清除 unitsDirty。
+ * 在这段时间里如果：① 引擎返回了新地图（生成 / 完成地图）—— 新 TMX 会被旧地图的修补结果覆盖，导出的是上一张地图；
+ * ② 用户又拖动了出生点 —— unitsDirty 被错误清除，新位置永远不会写入导出文件。
+ * 触发路径：Ctrl+S / 「保存项目」/ 自动保存 / 安卓 onPause 与生成并发。
+ * 现在：所有写回串行执行；写回前后比对 TMX 是否仍是同一份，不是则丢弃结果；出生点在期间变化则保留 dirty 标记。 */
+let unitsSyncChain = Promise.resolve();
+function syncTmxUnits() {
+  const job = unitsSyncChain.then(syncTmxUnitsNow, syncTmxUnitsNow);
+  unitsSyncChain = job.catch(() => {});
+  return job;
+}
+async function syncTmxUnitsNow() {
   if (!S.lastTmx || !S.unitsDirty) return;
-  const spawns = currentSpawns();
-  const r = await patchTmxUnits(S.lastTmx, spawns);
-  S.lastTmx = r.tmx; S.unitsDirty = false;
+  const src = S.lastTmx, spawns = currentSpawns(), sig = spawns.map(keyOf).join(';');
+  const r = await patchTmxUnits(src, spawns);
+  if (S.lastTmx !== src) return; // 期间 TMX 已被新地图替换：旧结果作废，新地图保持 dirty，由下一次写回处理
+  S.lastTmx = r.tmx;
+  S.unitsDirty = currentSpawns().map(keyOf).join(';') !== sig;
   // 旧实现在缺少 Units 图层时静默丢弃出生点修改，现在明确提示
   if (r.missing && spawns.length) toast('该 TMX 没有 Units 图层，出生点修改无法写入导出文件（地形照常导出）', 'warn', 5200);
   if (r.truncated) toast(`该 TMX 的指挥中心瓦片集只有 ${r.truncated} 个槽位，超出的出生点未写入`, 'warn', 5200);
   if (r.source === 'linear') toast('该 TMX 的指挥中心瓦片缺少 team 属性，已按线性顺序写入，游戏内玩家顺序可能与编号不同', 'warn', 5600);
   if (!r.missing && spawns.length) {
-    const v = await verifySpawnMapping(S.lastTmx, spawns);
+    const v = await verifySpawnMapping(r.tmx, spawns);
+    if (S.lastTmx !== r.tmx || S.unitsDirty) return; // 校验期间地图或出生点又变了：结果不再代表当前状态
     S.slotVerified = v.ok;
     if (!v.ok) { console.warn('出生点映射校验失败', v); toast('出生点槽位校验未通过：导出文件中的玩家编号与界面不一致，请打开「槽位映射表」查看', 'error', 6000); }
     updateSlotBadge();
   }
 }
 
+/* ------------------------------------------------------------------ 近家资源点（3.9.0 新增）
+ * 需求：无论地图多大、出生点多少、是否对称/怎么对称，每个出生点周边 10～20 格直线距离内都有 ≥2 个可用资源点。
+ *
+ * 设计取舍（与「出生点完全由 JS 侧管理」同一思路，避免对引擎做大量小颗粒 RPC）：
+ *   · 实测对引擎 place_resource_manual 逐点调用，每次都会把整张地图的 6 张矩阵传回来，
+ *     160×160 约 56ms/次、400×400 约 484ms/次，随面积增长；大地图 + 多出生点会拖到几分钟，
+ *     且容器内没有 Rust 工具链，无法重新编译 WASM 绕开这个限制。
+ *   · 因此资源点的「合法性判定」「对称镜像」「TMX 写入」全部搬到 JS 侧完成，只在最后把结果整图
+ *     写回 S.snapshot（画布/小地图/体检/公平度都直接读这里）与 S.lastTmx（Items 图层按资源池瓦片的
+ *     3×3 GID 块写入，GID 从当前 TMX 自带瓦片集动态解析，见 resourcePoolGids，不写死任何模板）。
+ *   · 合法性判定复用 spawnCellValid 已经验证过的规则（陆地 3×3、墙线/悬崖/已占用格半径检查），
+ *     保证与指挥中心同一套标准，不额外发明一套可能更容易出 bug 的新规则。
+ *   · 可达性：以出生点为中心做局部 BFS（包围盒按距离上限+2 格裁剪，不是整图 BFS），避免资源点
+ *     被放到隔着海域或者没有坡道可下的高地上却只是直线距离达标。
+ *   · 对称：不依赖「对称模式」这个全局设置本身，而是直接在出生点的真实坐标里两两测试 5 种翻转
+ *     （水平/垂直/主对角/副对角/双轴）是否正好互为镜像，命中的分到同一组。这样无论地图是用哪种
+ *     对称模式生成的、还是导入/手改过局部坐标的，都能按「实际几何关系」正确配对，而不是假设
+ *     每个出生点都严格符合某个全局模式。配不上对的出生点单独成组，各自独立放置。
+ *   · 随机性由出生点坐标决定的种子控制（mulberry32），同样的出生点/地形下重复执行结果一致，
+ *     满足“撤销后重做要能复现”的要求，同时在等距候选格里仍有变化，不会每次都贴着同一个角落。
+ */
+const NEAR_RES_DEFAULTS = { enabled: true, perSpawn: 2, min: 10, max: 20 };
+const NEAR_RES_SEP = 4;          // 新增资源点中心之间的最小间距（3×3 footprint 留一点缝隙，避免贴在一起）
+const NEAR_RES_SPAWN_SEP = 6;    // 距「非自己」的出生点至少留这么远
+S.nearRes = { ...NEAR_RES_DEFAULTS };
+S.nearResKeys = new Set();       // 当前 resource_positions 里，由本功能新增（而非引擎放置）的点，用于单独删除/统计
+let nearResSeq = 0;              // 调试/日志用的批次号
+
+/** 把「水平/垂直/主对角/副对角/双轴」的单点翻转抽成可复用的纯函数，供出生点配对与资源点镜像共用 */
+const RESOURCE_FLIPS = {
+  h: (r, c, rows) => [rows - 1 - r, c],
+  v: (r, c, rows, cols) => [r, cols - 1 - c],
+  b: (r, c, rows, cols) => [rows - 1 - r, cols - 1 - c],
+  d1: (r, c) => [c, r],
+  d2: (r, c, rows, cols) => [cols - 1 - c, rows - 1 - r]
+};
+function detectFlip(p0, p1, rows, cols) {
+  for (const k of ['h', 'v', 'b', 'd1', 'd2']) {
+    const [fr, fc] = RESOURCE_FLIPS[k](p0[0], p0[1], rows, cols);
+    if (fr === p1[0] && fc === p1[1]) return k;
+  }
+  return null;
+}
+/** 按「谁是谁的镜像」把出生点分组；每组第一个是 primary，其余成员带上相对 primary 的翻转方式（没有则 null=落单） */
+function groupSpawnOrbits(spawns, rows, cols) {
+  const n = spawns.length, used = new Array(n).fill(false), groups = [];
+  for (let i = 0; i < n; i++) {
+    if (used[i]) continue;
+    const members = [{ idx: i, flip: null }]; used[i] = true;
+    for (let j = i + 1; j < n; j++) {
+      if (used[j]) continue;
+      const f = detectFlip(spawns[i], spawns[j], rows, cols);
+      if (f) { members.push({ idx: j, flip: f }); used[j] = true; }
+    }
+    groups.push(members);
+  }
+  return groups;
+}
+function seededRng(seed) {
+  let a = seed >>> 0 || 1;
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const hashSeed = (r, c, extra = 0) => (((r | 0) * 73856093) ^ ((c | 0) * 19349663) ^ ((extra | 0) * 83492791)) >>> 0;
+/** 墙线/悬崖是否在 (r,c) 处阻挡：与 spawnCellValid 的多边形分层判定完全一致（分层边界算墙，缺口/坡道不算） */
+function isWallBlocking(s, wall, rows, cols, r, c) {
+  if (!wall?.data || wall.shape?.[1] !== cols) return false;
+  if ((s?.meta?.hill_drawing_mode || 'brush') === 'polygon') {
+    const D = (rr, cc) => wall.data[rr * cols + cc];
+    const d = D(r, c);
+    if (d <= 0) return false;
+    for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) {
+      const y = r + a, x = c + b; if (y < 0 || x < 0 || y >= rows || x >= cols) continue;
+      if (Math.abs(D(y, x)) < d) return true;
+    }
+    return false;
+  }
+  return wall.data[r * cols + c] === 1;
+}
+/** 资源点footprint合法性：与出生点同一套标准（陆地 3×3、墙线/悬崖/已占用格半径检查），edgeMargin 可单独放宽/收紧离图边的距离 */
+function resourceCellValid(s, r, c, { edgeMargin = 1 } = {}) {
+  const [rows, cols] = dimsOf(s);
+  if (!rows || !cols || r < edgeMargin || c < edgeMargin || r >= rows - edgeMargin || c >= cols - edgeMargin) return false;
+  const h = terrainMatrix(s);
+  if (h?.data) { for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) if (h.data[(r + dr) * cols + (c + dc)] <= 0) return false; }
+  const wall = getMatrix('wall_matrix', s);
+  if (wall?.data && wall.shape?.[1] === cols) {
+    for (let dr = -2; dr <= 2; dr++) for (let dc = -2; dc <= 2; dc++) {
+      const rr = r + dr, cc = c + dc; if (rr < 0 || cc < 0 || rr >= rows || cc >= cols) continue;
+      if (isWallBlocking(s, wall, rows, cols, rr, cc)) return false;
+    }
+  }
+  const cliff = getMatrix('cliff_mask', s);
+  if (cliff?.count && cliff.shape?.[1] === cols) {
+    for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) { const rr = r + dr, cc = c + dc; if (rr < 0 || cc < 0 || rr >= rows || cc >= cols) continue; if (cliff.data[rr * cols + cc]) return false; }
+  }
+  const items = getMatrix('items_matrix', s);
+  if (items?.data && items.shape?.[1] === cols) {
+    for (let dr = -2; dr <= 2; dr++) { const rr = r + dr; if (rr < 0 || rr >= rows) continue; for (let dc = -2; dc <= 2; dc++) { const cc = c + dc; if (cc < 0 || cc >= cols) continue; if (items.data[rr * cols + cc] !== 0) return false; } }
+  }
+  return true;
+}
+/** 以 from 为起点、在 from 周边的局部包围盒内做 BFS，判断 to 是否陆路可达（不跨墙/悬崖，坡道可走） */
+function localReachable(s, from, to, rows, cols, maxR) {
+  const pad = maxR + 2;
+  const r0 = Math.max(0, from[0] - pad), r1 = Math.min(rows - 1, from[0] + pad);
+  const c0 = Math.max(0, from[1] - pad), c1 = Math.min(cols - 1, from[1] + pad);
+  if (to[0] < r0 || to[0] > r1 || to[1] < c0 || to[1] > c1) return false;
+  const h = terrainMatrix(s), wall = getMatrix('wall_matrix', s);
+  const w = c1 - c0 + 1;
+  const walkable = (r, c) => {
+    if (r < r0 || c < c0 || r > r1 || c > c1) return false;
+    if (h?.data && h.data[r * cols + c] <= 0) return false;
+    if (isWallBlocking(s, wall, rows, cols, r, c)) return false;
+    return true;
+  };
+  if (!walkable(from[0], from[1]) || !walkable(to[0], to[1])) return false;
+  const key = (r, c) => (r - r0) * w + (c - c0);
+  const visited = new Uint8Array(w * (r1 - r0 + 1));
+  const qr = [from[0]], qc = [from[1]]; visited[key(from[0], from[1])] = 1;
+  for (let head = 0; head < qr.length; head++) {
+    const r = qr[head], c = qc[head];
+    if (r === to[0] && c === to[1]) return true;
+    const nbrs = [[r - 1, c], [r + 1, c], [r, c - 1], [r, c + 1]];
+    for (const [nr, nc] of nbrs) {
+      if (nr < r0 || nr > r1 || nc < c0 || nc > c1) continue;
+      const k = key(nr, nc); if (visited[k] || !walkable(nr, nc)) continue;
+      visited[k] = 1; qr.push(nr); qc.push(nc);
+    }
+  }
+  return false;
+}
+/** 在指定出生点周围 [min,max] 直线距离环带内找 count 个资源点；三档放宽：
+ *  A 严格（陆路可达 + 离其它出生点≥NEAR_RES_SPAWN_SEP）→ B 放宽可达性 → C 再放宽离其它出生点的距离。
+ *  候选格先按离出生点的距离升序排列（优先就近），再用出生点坐标播种的随机数在等距小窗口内打乱，
+ *  兼顾「就近」与「同样条件下带点随机」。*/
+function pickResourcePoints(s, spawn, { min, max, count }, rows, cols, reserved, others, edgeMargin = 1) {
+  if (count <= 0) return { points: [], tier: 'none' };
+  const rng = seededRng(hashSeed(spawn[0], spawn[1], count));
+  const r0 = Math.max(0, spawn[0] - max), r1 = Math.min(rows - 1, spawn[0] + max);
+  const c0 = Math.max(0, spawn[1] - max), c1 = Math.min(cols - 1, spawn[1] + max);
+  const cands = [];
+  for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) {
+    const dr = r - spawn[0], dc = c - spawn[1], d = Math.hypot(dr, dc);
+    if (d < min || d > max) continue;
+    if (reserved.has(keyOf([r, c]))) continue;
+    cands.push({ r, c, d });
+  }
+  cands.sort((a, b) => a.d - b.d);
+  for (let i = 0; i < cands.length; i += 6) {
+    const end = Math.min(cands.length, i + 6);
+    for (let k = end - 1; k > i; k--) { const j = i + Math.floor(rng() * (k - i + 1)); const t = cands[k]; cands[k] = cands[j]; cands[j] = t; }
+  }
+  const chosen = [];
+  const sepOk = cd => chosen.every(p => Math.hypot(p.r - cd.r, p.c - cd.c) >= NEAR_RES_SEP);
+  const tryPick = predicate => {
+    for (const cd of cands) {
+      if (chosen.length >= count) break;
+      if (chosen.some(p => p.r === cd.r && p.c === cd.c)) continue;
+      if (!sepOk(cd) || !predicate(cd)) continue;
+      chosen.push(cd);
+    }
+  };
+  tryPick(cd => resourceCellValid(s, cd.r, cd.c, { edgeMargin })
+    && others.every(sp => Math.hypot(cd.r - sp[0], cd.c - sp[1]) >= NEAR_RES_SPAWN_SEP)
+    && localReachable(s, spawn, [cd.r, cd.c], rows, cols, max));
+  let tier = chosen.length >= count ? 'A' : (chosen.length ? 'partial' : null);
+  if (chosen.length < count) {
+    tryPick(cd => resourceCellValid(s, cd.r, cd.c, { edgeMargin })
+      && others.every(sp => Math.hypot(cd.r - sp[0], cd.c - sp[1]) >= NEAR_RES_SPAWN_SEP));
+    tier = chosen.length >= count ? 'B' : (chosen.length ? 'partial' : tier);
+  }
+  if (chosen.length < count) {
+    tryPick(cd => resourceCellValid(s, cd.r, cd.c, { edgeMargin }));
+    tier = chosen.length >= count ? 'C' : (chosen.length ? 'partial' : tier);
+  }
+  return { points: chosen.map(p => [p.r, p.c]), tier: tier || 'none' };
+}
+/** 把新增资源点的 3×3 footprint 标记进 items_matrix（与引擎放置资源/指挥中心的约定一致：非 0 = 已占用），
+ *  之后的出生点/资源点合法性判定都会读到它，不需要重新跑一次引擎查询。 */
+function markItemsOccupied(s, pts, rows, cols) {
+  let items = getMatrix('items_matrix', s);
+  if (!items?.data || items.shape?.[0] !== rows || items.shape?.[1] !== cols) {
+    items = { shape: [rows, cols], data: new Int32Array(rows * cols) };
+    s.matrices = s.matrices || {}; s.matrices.items_matrix = items;
+  }
+  for (const [r, c] of pts) for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+    const rr = r + dr, cc = c + dc; if (rr < 0 || cc < 0 || rr >= rows || cc >= cols) continue;
+    items.data[rr * cols + cc] = items.data[rr * cols + cc] || 1;
+  }
+}
+/** 核心规划（同步，不碰 TMX）：计算需要新增的近家资源点，直接写回 s.resource_positions / items_matrix。
+ *  返回新增点的列表（供调用方决定要不要再去异步修补 TMX 的 Items 图层）。可在 sandbox() 内对候选快照调用。 */
+function planNearSpawnResources(s, spawns, opts = {}) {
+  const cfg = { ...NEAR_RES_DEFAULTS, ...S.nearRes, ...opts };
+  if (!cfg.enabled || !s || spawns.length < 1) return { added: [], tier: 'none' };
+  const [rows, cols] = dimsOf(s);
+  if (!rows || !cols) return { added: [], tier: 'none' };
+  const { min, max, perSpawn } = cfg;
+  const existing = (s.resource_positions || []).map(p => [p[0], p[1]]);
+  const reserved = new Set(existing.map(keyOf));
+  const groups = groupSpawnOrbits(spawns, rows, cols);
+  const added = [];
+  const countNear = sp => existing.filter(p => { const d = Math.hypot(p[0] - sp[0], p[1] - sp[1]); return d >= min && d <= max; }).length;
+  let worstTier = null;
+  const rankTier = { A: 0, B: 1, C: 2, partial: 3, none: 4 };
+  const worse = (a, b) => (rankTier[a] ?? 9) > (rankTier[b] ?? 9) ? a : b;
+  for (const group of groups) {
+    const primary = group[0], spawnP = spawns[primary.idx];
+    const need = Math.max(0, perSpawn - countNear(spawnP));
+    const others = spawns.filter((_, i) => i !== primary.idx);
+    const picked = need > 0 ? pickResourcePoints(s, spawnP, { min, max, count: need }, rows, cols, reserved, others) : { points: [], tier: 'none' };
+    picked.points.forEach(p => { reserved.add(keyOf(p)); added.push({ owner: primary.idx, p }); });
+    if (need > 0) worstTier = worstTier ? worse(worstTier, picked.tier) : picked.tier;
+    for (let gi = 1; gi < group.length; gi++) {
+      const mem = group[gi], memSpawn = spawns[mem.idx];
+      const needM = Math.max(0, perSpawn - countNear(memSpawn));
+      if (needM <= 0) continue;
+      const flipFn = RESOURCE_FLIPS[mem.flip];
+      let got = [];
+      if (flipFn) {
+        for (const pt of picked.points) {
+          if (got.length >= needM) break;
+          const [fr, fc] = flipFn(pt[0], pt[1], rows, cols);
+          if (fr < 0 || fc < 0 || fr >= rows || fc >= cols) continue;
+          if (reserved.has(keyOf([fr, fc]))) continue;
+          if (!resourceCellValid(s, fr, fc, { edgeMargin: 1 })) continue;
+          got.push([fr, fc]);
+        }
+      }
+      let tierM = got.length >= needM ? (flipFn ? 'A' : 'none') : null;
+      if (got.length < needM) {
+        const othersM = spawns.filter((_, i) => i !== mem.idx);
+        const extra = pickResourcePoints(s, memSpawn, { min, max, count: needM - got.length }, rows, cols, reserved, othersM);
+        got = got.concat(extra.points);
+        tierM = got.length >= needM ? (tierM && tierM !== 'A' ? tierM : extra.tier) : (extra.tier === 'none' ? (tierM || 'partial') : extra.tier);
+      }
+      got.forEach(p => { reserved.add(keyOf(p)); added.push({ owner: mem.idx, p }); });
+      worstTier = worstTier ? worse(worstTier, tierM || 'none') : (tierM || 'none');
+    }
+  }
+  if (added.length) {
+    s.resource_positions = [...(s.resource_positions || []), ...added.map(a => a.p)];
+    markItemsOccupied(s, added.map(a => a.p), rows, cols);
+    const meta = s.meta; if (meta) meta.num_resource_pulls = s.resource_positions.length;
+  }
+  return { added, tier: worstTier || 'none' };
+}
+/** 生成流程收尾调用：规划 + 立刻把新增点写进当前 TMX 的 Items 图层（S.lastTmx），保持画布与导出文件一致。
+ *  有意不走 S.tmxDirty/「重新生成并导出」那条路——那条路会让引擎重新 finalize，丢弃这里新加的 JS 侧资源点。 */
+async function autoApplyNearSpawnResources({ toastOnNone = false, silent = false } = {}) {
+  if (!S.nearRes.enabled || !S.snapshot) return { added: 0 };
+  const spawns = currentSpawns();
+  const { added, tier } = planNearSpawnResources(S.snapshot, spawns);
+  S.nearResKeys = new Set([...S.nearResKeys, ...added.map(a => keyOf(a.p))]);
+  if (added.length) markResPop(added.map(a => a.p));
+  if (added.length && S.lastTmx) {
+    try {
+      const pts = added.map(a => a.p);
+      const r = await mutateTmx(src => patchTmxItems(src, pts)) || { changed: false };
+      if (r.changed) { /* mutateTmx 已写回 */ }
+      else if (r.noPool && !silent) toast('该地图瓦片集没有资源池贴图信息，近家资源点只在画布上可见，不会写入导出的 TMX', 'warn', 5600);
+      else if (r.missing && !silent) toast('该 TMX 没有 Items 图层，近家资源点无法写入导出文件', 'warn', 5200);
+    } catch (e) { console.warn('近家资源点写入 TMX 失败', e); if (!silent) toast('近家资源点已加入画布，但写入 TMX 失败：' + e.message, 'warn', 5200); }
+  }
+  if (added.length) {
+    nearResSeq++;
+    if (!silent) {
+      const msg = tier === 'A' ? `已为每个出生点补齐近家资源点（共 +${added.length}）`
+        : `已补齐近家资源点（共 +${added.length}），部分出生点周边空间有限，放置标准做了适当放宽`;
+      toast(msg, tier === 'A' ? 'success' : 'info', 3600);
+    }
+    scheduleRender();
+  } else if (toastOnNone) toast('每个出生点周边已有足够的资源点，无需新增', 'info');
+  return { added: added.length, tier };
+}
+/** 手动按钮：导入的地图默认不会自动跑一遍（避免覆盖别人手摆的地图意图），这里显式补齐一次 */
+async function fillNearSpawnResourcesManual() {
+  if (!S.snapshot) { toast('请先生成或导入地图', 'warn'); return; }
+  if (!currentSpawns().length) { toast('当前地图没有出生点', 'warn'); return; }
+  await locked(() => autoApplyNearSpawnResources({ toastOnNone: true }));
+}
+/** 删除单个 JS 侧放置的近家资源点：不经过引擎（引擎根本不知道这些点存在），直接改快照 + 修补 TMX，
+ *  并通过 Toast 自带的「撤销」按钮还原（避免为这个小功能单独接入全局撤销栈，牵动既有的历史记录逻辑）。 */
+async function removeNearSpawnResourceAt(p) {
+  const key = keyOf(p);
+  if (!S.nearResKeys.has(key) || !S.snapshot) return false;
+  const s = S.snapshot;
+  s.resource_positions = (s.resource_positions || []).filter(q => keyOf(q) !== key);
+  S.nearResKeys.delete(key);
+  const [rows, cols] = dimsOf(s);
+  if (S.lastTmx) {
+    try {
+      // 3.14.0：改为 mutateTmx（CAS）写回，见该函数注释
+      await mutateTmx(async src => {
+        const xml = new TextDecoder().decode(src);
+        const L = await readLayerByName(xml, 'Items');
+        if (!L) return { tmx: src, changed: false };
+        const { cells, rows: lr, cols: lc, da, tagEnd, dataEnd } = L;
+        for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+          const rr = p[0] + dr, cc = p[1] + dc; if (rr < 0 || cc < 0 || rr >= lr || cc >= lc) continue;
+          cells[rr * lc + cc] = 0;
+        }
+        const bytes = new Uint8Array(cells.buffer, cells.byteOffset, cells.byteLength);
+        let body;
+        if (da.encoding === 'csv') { const lines = []; for (let r = 0; r < lr; r++) lines.push(Array.from(cells.subarray(r * lc, (r + 1) * lc)).join(',')); body = '\n' + lines.join(',\n') + '\n'; }
+        else { let packed = bytes; if (da.compression === 'gzip') packed = await gzip(bytes); else if (da.compression === 'zlib') packed = await streamTransform(bytes, 'deflate', true); body = bytesToBase64(packed); }
+        return { tmx: new TextEncoder().encode(xml.slice(0, tagEnd + 1) + body + xml.slice(dataEnd)), changed: true };
+      });
+    } catch (e) { console.warn('删除近家资源点时回写 TMX 失败', e); }
+  }
+  const items = getMatrix('items_matrix', s);
+  const cleared = []; // 3.15.0：只记录本次清掉的格子（下标 + 原值），撤销时只还原它们
+  if (items?.data && items.shape?.[1] === cols) {
+    for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+      const rr = p[0] + dr, cc = p[1] + dc; if (rr < 0 || cc < 0 || rr >= rows || cc >= cols) continue;
+      // 只清自己占的格子；若与其它资源点/出生点共享（理论上因 NEAR_RES_SEP 不会发生）则保守保留
+      const stillUsed = (s.resource_positions || []).some(q => Math.abs(q[0] - rr) <= 1 && Math.abs(q[1] - cc) <= 1) || currentSpawns().some(q => Math.abs(q[0] - rr) <= 1 && Math.abs(q[1] - cc) <= 1);
+      const k = rr * cols + cc;
+      if (!stillUsed && items.data[k] !== 0) { cleared.push([k, items.data[k]]); items.data[k] = 0; }
+    }
+  }
+  if (s.meta) s.meta.num_resource_pulls = Math.max(0, (s.resource_positions || []).length);
+  setStatus('已删除近家资源点');
+  /* 3.15.0 修复：旧版撤销把「删除前」的整份资源点数组、近家键集合、占用矩阵原样写回。连续删除 A、B 后撤销 A，
+   * B 也被一并复活——但 TMX 只补回了 A，B 只出现在画布上、导出文件里没有，画布与导出不一致。
+   * 现在撤销只还原这一个点：资源点列表 / 近家键 / 本次清掉的占用格 / TMX 中它的 3×3 块。 */
+  toast('已删除近家资源点', 'info', 4200, { action: {
+    label: '撤销',
+    fn: async () => {
+      if (S.locked) { toast('正在处理中，请稍候…', 'warn'); return; }
+      if (S.snapshot !== s) { toast('地图已变化，无法撤销这次删除', 'warn'); return; } // 3.14.0：已换成别的地图时不要把旧点写回去
+      if ((s.resource_positions || []).some(q => keyOf(q) === key)) return;
+      s.resource_positions = [...(s.resource_positions || []), [p[0], p[1]]];
+      S.nearResKeys.add(key);
+      if (items?.data) for (const [k, v] of cleared) if (items.data[k] === 0) items.data[k] = v;
+      if (s.meta) s.meta.num_resource_pulls = s.resource_positions.length;
+      markResPop([p]);
+      scheduleRender();
+      // 用幂等补丁把这个资源点的 3×3 块写回，而不是整份回滚 TMX（整份回滚会冲掉删除之后的出生点修改）
+      if (S.lastTmx) await locked(() => mutateTmx(src => patchTmxItems(src, [p]))).catch(e => console.warn('撤销删除：TMX 写回失败', e));
+      setStatus('已恢复近家资源点');
+    }
+  } });
+  scheduleRender();
+  return true;
+}
+
 /* ------------------------------------------------------------------ 导出：文件保存（Android 分块桥接 / 浏览器下载） */
-async function saveFile(bytes, name, mime) {
+async function saveFile(bytes, name, mime, target = ExportLoc.target()) {
+  // 3.5.0：PC 版（desktop-bridge.js）由 Rust 写入导出目录；Android / 浏览器走原有分支，行为不变
+  if (window.DesktopBridge?.saveFile) return window.DesktopBridge.saveFile(bytes, name, mime);
   const B = window.AndroidBridge;
   if (B?.beginSave) {
-    const id = B.beginSave(name, mime);
+    // 3.8.0：target = downloads（下载目录）/ tree（用户选择的导出文件夹）；旧版原生层没有 beginSaveTo 时只能写下载目录
+    const id = B.beginSaveTo && target === 'tree' ? B.beginSaveTo(name, mime, 'tree') : B.beginSave(name, mime);
     if (!id) throw new Error('无法创建导出文件');
     const CH = 3 * 256 * 1024; // 3 的倍数，保证每块 Base64 可独立解码
     for (let i = 0; i < bytes.length; i += CH) {
@@ -2468,7 +3518,18 @@ async function saveFile(bytes, name, mime) {
       if ((i / CH) % 8 === 7) await nextFrame();
     }
     const res = String(B.finishSave(id) || '');
-    if (res.startsWith('ok:')) return { ok: true, name: res.slice(3) };
+    if (res.startsWith('ok:')) {
+      /* 3.9.0 修复：原生层 finishSave() 现在把「实际写入位置」同步编码进返回值（"ok:<name>|tree" /
+       * "ok:<name>|downloads" / "ok:<name>|downloads:fallback"），不再靠 target 参数（只代表"请求写入哪里"，
+       * 不代表"实际写到了哪里"）和 ExportLoc.folder.set（它要等 notifyFolder 的异步回调才会更新，和这次
+       * finishSave() 的返回值谁先到谁后没有保证）去猜。旧版原生层若还没升级、没有带 "|" 后缀，退回旧逻辑。 */
+      const payload = res.slice(3), bar = payload.indexOf('|');
+      if (bar < 0) return { ok: true, name: payload, where: target === 'tree' && ExportLoc.folder.set ? ExportLoc.label('tree') : '下载目录' };
+      const name = payload.slice(0, bar), where = payload.slice(bar + 1);
+      if (where === 'tree') return { ok: true, name, where: ExportLoc.label('tree') };
+      if (where === 'downloads:fallback') { ExportLoc.folder = { set: false }; ExportLoc.setPref('downloads'); return { ok: true, name, where: '下载目录（所选文件夹已无法访问，已自动回退）' }; }
+      return { ok: true, name, where: '下载目录' };
+    }
     if (res === 'pending') return { ok: true, pending: true, name };
     throw new Error(res.replace(/^error:/, '') || '保存失败');
   }
@@ -2478,9 +3539,27 @@ async function saveFile(bytes, name, mime) {
   setTimeout(() => URL.revokeObjectURL(a.href), 4000);
   return { ok: true, name };
 }
+/* ------------------------------------------------------------------ 导出后分享（3.14.0，仅 Android）
+ * 原生层记录本批次已保存文件的 content:// URI；导出完成的提示里带「分享」按钮，拉起系统分享面板，可直接发到 QQ / 微信群。
+ * 旧版原生层（没有这些桥接方法）或 Android 9 及以下（没有可授权的 URI）时 shareAction() 返回空对象，不显示按钮。 */
+function beginShareBatch() { try { window.AndroidBridge?.resetShareList?.(); } catch { /* 旧版原生层没有此方法 */ } }
+function shareAction() {
+  try {
+    const B = window.AndroidBridge;
+    if (B?.shareSaved && B.canShare?.()) {
+      return { action: { label: '分享', fn: () => { try { if (!B.shareSaved()) toast('没有可分享的文件', 'warn'); } catch (e) { toast('分享失败：' + e.message, 'error'); } } } };
+    }
+  } catch { /* ignore */ }
+  return {};
+}
 function sanitizeName(s) {
   // 3.4.0：去掉首尾点号（Android 文件系统会拒绝 / 改名，TMX 与 _map.png 不再同名成对）
   return String(s || '').replace(/\.tmx$/i, '').replace(/[\\/:*?"<>|\u0000-\u001f]/g, '_').replace(/\s+/g, ' ').trim().replace(/^[.\s]+|[.\s]+$/g, '').slice(0, 80);
+}
+/** TMX 实际写入的文件名（去掉 .tmx）；拿不到（等待权限 / 浏览器下载）时用原名 */
+function pairedBase(saved, base) {
+  const n = String(saved?.name || '');
+  return !saved?.pending && /\.tmx$/i.test(n) ? n.replace(/\.tmx$/i, '') : base;
 }
 function exportBaseName() {
   const custom = sanitizeName($('mapName').value);
@@ -2505,43 +3584,61 @@ async function prepareTmxForExport() {
     const ok = await uiConfirm('出生点槽位校验未通过', '导出文件中的玩家编号与界面不一致（常见于第三方 TMX 的指挥中心瓦片缺少 team 属性或槽位不足）。仍要导出吗？', '仍然导出', true);
     if (!ok) return null;
   }
+  try { // 3.6.0：导出前顺手体检，出生点被隔开时给一个不打断流程的提示
+    const a = S.snapshot ? analyzeMap() : null;
+    if (a && a.n >= 2 && !a.conn.allConnected && !a.conn.teamsApart) toast('提示：有出生点与其他出生点陆路不通，按 D 打开「地图体检」查看', 'warn', 5200);
+  } catch (e) { console.warn('导出前体检失败', e); }
   return S.lastTmx;
 }
-async function exportPair() {
+async function exportPair(opts = {}) {
   await locked(async () => {
     const tmx = await prepareTmxForExport(); if (!tmx) return;
-    const base = exportBaseName();
+    const base = opts.base || exportBaseName(), target = opts.target || ExportLoc.target();
     try {
+      beginShareBatch();
       busy(true, '正在导出…', '保存 TMX', 30, { cancellable: false });
-      const r1 = await saveFile(tmx, `${base}.tmx`, 'application/octet-stream');
+      const r1 = await saveFile(tmx, `${base}.tmx`, 'application/octet-stream', target);
       busy(true, '正在导出…', '生成小地图', 65, { cancellable: false });
       const png = await buildMapPng();
-      if (png) { await sleep(150); await saveFile(png, `${base}_map.png`, 'image/png'); }
+      // 3.7.0 修复：Android 10+ 下载目录已有同名文件时 MediaStore 会把 TMX 改名为「xxx (1).tmx」，旧版仍按原名保存
+      // 「xxx_map.png」，系统再改名成「xxx_map (1).png」—— 两者不再成对，游戏里看不到小地图。现在按 TMX 的实际文件名命名小地图。
+      const pngBase = pairedBase(r1, base);
+      if (png) { await sleep(150); await saveFile(png, `${pngBase}_map.png`, 'image/png', target); }
       const pi = S.lastPngInfo;
-      toast(r1.pending ? '等待存储权限授予后自动保存' : `已导出 ${base}.tmx${png ? ` 与 _map.png（${pi.width}×${pi.height} · ${(pi.size / 1024).toFixed(0)}KB）` : '（小地图生成失败）'}`, png ? 'success' : 'warn', 4200);
-      setStatus(`已导出：${base}.tmx`);
+      const doneMsg = `已导出${r1.where ? `到${r1.where}` : ''} ${r1.name && !r1.pending ? r1.name : `${base}.tmx`}${png ? ` 与 _map.png（${pi.width}×${pi.height} · ${(pi.size / 1024).toFixed(0)}KB）` : '（小地图生成失败）'}`;
+      if (r1.desktop) toast(doneMsg, png ? 'success' : 'warn', 5200, { action: { label: '打开文件夹', fn: () => window.DesktopBridge.reveal(r1.path) } });
+      else toast(r1.pending ? '等待存储权限授予后自动保存' : doneMsg, png ? 'success' : 'warn', 4200, r1.pending ? {} : shareAction());
+      setStatus(`已导出：${r1.name && !r1.pending ? r1.name : `${base}.tmx`}`);
+      if (pngBase !== base && png) toast(`下载目录已有同名文件，已自动改名为「${pngBase}」，小地图同步改名保持成对`, 'info', 5200);
     } catch (e) { toast('导出失败：' + e.message, 'error', 4200); }
     finally { busy(false); }
   });
 }
-async function exportZipFn() {
+async function exportZipFn(opts = {}) {
   await locked(async () => {
     const tmx = await prepareTmxForExport(); if (!tmx) return;
     busy(true, '正在打包 ZIP…', '生成小地图图片', 30, { cancellable: false });
     try {
-      const base = exportBaseName();
+      beginShareBatch();
+      const base = opts.base || exportBaseName();
       const png = await buildMapPng();
       if (!png) { toast('小地图图片生成失败，未导出', 'error'); return; }
       const s = S.snapshot;
       const cc = ccMapFor(tmx), sp = currentSpawns();
       const table = sp.slice(0, cc.capacity).map((q, i) => `  玩家 ${String(i + 1).padStart(2)}  team ${String(i).padStart(2)}  GID ${cc.gidForTeam(i)}  坐标(行,列) ${q[0] + 1},${q[1] + 1}  队伍 ${teamOf(q, i)}`).join('\r\n');
-      const info = new TextEncoder().encode(`铁锈战争地图生成器离线版 v${APP_VERSION}\r\n地图：${s?.meta?.width || 0} × ${s?.meta?.height || 0}\r\n出生点：${sp.length}\r\n资源点：${s?.resource_positions?.length || 0}\r\n对称：${MIRROR_LABELS[s?.meta?.mirroring] || '不对称'}\r\n小地图：${S.lastPngInfo ? `${S.lastPngInfo.width}×${S.lastPngInfo.height} · ${(S.lastPngInfo.size / 1024).toFixed(1)}KB · ${PNG_STYLES[S.lastPngInfo.style]}` : '—'}\r\n槽位映射：${CC_SOURCE_LABEL[cc.source]}${S.slotVerified ? '（已读回校验）' : ''}\r\n导出时间：${new Date().toLocaleString()}\r\n\r\n出生点槽位表（玩家 N = team N-1）：\r\n${table}\r\n`);
+      let docText = '';
+      try { // 3.6.0：说明.txt 附带地图体检摘要
+        const a = analyzeMap();
+        if (a && a.n >= 1) docText = `\r\n地图体检（健康度 ${a.score}/100）：\r\n` + doctorVerdicts(a).map(v => `  [${{ ok: '通过', warn: '提醒', bad: '问题', info: '提示' }[v.level]}] ${v.title} —— ${v.detail}`).join('\r\n') + '\r\n';
+      } catch (e) { console.warn('体检摘要失败', e); }
+      const info = new TextEncoder().encode(`铁锈战争地图生成器离线版 v${APP_VERSION}\r\n地图：${s?.meta?.width || 0} × ${s?.meta?.height || 0}\r\n出生点：${sp.length}\r\n资源点：${s?.resource_positions?.length || 0}\r\n对称：${MIRROR_LABELS[s?.meta?.mirroring] || '不对称'}\r\n${S.mapShape ? `地形形态：${S.mapShape.label}（种子 ${S.mapShape.seed}，陆地 ${S.mapShape.land}%）\r\n` : ''}小地图：${S.lastPngInfo ? `${S.lastPngInfo.width}×${S.lastPngInfo.height} · ${(S.lastPngInfo.size / 1024).toFixed(1)}KB · ${PNG_STYLES[S.lastPngInfo.style]}` : '—'}\r\n槽位映射：${CC_SOURCE_LABEL[cc.source]}${S.slotVerified ? '（已读回校验）' : ''}\r\n导出时间：${new Date().toLocaleString()}\r\n\r\n出生点槽位表（玩家 N = team N-1）：\r\n${table}\r\n${docText}`);
       busy(true, '正在打包 ZIP…', '计算校验', 60, { cancellable: false });
       await nextFrame();
       const zip = zipStore([{ name: `${base}.tmx`, data: tmx }, { name: `${base}_map.png`, data: png }, { name: '说明.txt', data: info }]);
       busy(true, '正在打包 ZIP…', '保存文件', 85, { cancellable: false });
-      const r = await saveFile(zip, `${base}.zip`, 'application/zip');
-      toast(r.pending ? '等待存储权限授予后自动保存' : `导出完成：${base}.zip`, 'success', 3600);
+      const r = await saveFile(zip, `${base}.zip`, 'application/zip', opts.target || ExportLoc.target());
+      if (r.desktop) window.DesktopBridge.savedToast(r, `导出完成：${r.name}`);
+      else toast(r.pending ? '等待存储权限授予后自动保存' : `导出完成${r.where ? `（${r.where}）` : ''}：${r.name || `${base}.zip`}`, 'success', 3600, r.pending ? {} : shareAction());
     } catch (e) { toast('导出失败：' + e.message, 'error', 4200); }
     finally { busy(false); }
   });
@@ -2622,7 +3719,7 @@ function drawExportPng(maxDim = PNG_MAX_DIM, style = mapPngStyle()) {
   ctx.imageSmoothingEnabled = false;
   const base = baseCanvasFor(terrainMatrix() || getMatrix('id_matrix'));
   if (base) ctx.drawImage(base, 0, 0, w, h);
-  const wall = wallCanvasFor(getMatrix('wall_matrix'), S.snapshot?.meta?.hill_drawing_mode === 'polygon' ? 'polygon' : 'brush');
+  const wall = wallLayerFor();
   if (wall) ctx.drawImage(wall, 0, 0, w, h);
   if (style === 'terrain') return cv;
   ctx.imageSmoothingEnabled = true;
@@ -2680,15 +3777,1276 @@ async function showMapPngPreview() {
     <div class="png-preview"><img src="${url}" alt="小地图预览" width="${info.width}" height="${info.height}"></div>
     <div class="png-meta"><span>${info.width} × ${info.height}</span><span>${(info.size / 1024).toFixed(1)} KB / 512 KB</span><span>PNG</span><span>${escapeHtml(PNG_STYLES[info.style])}</span></div>
     <p class="help-p">文件名：<code>${escapeHtml(name)}</code>${info.steps ? `<br>原始图像超过 512KB，已自动缩小 ${info.steps} 级以满足体积限制。` : ''}</p>`,
-  [{ key: 'cancel', label: '关闭' }, { key: 'export', label: '导出 TMX+小地图', primary: true }], { wide: true });
+  [{ key: 'cancel', label: '关闭' }, ...(canCopyImage() ? [{ key: 'copy', label: '复制图片' }] : []), { key: 'export', label: '导出 TMX+小地图', primary: true }], { wide: true });
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+  if (k === 'copy') copyPngToClipboard(info.bytes);
   if (k === 'export') exportPair();
+}
+
+/* ------------------------------------------------------------------ 地图体检（3.6.0 新增）
+ * 回答地图作者最关心的几个问题：
+ *   ① 所有出生点之间有没有陆路相通？有没有被水域 / 墙体隔开的孤立出生点？（连通性）
+ *   ② 双方实际能控制多大的地盘？（领地：以「行走距离」划分的 Voronoi，4 邻接多源 BFS）
+ *   ③ 资源点分配是否均衡？有没有谁都够不着的资源？
+ *   ④ 地形构成：陆地 / 水域 / 墙体占比、与所有出生点都不相连的「孤岛」比例。
+ * 通行判定：高度 > 0 的陆地，且不是画笔墙体（wall_matrix === 1；缺口 === 2 可通行）。
+ * 多边形分层模式与导入的 TMX 无法还原悬崖，只按陆地估算（报告里会标注「估算」）。
+ * 连通性使用 ≤1000 的网格（1000² 以内的地图逐格精确），领地 / 资源使用 ≤420 的网格，保证大地图也能秒出结果。 */
+const DOC_CONN_DIM = 1000, DOC_TERR_DIM = 420;
+let snapSeq = 0;
+const snapIds = new WeakMap();
+const snapId = s => { if (!s) return 0; let v = snapIds.get(s); if (!v) { v = ++snapSeq; snapIds.set(s, v); } return v; };
+/* 3.9.0 修复：体检 / 领地 / 接敌路线三处缓存（docCache / terrCache / routeCache）都以 analysisSig() 的返回值
+ * 作为失效判据，但这个签名此前只覆盖「快照对象本身 + 悬崖 + 出生点坐标/队伍」，不包含资源点。
+ * snapId() 是按快照对象的引用身份分配 id 的 WeakMap，只要还是同一个快照对象，id 就不变——而本版新增的
+ * 「近家资源点」功能会在不替换快照对象的前提下原地修改 s.resource_positions（引擎每次返回的快照都是新对象，
+ * 此前资源点只会跟着新对象一起变化，这个旧签名碰巧没出过问题，但本质上一直是漏的）。现在补上资源点签名，
+ * 使三处缓存在资源点增减后也能正确失效，不会继续显示旧的体检分数 / 领地着色 / 接敌路线。 */
+function analysisSig(s = S.snapshot) {
+  const sp = currentSpawns(), rs = s?.resource_positions || [];
+  return `${snapId(s)}${getMatrix('cliff_mask', s) ? 'c' : ''}|${sp.map(keyOf).join(';')}|${sp.map((q, i) => teamOf(q, i)).join('')}|${rs.length}:${rs.map(keyOf).join(';')}`;
+}
+/** 把地图降采样成通行网格：陆地取块中心，块内任意一格是墙则整块不可通行（保守） */
+function buildGrid(s, maxDim) {
+  const h = terrainMatrix(s);
+  if (!h?.data || !h.shape) return null;
+  const rows = h.shape[0], cols = h.shape[1];
+  const scale = Math.max(1, Math.ceil(Math.max(rows, cols) / maxDim));
+  const gr = Math.ceil(rows / scale), gc = Math.ceil(cols / scale);
+  const land = new Uint8Array(gr * gc), mask = new Uint8Array(gr * gc);
+  const wm = getMatrix('wall_matrix', s);
+  const useWalls = !!wm?.data && (s?.meta?.hill_drawing_mode || 'brush') !== 'polygon' && wm.shape?.[0] === rows && wm.shape?.[1] === cols;
+  const cm = getMatrix('cliff_mask', s); // 3.7.0：TMX 悬崖瓦片（导入地图 / 已生成 TMX 的地图），精确判定不可通行
+  const useCliff = !!cm?.data && cm.shape?.[0] === rows && cm.shape?.[1] === cols;
+  let landCells = 0, wallCells = 0;
+  for (let y = 0; y < gr; y++) {
+    const r0 = y * scale, r1 = Math.min(rows, r0 + scale), cr = Math.min(rows - 1, r0 + (scale >> 1));
+    for (let x = 0; x < gc; x++) {
+      const c0 = x * scale, c1 = Math.min(cols, c0 + scale), cc = Math.min(cols - 1, c0 + (scale >> 1));
+      const isLand = h.data[cr * cols + cc] > 0;
+      let wall = false;
+      if ((useWalls || useCliff) && isLand) {
+        for (let r = r0; r < r1 && !wall; r++) for (let c = c0; c < c1; c++) { const k = r * cols + c; if ((useWalls && wm.data[k] === 1) || (useCliff && cm.data[k])) { wall = true; break; } }
+      }
+      const i = y * gc + x;
+      if (isLand) { land[i] = 1; landCells++; if (wall) wallCells++; else mask[i] = 1; }
+    }
+  }
+  return { rows: gr, cols: gc, scale, land, mask, landCells, wallCells, total: gr * gc, estimated: !useWalls && !useCliff, source: useCliff ? 'tmx' : useWalls ? 'brush' : 'land' };
+}
+/** 4 邻接连通域标记（保守：不允许斜穿墙角） */
+function labelGrid(g) {
+  const { rows, cols, mask } = g, n = rows * cols;
+  const comp = new Int32Array(n), stack = new Int32Array(n), sizes = [0];
+  let id = 0;
+  for (let s0 = 0; s0 < n; s0++) {
+    if (!mask[s0] || comp[s0]) continue;
+    id++; let sp = 0, size = 0; stack[sp++] = s0; comp[s0] = id;
+    while (sp) {
+      const k = stack[--sp]; size++;
+      const y = (k / cols) | 0, x = k - y * cols;
+      if (x > 0 && mask[k - 1] && !comp[k - 1]) { comp[k - 1] = id; stack[sp++] = k - 1; }
+      if (x < cols - 1 && mask[k + 1] && !comp[k + 1]) { comp[k + 1] = id; stack[sp++] = k + 1; }
+      if (y > 0 && mask[k - cols] && !comp[k - cols]) { comp[k - cols] = id; stack[sp++] = k - cols; }
+      if (y < rows - 1 && mask[k + cols] && !comp[k + cols]) { comp[k + cols] = id; stack[sp++] = k + cols; }
+    }
+    sizes[id] = size;
+  }
+  return { comp, sizes, count: id };
+}
+/** 把地图坐标吸附到最近的可通行网格（半径 3 以内），找不到返回 -1 */
+function snapToGrid(g, r, c) {
+  const y0 = clamp(Math.floor(r / g.scale), 0, g.rows - 1), x0 = clamp(Math.floor(c / g.scale), 0, g.cols - 1);
+  if (g.mask[y0 * g.cols + x0]) return y0 * g.cols + x0;
+  for (let rad = 1; rad <= 3; rad++) for (let dy = -rad; dy <= rad; dy++) for (let dx = -rad; dx <= rad; dx++) {
+    if (Math.max(Math.abs(dy), Math.abs(dx)) !== rad) continue;
+    const y = y0 + dy, x = x0 + dx;
+    if (y < 0 || x < 0 || y >= g.rows || x >= g.cols) continue;
+    if (g.mask[y * g.cols + x]) return y * g.cols + x;
+  }
+  return -1;
+}
+/** 多源 BFS：每个可通行格归属于「行走距离最近」的出生点；同距离时取直线距离更近者，避免序号靠前的一方占便宜 */
+function territoryBfs(g, seeds) {
+  const { rows, cols, mask } = g, n = rows * cols;
+  const owner = new Int16Array(n).fill(-1), dist = new Int32Array(n).fill(-1), queue = new Int32Array(n);
+  const sy = new Float64Array(seeds.length), sx = new Float64Array(seeds.length);
+  let qh = 0, qt = 0;
+  seeds.forEach((k, i) => {
+    if (k < 0) return;
+    sy[i] = (k / cols) | 0; sx[i] = k - sy[i] * cols;
+    if (owner[k] < 0) { owner[k] = i; dist[k] = 0; queue[qt++] = k; }
+  });
+  const eu = (k, o) => { const y = (k / cols) | 0, x = k - y * cols; return (y - sy[o]) ** 2 + (x - sx[o]) ** 2; };
+  while (qh < qt) {
+    const k = queue[qh++], o = owner[k], d = dist[k] + 1, y = (k / cols) | 0, x = k - y * cols;
+    const visit = nk => {
+      if (!mask[nk]) return;
+      if (dist[nk] < 0) { dist[nk] = d; owner[nk] = o; queue[qt++] = nk; }
+      else if (dist[nk] === d && owner[nk] !== o && eu(nk, o) < eu(nk, owner[nk])) owner[nk] = o;
+    };
+    if (x > 0) visit(k - 1);
+    if (x < cols - 1) visit(k + 1);
+    if (y > 0) visit(k - cols);
+    if (y < rows - 1) visit(k + cols);
+  }
+  return { owner, dist };
+}
+const balanceRatio = (a, b) => (a + b) > 0 ? Math.min(a, b) / Math.max(a, b) : 1;
+const hasBothTeams = (teams, spawns) => spawns.length >= 2 && new Set(teams).size > 1;
+/* 3.7.0：8 邻接 Dijkstra（直行 10 / 斜行 14，斜走时两侧都必须可通行）。代价是小整数，用 15 个循环桶的 Dial 算法，
+ * 420² 网格约 10ms。返回每格到最近源点的代价（×10 格），不可达为 INF。 */
+const PATH_INF = 0x7fffffff;
+const NB_X = [1, -1, 0, 0, 1, 1, -1, -1], NB_Y = [0, 0, 1, -1, 1, -1, 1, -1], NB_W = [10, 10, 10, 10, 14, 14, 14, 14];
+function costField(g, sources) {
+  const { rows, cols, mask } = g, n = rows * cols, dist = new Int32Array(n).fill(PATH_INF);
+  const B = 15, buckets = Array.from({ length: B }, () => []);
+  let pending = 0;
+  for (const k of sources) if (k >= 0 && mask[k] && dist[k] !== 0) { dist[k] = 0; buckets[0].push(k); pending++; }
+  for (let d = 0; pending > 0; d++) {
+    const bk = buckets[d % B];
+    while (bk.length) {
+      const k = bk.pop(); pending--;
+      if (dist[k] !== d) continue;
+      const y = (k / cols) | 0, x = k - y * cols;
+      for (let j = 0; j < 8; j++) {
+        const nx = x + NB_X[j], ny = y + NB_Y[j];
+        if (nx < 0 || ny < 0 || nx >= cols || ny >= rows) continue;
+        const nk = ny * cols + nx;
+        if (!mask[nk] || (j >= 4 && (!mask[y * cols + nx] || !mask[ny * cols + x]))) continue;
+        const nd = d + NB_W[j];
+        if (nd < dist[nk]) { dist[nk] = nd; buckets[nd % B].push(nk); pending++; }
+      }
+    }
+  }
+  return dist;
+}
+/** 沿代价场下降回溯最短路径（网格下标数组，起点 → 源点） */
+function tracePath(g, dist, k) {
+  const { rows, cols, mask } = g, out = [k];
+  for (let guard = 0; dist[k] > 0 && guard < rows * cols; guard++) {
+    const y = (k / cols) | 0, x = k - y * cols;
+    let next = -1;
+    for (let j = 0; j < 8 && next < 0; j++) {
+      const nx = x + NB_X[j], ny = y + NB_Y[j];
+      if (nx < 0 || ny < 0 || nx >= cols || ny >= rows) continue;
+      const nk = ny * cols + nx;
+      if (!mask[nk] || (j >= 4 && (!mask[y * cols + nx] || !mask[ny * cols + x]))) continue;
+      if (dist[nk] !== PATH_INF && dist[nk] + NB_W[j] === dist[k]) next = nk;
+    }
+    if (next < 0) break;
+    k = next; out.push(k);
+  }
+  return out;
+}
+/** 每个出生点 → 最近敌方出生点：{ d（格）, path, enemy }；每队只做一次多源 Dijkstra */
+function rushAnalysis(g, seeds, teams) {
+  const res = seeds.map(() => ({ d: Infinity, path: null, enemy: -1 }));
+  const byCell = new Map(); seeds.forEach((k, i) => { if (k >= 0 && !byCell.has(k)) byCell.set(k, i); });
+  for (const T of ['A', 'B']) {
+    const src = seeds.filter((k, i) => k >= 0 && teams[i] === T);
+    if (!src.length) continue;
+    const dist = costField(g, src);
+    seeds.forEach((k, i) => {
+      if (k < 0 || teams[i] === T || dist[k] === PATH_INF) return;
+      const path = tracePath(g, dist, k);
+      res[i] = { d: dist[k] / 10 * g.scale, path, enemy: byCell.has(path[path.length - 1]) ? byCell.get(path[path.length - 1]) : -1 };
+    });
+  }
+  return res;
+}
+let docCache = null;
+function analyzeMap(s = S.snapshot, spawns = currentSpawns()) {
+  if (!s) return null;
+  const sig = analysisSig(s);
+  if (docCache && docCache.sig === sig && s === S.snapshot) return docCache.result;
+  const g1 = buildGrid(s, DOC_CONN_DIM);
+  if (!g1) return null;
+  const [rows, cols] = dimsOf(s);
+  const teams = spawns.map((q, i) => teamOf(q, i));
+  /* ① 连通性 */
+  const lab = labelGrid(g1);
+  const spawnComp = spawns.map(q => { const k = snapToGrid(g1, q[0], q[1]); return k < 0 ? 0 : lab.comp[k]; });
+  const gm = new Map();
+  spawnComp.forEach((c, i) => { if (!gm.has(c)) gm.set(c, []); gm.get(c).push(i); });
+  const groups = [...gm.entries()].map(([comp, idx]) => ({ comp, spawns: idx, size: lab.sizes[comp] || 0 })).sort((a, b) => b.spawns.length - a.spawns.length || b.size - a.size);
+  const stuck = gm.get(0) || [];
+  const passableTotal = lab.sizes.reduce((a, b) => a + b, 0);
+  const used = new Set(spawnComp.filter(c => c > 0));
+  const speck = Math.max(6, passableTotal * 0.001);
+  let isolatedCells = 0;
+  for (let c = 1; c <= lab.count; c++) if (!used.has(c) && lab.sizes[c] >= speck) isolatedCells += lab.sizes[c];
+  const isolatedPct = passableTotal ? isolatedCells / passableTotal : 0;
+  const realGroups = groups.filter(g => g.comp > 0);
+  const allConnected = spawns.length >= 2 && stuck.length === 0 && realGroups.length === 1;
+  const teamsApart = spawns.length >= 2 && realGroups.length > 1 && realGroups.every(g => new Set(g.spawns.map(i => teams[i])).size === 1) &&
+    new Set(teams).size > 1 && stuck.length === 0;
+  /* ② 领地 + ③ 资源 */
+  const g2 = g1.scale === Math.max(1, Math.ceil(Math.max(rows, cols) / DOC_TERR_DIM)) ? g1 : buildGrid(s, DOC_TERR_DIM);
+  const seeds = spawns.map(q => snapToGrid(g2, q[0], q[1]));
+  const { owner, dist } = territoryBfs(g2, seeds);
+  const counts = new Array(spawns.length).fill(0);
+  let owned = 0, passable2 = 0, unreached2 = 0;
+  for (let i = 0; i < owner.length; i++) {
+    if (!g2.mask[i]) continue;
+    passable2++;
+    if (owner[i] >= 0) { counts[owner[i]]++; owned++; } else unreached2++;
+  }
+  const share = { A: 0, B: 0 };
+  counts.forEach((n, i) => { share[teams[i]] += n; });
+  const resPos = s.resource_positions || [];
+  const perSpawn = new Array(spawns.length).fill(0), resDist = new Array(spawns.length).fill(null).map(() => ({ min: Infinity, max: 0 }));
+  const resTeam = { A: 0, B: 0 };
+  let unreachableRes = 0;
+  for (const [r, c] of resPos) {
+    const k = snapToGrid(g2, r, c);
+    const o = k < 0 ? -1 : owner[k];
+    if (o < 0) { unreachableRes++; continue; }
+    perSpawn[o]++; resTeam[teams[o]]++;
+    const dd = dist[k] * g2.scale;
+    if (dd < resDist[o].min) resDist[o].min = dd;
+    if (dd > resDist[o].max) resDist[o].max = dd;
+  }
+  /* ④ 接敌（Rush）距离（3.7.0）：每个出生点到最近敌方出生点的行走距离（8 邻接，斜走 ×1.4，不斜穿墙角） */
+  const rushList = hasBothTeams(teams, spawns) ? rushAnalysis(g2, seeds, teams) : [];
+  const teamRush = T => { const v = rushList.filter((r, i) => teams[i] === T && Number.isFinite(r.d)).map(r => r.d); return v.length ? v.reduce((x, y) => x + y, 0) / v.length : null; };
+  const rushA = teamRush('A'), rushB = teamRush('B');
+  let closest = -1; rushList.forEach((r, i) => { if (Number.isFinite(r.d) && (closest < 0 || r.d < rushList[closest].d)) closest = i; });
+  const front = [];
+  for (const T of ['A', 'B']) {
+    const idx = rushList.map((r, i) => i).filter(i => teams[i] === T && Number.isFinite(rushList[i].d));
+    if (idx.length < 3) continue;
+    const ds = idx.map(i => rushList[i].d).sort((x, y) => x - y), med = ds[Math.floor(ds.length / 2)];
+    idx.forEach(i => { if (rushList[i].d < med * 0.55) front.push(i); });
+  }
+  // 每个出生点到「任意」最近资源点的直线距离（不受领地归属影响），用来识别明显偏远的出生点
+  const nearestRes = spawns.map(q => resPos.length ? Math.min(...resPos.map(p => Math.hypot(p[0] - q[0], p[1] - q[1]))) : Infinity);
+  const hasBoth = spawns.length >= 2 && new Set(teams).size > 1;
+  /* 评分与结论 */
+  const connScore = spawns.length < 2 ? 1 : allConnected ? 1 : teamsApart ? 0.4 : 0.2;
+  const terrScore = hasBoth && owned ? balanceRatio(share.A, share.B) : 1;
+  const resScore = resPos.length && hasBoth ? balanceRatio(resTeam.A, resTeam.B) * (1 - unreachableRes / resPos.length) : (resPos.length ? 1 - unreachableRes / resPos.length : 1);
+  const isoScore = 1 - clamp(isolatedPct * 2, 0, 1);
+  const rushRatio = rushA != null && rushB != null ? balanceRatio(rushA, rushB) : 1;
+  // 3.7.0：健康度加入接敌距离平衡（连通 30 + 领地 25 + 接敌 15 + 资源 15 + 孤岛 15）
+  const score = Math.round(100 * (0.30 * connScore + 0.25 * terrScore + 0.15 * rushRatio + 0.15 * resScore + 0.15 * isoScore));
+  const result = {
+    sig, rows, cols, n: spawns.length, teams, score,
+    conn: { groups, stuck, allConnected, teamsApart, isolatedPct, passableTotal, estimated: g1.estimated, source: g1.source, scale: g1.scale },
+    rush: { list: rushList, avgA: rushA, avgB: rushB, ratio: rushRatio, closest, front },
+    terr: { grid: g2, owner, dist, counts, share, owned, unreachedPct: passable2 ? unreached2 / passable2 : 0, ratio: terrScore },
+    res: { total: resPos.length, perSpawn, resDist, nearest: nearestRes, team: resTeam, unreachable: unreachableRes, ratio: balanceRatio(resTeam.A, resTeam.B) },
+    comp: { land: g1.landCells / g1.total, wall: g1.wallCells / g1.total, water: 1 - g1.landCells / g1.total },
+    hasBoth
+  };
+  if (s === S.snapshot) docCache = { sig, result };
+  return result;
+}
+const pct = v => `${(v * 100).toFixed(1)}%`;
+const levelOfRatio = r => r >= 0.9 ? 'ok' : r >= 0.75 ? 'warn' : 'bad';
+/** 体检结论列表：{ level: ok|warn|bad|info, title, detail, spawn? } */
+function doctorVerdicts(a) {
+  const out = [], pl = i => `玩家 ${i + 1}`;
+  const names = idx => idx.slice(0, 6).map(i => i + 1).join('、') + (idx.length > 6 ? ` 等 ${idx.length} 个` : '');
+  if (a.n === 0) { out.push({ level: 'warn', title: '还没有出生点', detail: '先「智能重新布置」或手动放置出生点，再进行体检。' }); }
+  else if (a.n < 2) out.push({ level: 'info', title: '只有 1 个出生点', detail: '至少需要 2 个出生点才能评估连通性与领地平衡。' });
+  if (a.n >= 2) {
+    const c = a.conn;
+    if (c.stuck.length) out.push({ level: 'bad', title: `${c.stuck.length} 个出生点不在可通行陆地上`, detail: `${names(c.stuck)} 号出生点落在水域或墙体内，单位无法行走。请移动它们。`, spawn: c.stuck[0] });
+    if (c.allConnected) out.push({ level: 'ok', title: '出生点之间陆路相通', detail: `全部 ${a.n} 个出生点位于同一块可通行陆地。${c.estimated ? '（未获取到墙体数据：按陆地估算，未计入悬崖）' : ''}` });
+    else if (c.teamsApart) out.push({ level: 'warn', title: '两队被水域 / 墙体完全隔开', detail: `共 ${c.groups.length} 块互不相连的陆地，每块只有同一队伍的出生点。这是岛屿图的典型布局，地面部队需要海空力量才能交战。`, spawn: c.groups.find(g => g.comp > 0)?.spawns[0] });
+    else if (c.groups.filter(g => g.comp > 0).length > 1) {
+      const minor = c.groups.filter(g => g.comp > 0).slice(1);
+      out.push({ level: 'bad', title: `出生点被分隔成 ${c.groups.filter(g => g.comp > 0).length} 块`, detail: `${minor.map(g => names(g.spawns)).join(' ｜ ')} 号出生点与主陆地不相连，地面部队无法到达。可调低墙体、增加缺口，或移动出生点。`, spawn: minor[0].spawns[0] });
+    }
+    if (a.hasBoth) {
+      const lv = levelOfRatio(a.terr.ratio), A = a.terr.share.A / Math.max(1, a.terr.owned), B = a.terr.share.B / Math.max(1, a.terr.owned);
+      out.push({ level: lv, title: `领地 A ${pct(A)} ／ B ${pct(B)}`, detail: lv === 'ok' ? '按行走距离划分，双方可控制的地盘基本对等。' : `双方地盘相差较大（平衡度 ${Math.round(a.terr.ratio * 100)}%）。可开启「领地」图层查看分界，再调整出生点位置。` });
+    }
+    const R = a.rush;
+    if (a.hasBoth && R && R.closest >= 0 && R.avgA != null && R.avgB != null) {
+      const lv = levelOfRatio(R.ratio), c = R.closest, e = R.list[c].enemy;
+      out.push({ level: lv, title: `接敌距离 A 平均 ${Math.round(R.avgA)} ／ B 平均 ${Math.round(R.avgB)} 格`, detail: `${lv === 'ok' ? '双方到最近敌人的行走距离相当。' : `双方到最近敌人的行走距离差距较大（平衡度 ${Math.round(R.ratio * 100)}%），距离近的一方更容易被速攻。`}最近接敌：${pl(c)} ↔ ${e >= 0 ? pl(e) : '敌方'}，约 ${Math.round(R.list[c].d)} 格。按 L 显示路线。`, spawn: c });
+      if (R.front.length) out.push({ level: 'warn', title: `${R.front.length} 个出生点处在前线`, detail: `${names(R.front)} 号出生点离敌人明显比队友近（不到本队中位数的 55%），开局压力较大。`, spawn: R.front[0] });
+    }
+  }
+  if (a.res.total) {
+    if (a.res.unreachable) out.push({ level: 'warn', title: `${a.res.unreachable} 个资源点无人可达`, detail: '这些资源点与所有出生点都不在同一块可通行陆地上（或被墙体包围）。' });
+    if (a.hasBoth && a.res.total - a.res.unreachable > 0) {
+      const lv = levelOfRatio(a.res.ratio);
+      out.push({ level: lv, title: `资源分配 A ${a.res.team.A} ／ B ${a.res.team.B}`, detail: lv === 'ok' ? '按最近出生点归属，双方资源点数量均衡。' : '双方最近的资源点数量不均，建议开启对称或重新布置资源点。' });
+    }
+    // 3.6.0：用「到最近资源点的直线距离」判断偏远，而不是「领地内有无资源」（资源常位于双方之间的公共区域，领地内为空很正常）
+    const sorted = [...a.res.nearest].sort((x, y) => x - y), med = sorted[Math.floor(sorted.length / 2)] || 0, minDim = Math.min(a.rows, a.cols);
+    const far = a.res.nearest.map((d, i) => (a.n >= 3 && d > Math.max(med * 2, minDim * 0.22)) ? i : -1).filter(i => i >= 0);
+    if (far.length) out.push({ level: 'warn', title: `${far.length} 个出生点离资源点明显偏远`, detail: `${names(far)} 号出生点到最近资源点的距离是中位数的 2 倍以上，开局采集会比其他玩家慢。`, spawn: far[0] });
+  } else if (a.n >= 2) out.push({ level: 'info', title: '地图上没有资源点', detail: '如不是刻意设计，可在「分步编辑 ⑤」放置资源点。' });
+  // 3.9.0：近家资源点覆盖情况——与上面「偏远」检查的角度不同：那条看的是「最近一个资源点有多远」，
+  // 这条看的是「出生点周边 min~max 格的环带内，是否凑够了设置里要求的数量」，直接对应本功能的目标。
+  if (S.nearRes.enabled && a.n >= 1 && S.snapshot) {
+    const { min, max, perSpawn } = S.nearRes, sp = currentSpawns(), res = S.snapshot.resource_positions || [];
+    const short = [];
+    sp.forEach((q, i) => {
+      const n = res.filter(p => { const d = Math.hypot(p[0] - q[0], p[1] - q[1]); return d >= min && d <= max; }).length;
+      if (n < perSpawn) short.push(i);
+    });
+    if (short.length) out.push({ level: 'warn', title: `${short.length} 个出生点的近家资源不足 ${perSpawn} 个`, detail: `${names(short)} 号出生点周边 ${min}～${max} 格内的资源点数量不到设置值，多见于出生点贴边、周边可用陆地有限的情况。可点击「补齐近家资源」重新尝试，或调整近家资源的距离范围。`, spawn: short[0] });
+    else out.push({ level: 'ok', title: '近家资源点已达标', detail: `每个出生点周边 ${min}～${max} 格内都至少有 ${perSpawn} 个可用资源点。` });
+  }
+  if (a.conn.isolatedPct > 0.05) out.push({ level: a.conn.isolatedPct > 0.2 ? 'warn' : 'info', title: `${pct(a.conn.isolatedPct)} 的陆地是孤岛`, detail: '这部分陆地与所有出生点都不相连，只能通过空运 / 海运到达。' });
+  if (!out.some(v => v.level === 'bad' || v.level === 'warn') && a.n >= 2) out.push({ level: 'ok', title: '没有发现明显问题', detail: '连通性、领地与资源分配都在合理范围内。' });
+  return out;
+}
+const DOC_ICON = { ok: '✓', warn: '!', bad: '✕', info: 'i' };
+/** 3.7.0：每位玩家的接敌距离柱状图（点击柱子定位到该玩家） */
+function rushBarsHtml(a) {
+  const L = a.rush?.list || [];
+  if (!a.hasBoth || a.rush.closest < 0 || L.length > 50) return '';
+  const max = Math.max(1, ...L.map(r => Number.isFinite(r.d) ? r.d : 0));
+  const bars = L.map((r, i) => { const ok = Number.isFinite(r.d); return `<i class="team-${a.teams[i]}${ok ? '' : ' none'}${a.rush.front.includes(i) ? ' front' : ''}" style="--h:${ok ? Math.max(5, r.d / max * 100) : 100}%;--d:${Math.min(i, 30) * 16}ms" data-spawn="${i}" title="玩家 ${i + 1}：${ok ? `${Math.round(r.d)} 格` : '无法到达敌人'}"></i>`; }).join('');
+  return `<div class="doc-rush"><div class="doc-rush-head"><b>接敌距离</b><small>每位玩家走到最近敌人的距离 · 最长 ${Math.round(max)} 格 · 点击柱子定位</small></div><div class="doc-rush-bars">${bars}</div></div>`;
+}
+function doctorHtml(a, verdicts) {
+  const lv = a.score >= 80 ? 'good' : a.score >= 60 ? 'warn' : 'bad';
+  const nb = verdicts.filter(v => v.level === 'bad').length, nw = verdicts.filter(v => v.level === 'warn').length, no = verdicts.filter(v => v.level === 'ok').length;
+  const A = a.hasBoth && a.terr.owned ? a.terr.share.A / a.terr.owned : 0.5, B = a.hasBoth && a.terr.owned ? a.terr.share.B / a.terr.owned : 0.5;
+  const items = verdicts.map((v, i) => `<li class="v-${v.level}${v.spawn !== undefined ? ' has-spawn' : ''}" style="--d:${Math.min(i, 12) * 55}ms"${v.spawn !== undefined ? ` data-spawn="${v.spawn}" title="点击定位到玩家 ${v.spawn + 1}"` : ''}><i aria-hidden="true">${DOC_ICON[v.level]}</i><div><b>${escapeHtml(v.title)}</b><small>${escapeHtml(v.detail)}</small></div></li>`).join('');
+  return `<div class="doc-head">
+      <div class="doc-ring" data-level="${lv}"><svg viewBox="0 0 36 36" aria-hidden="true"><circle class="doc-ring-bg" cx="18" cy="18" r="15.5"/><circle id="docRing" class="doc-ring-arc" cx="18" cy="18" r="15.5" pathLength="100" style="stroke-dasharray:0 100"/></svg><b id="docScore" data-v="0">0</b><small>健康度</small></div>
+      <div class="doc-sum"><b>${a.n} 个出生点 · ${a.rows}×${a.cols}${a.res.total ? ` · ${a.res.total} 个资源点` : ''}</b>
+        <span class="doc-chips"><em class="c-ok">${no} 通过</em><em class="c-warn">${nw} 提醒</em><em class="c-bad">${nb} 问题</em></span>
+        <small>${a.conn.estimated ? '暂无悬崖数据（多边形分层编辑中）：按陆地估算，完成地图后可精确体检' : a.conn.source === 'tmx' ? '按陆地 + TMX 悬崖瓦片精确计算' : '按陆地 + 画笔墙体计算，缺口可通行'}${a.conn.scale > 1 ? ` · 网格 1:${a.conn.scale}` : ''}</small></div>
+    </div>
+    ${rushBarsHtml(a)}
+    ${a.hasBoth ? `<div class="doc-split" aria-label="领地分布"><span class="lab a">A 队 ${pct(A)}</span><div class="doc-bar"><i class="a" id="docBarA" style="width:50%"></i><i class="b" id="docBarB" style="width:50%"></i></div><span class="lab b">${pct(B)} B 队</span></div>` : ''}
+    <ul class="doc-list">${items}</ul>
+    <div class="doc-tiles"><div><b>${pct(a.comp.land)}</b><small>陆地</small></div><div><b>${pct(a.comp.water)}</b><small>水域</small></div><div><b>${pct(a.comp.wall)}</b><small>墙体</small></div><div><b>${pct(a.conn.isolatedPct)}</b><small>孤岛</small></div></div>`;
+}
+async function showMapDoctor() {
+  if (!S.snapshot) { toast('请先生成或导入地图', 'warn'); return; }
+  if (!guard()) return;
+  let a;
+  S.locked = true;
+  try { busy(true, '正在体检地图…', '', null, { cancellable: false }); await nextFrame(); a = analyzeMap(); }
+  catch (e) { console.error(e); toast('地图体检失败：' + e.message, 'error'); }
+  finally { busy(false); S.locked = false; }
+  if (!a) return;
+  const verdicts = doctorVerdicts(a);
+  const terrOn = S.layers.territory;
+  const p = uiChoice('地图体检', doctorHtml(a, verdicts), [
+    { key: 'report', label: '复制体检报告', className: 'report-action' },
+    { key: 'routes', label: S.layers.routes ? '隐藏路线' : '显示路线' },
+    { key: 'terr', label: terrOn ? '隐藏领地图' : '显示领地图' },
+    { key: 'ok', label: '知道了', primary: true }
+  ], { wide: true, tone: verdicts.some(v => v.level === 'bad') ? 'danger' : 'info' });
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    const ring = $('docRing'); if (ring) ring.style.strokeDasharray = `${a.score} 100`;
+    const sc = $('docScore'); if (sc) animateNumber(sc, a.score);
+    if (a.hasBoth && a.terr.owned) {
+      const A = a.terr.share.A / a.terr.owned, B = a.terr.share.B / a.terr.owned;
+      const ea = $('docBarA'), eb = $('docBarB');
+      if (ea && eb) { ea.style.width = `${A * 100}%`; eb.style.width = `${B * 100}%`; }
+    }
+    $('modalBody').querySelectorAll('[data-spawn]').forEach(li => { li.onclick = () => { closeModal('cancel'); selectSpawn(Number(li.dataset.spawn), true); }; });
+  }));
+  const k = await p;
+  if (k === 'report') {
+    const sev = { bad: '问题', warn: '提醒', ok: '通过', info: '信息' };
+    const report = [
+      `TMX MapForge 地图体检报告 v${APP_VERSION}`,
+      `生成时间：${new Date().toLocaleString()}`,
+      `地图尺寸：${a.cols} × ${a.rows}`,
+      `出生点：${a.n}；资源点：${a.res.total}`,
+      `健康度：${a.score}/100`,
+      `陆地：${pct(a.comp.land)}；水域：${pct(a.comp.water)}；墙体：${pct(a.comp.wall)}；孤岛：${pct(a.conn.isolatedPct)}`,
+      '', '检查结果：',
+      ...verdicts.map((v, i) => `${i + 1}. [${sev[v.level] || v.level}] ${v.title}\n   ${v.detail}`),
+      '', '说明：体检分数是地图布局辅助指标，不代表所有游戏版本、模组或实战策略下的绝对平衡。'
+    ].join('\n');
+    try {
+      if (navigator.clipboard?.writeText && window.isSecureContext) await navigator.clipboard.writeText(report);
+      else {
+        const ta = document.createElement('textarea'); ta.value = report; ta.setAttribute('readonly', '');
+        ta.style.cssText = 'position:fixed;left:-9999px;top:0;opacity:0'; document.body.appendChild(ta); ta.select();
+        const ok = document.execCommand('copy'); ta.remove(); if (!ok) throw new Error('当前 WebView 不允许复制');
+      }
+      toast('体检报告已复制，可粘贴到备忘录或反馈问题', 'success', 3600);
+    } catch (e) {
+      console.warn('复制体检报告失败', e);
+      toast('复制失败：请检查系统剪贴板权限后重试', 'warn', 3600);
+    }
+  }
+  if (k === 'terr') setTerritoryLayer(!S.layers.territory);
+  if (k === 'routes') setRoutesLayer(!S.layers.routes);
+}
+/* 领地图层：按出生点归属着色（A 蓝 / B 红），分界线加亮，孤岛陆地标橙色 */
+let terrCache = null, terrTimer = 0, terrFade = 0;
+/* 3.18.0：图层开关 chip 采用 role="switch"，切换后需同步 aria-checked，读屏才能播报当前开/关状态 */
+function syncLayerAria(id) {
+  const el = $(id); if (el) el.setAttribute('aria-checked', String(el.classList.contains('active')));
+}
+function setTerritoryLayer(on) {
+  S.layers.territory = !!on;
+  $('layerTerritory')?.classList.toggle('active', S.layers.territory);
+  syncLayerAria('layerTerritory');
+  $('mapPanel')?.classList.toggle('terr-on', S.layers.territory);
+  if (on) { terrFade = performance.now(); if (!S.snapshot) toast('生成地图后即可查看领地分布', 'info'); }
+  scheduleRender();
+}
+function buildTerritoryNow() {
+  const sig = analysisSig(), snap = snapId(S.snapshot);
+  let canvas = null;
+  try {
+    const a = analyzeMap();
+    if (a && a.n >= 1) {
+      const { grid: g, owner } = a.terr, W = g.cols, H = g.rows;
+      canvas = document.createElement('canvas'); canvas.width = W; canvas.height = H;
+      const ctx = canvas.getContext('2d'), img = ctx.createImageData(W, H), d = img.data;
+      const col = { A: [75, 138, 255], B: [255, 107, 107] };
+      for (let i = 0; i < owner.length; i++) {
+        const o = owner[i], k = i * 4;
+        if (o < 0) { if (g.mask[i]) { d[k] = 255; d[k + 1] = 189; d[k + 2] = 90; d[k + 3] = 92; } continue; }
+        const c = col[a.teams[o]] || col.A;
+        const x = i % W, y = (i / W) | 0;
+        const edge = (x < W - 1 && owner[i + 1] >= 0 && owner[i + 1] !== o) || (y < H - 1 && owner[i + W] >= 0 && owner[i + W] !== o);
+        d[k] = c[0]; d[k + 1] = c[1]; d[k + 2] = c[2]; d[k + 3] = edge ? 240 : (o % 2 ? 84 : 108);
+      }
+      ctx.putImageData(img, 0, 0);
+      canvas._grid = g;
+    }
+  } catch (e) { console.error('领地图层生成失败', e); }
+  terrCache = { sig, snap, canvas };
+}
+function drawTerritory(ctx, rows, cols, fadeK) {
+  if (!S.layers.territory || !S.snapshot) return false;
+  const snap = snapId(S.snapshot), sig = analysisSig();
+  if (!terrCache || terrCache.snap !== snap) buildTerritoryNow();            // 新地图：同步生成一次
+  else if (terrCache.sig !== sig) {                                           // 仅出生点变化：防抖重算，期间先显示旧图
+    clearTimeout(terrTimer);
+    terrTimer = setTimeout(() => { buildTerritoryNow(); scheduleRender(); }, 90);
+  }
+  const cv = terrCache?.canvas; if (!cv) return false;
+  const g = cv._grid, k = clamp((performance.now() - terrFade) / 420, 0, 1), z = S.view.zoom;
+  ctx.save(); ctx.globalAlpha = (0.35 + 0.65 * k) * fadeK; ctx.imageSmoothingEnabled = false;
+  // 3.7.0 修复：网格比例不能整除地图尺寸时（如 1000 列 / 1:3），领地图会画出地图右 / 下边界 1～2 格
+  ctx.beginPath(); ctx.rect(S.view.x, S.view.y, cols * z, rows * z); ctx.clip();
+  ctx.drawImage(cv, S.view.x, S.view.y, g.cols * g.scale * z, g.rows * g.scale * z);
+  ctx.restore();
+  return k < 1;
+}
+
+/* ------------------------------------------------------------------ 体检精确化（3.7.0 新增）：从 TMX 读取悬崖 / 水域瓦片
+ * 3.6.0 的体检在没有画笔墙体数据时（导入地图、快速生成、多边形分层）一律「按陆地估算」。实际上 TMX 里的悬崖都是
+ * 带 cliff / large-cliff 属性（或属于名为 *cliff* 的瓦片集）的瓦片，水域瓦片带 water 属性。这里逐层（Units 除外）读取：
+ *   cliff[i] = 1  该格任一图层是悬崖瓦片（不可通行）；water[i] = 1  该格是水域瓦片。
+ * 结果挂在快照上（matrices.cliff_mask），体检 / 领地 / 路线 / 出生点合法性 / 墙体图层 / 小地图都会使用。 */
+const CLIFF_PROP_RE = /^(cliff|large-cliff|solid|impassable)$/i;
+function tilePropIndex(xmlHead) {
+  const blocked = new Set(), water = new Set(), ranges = [];
+  for (const ts of parseTilesets(xmlHead)) {
+    if (/cliff/i.test(ts.name) && ts.tilecount) ranges.push([ts.firstgid, ts.firstgid + ts.tilecount]);
+    for (const [id, p] of ts.tiles) {
+      const keys = Object.keys(p);
+      if (keys.some(k => CLIFF_PROP_RE.test(k))) blocked.add(ts.firstgid + id);
+      if (keys.some(k => /^water$/i.test(k))) water.add(ts.firstgid + id);
+    }
+  }
+  const memo = new Map();
+  return g => {
+    let v = memo.get(g);
+    if (v === undefined) { v = (blocked.has(g) || ranges.some(([a, b]) => g >= a && g < b) ? 1 : 0) | (water.has(g) ? 2 : 0); memo.set(g, v); }
+    return v;
+  };
+}
+async function tmxTerrainMasks(bytes) {
+  const xml = typeof bytes === 'string' ? bytes : new TextDecoder().decode(bytes);
+  const mt = xml.match(/<map\b[^>]*>/); if (!mt) return null;
+  const ma = xmlAttrs(mt[0]), rows = Number(ma.height), cols = Number(ma.width);
+  if (!rows || !cols) return null;
+  const flagOf = tilePropIndex(tmxHeadXml(xml)), n = rows * cols;
+  const cliff = new Uint8Array(n), water = new Uint8Array(n);
+  let nCliff = 0, nWater = 0;
+  const re = /<layer\b([^>]*)>\s*(?:<properties>[\s\S]*?<\/properties>\s*)?<data\b([^>]*)>([\s\S]*?)<\/data>/g;
+  for (const m of xml.matchAll(re)) {
+    if (/^units$/i.test(xmlAttrs(m[1]).name || '') || /<chunk/.test(m[3])) continue;
+    const d = await decodeLayerData(xmlAttrs(m[2]), m[3].trim(), n);
+    for (let i = 0; i < n; i++) {
+      const g = d[i] & 0x1fffffff; if (!g) continue;
+      const f = flagOf(g); if (!f) continue;
+      if ((f & 1) && !cliff[i]) { cliff[i] = 1; nCliff++; }
+      if ((f & 2) && !water[i]) { water[i] = 1; nWater++; }
+    }
+  }
+  return { rows, cols, cliff, water, nCliff, nWater };
+}
+/** 生成 / 完成地图后异步读取 TMX 悬崖，挂到对应快照（快照被替换后结果仍挂在原快照上，不影响新地图） */
+function attachCliffMask(snap, tmx) {
+  if (!snap?.matrices || !tmx?.length) return;
+  tmxTerrainMasks(tmx).then(mk => {
+    if (!mk) return;
+    const [r, c] = dimsOf(snap);
+    if (mk.rows !== r || mk.cols !== c) return;
+    snap.matrices.cliff_mask = { shape: [r, c], data: mk.cliff, count: mk.nCliff };
+    if (snap === S.snapshot) scheduleRender();
+  }).catch(e => console.warn('读取 TMX 悬崖失败', e));
+}
+
+/* ------------------------------------------------------------------ 接敌路线图层（3.7.0 新增，快捷键 L）
+ * 把体检里「每个出生点到最近敌人」的最短行走路径画在地图上：线色 = 出发方队伍，虚线流动表示行进方向。
+ * 镜像地图中 A→B 与 B→A 往往是同一条路，只画一次。选中出生点时只高亮它自己的路线并标出距离。 */
+let routeCache = null, routeTimer = 0;
+function setRoutesLayer(on) {
+  S.layers.routes = !!on;
+  $('layerRoutes')?.classList.toggle('active', S.layers.routes);
+  syncLayerAria('layerRoutes');
+  $('mapPanel')?.classList.toggle('routes-on', S.layers.routes);
+  if (on && S.snapshot) {
+    const a = (() => { try { return analyzeMap(); } catch { return null; } })();
+    if (!a?.hasBoth) toast('需要两支队伍都有出生点才能计算接敌路线', 'info');
+  } else if (on) toast('生成地图后即可查看接敌路线', 'info');
+  scheduleRender();
+}
+function simplifyPath(g, path) {
+  const out = [], cols = g.cols, half = g.scale / 2 - 0.5;
+  let pdx = 0, pdy = 0;
+  for (let i = 0; i < path.length; i++) {
+    const y = (path[i] / cols) | 0, x = path[i] - y * cols;
+    if (i > 0 && i < path.length - 1) {
+      const ny = (path[i + 1] / cols) | 0, nx = path[i + 1] - ny * cols, dx = nx - x, dy = ny - y;
+      if (dx === pdx && dy === pdy) continue;
+      pdx = dx; pdy = dy;
+    } else if (i === 0 && path.length > 1) { const ny = (path[1] / cols) | 0; pdx = path[1] - ny * cols - x; pdy = ny - y; }
+    out.push([y * g.scale + half, x * g.scale + half]);
+  }
+  return out;
+}
+function buildRoutesNow() {
+  const sig = analysisSig(), snap = snapId(S.snapshot), routes = [];
+  try {
+    const a = analyzeMap();
+    if (a?.hasBoth) {
+      const g = a.terr.grid, seen = new Set();
+      a.rush.list.forEach((r, i) => {
+        if (!r.path || r.path.length < 2) return;
+        const key = r.enemy >= 0 ? `${Math.min(i, r.enemy)}-${Math.max(i, r.enemy)}` : `x${i}`;
+        routes.push({ i, enemy: r.enemy, d: r.d, team: a.teams[i], dup: seen.has(key), pts: simplifyPath(g, r.path) });
+        seen.add(key);
+      });
+    }
+  } catch (e) { console.error('接敌路线计算失败', e); }
+  routeCache = { sig, snap, routes };
+}
+function drawRoutes(ctx, now) {
+  if (!S.snapshot) return;
+  const snap = snapId(S.snapshot), sig = analysisSig();
+  if (!routeCache || routeCache.snap !== snap) buildRoutesNow();
+  else if (routeCache.sig !== sig) { clearTimeout(routeTimer); routeTimer = setTimeout(() => { buildRoutesNow(); scheduleRender(); }, 90); }
+  const rs = routeCache?.routes || []; if (!rs.length) return;
+  const sel = S.selectedSpawn, z = S.view.zoom, w = clamp(z * 0.5, 1.6, 4);
+  const off = S.animate ? -(now / 28) % 16 : 0;
+  ctx.save(); ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  const line = r => { ctx.beginPath(); r.pts.forEach(([rr, cc], k) => { const [x, y] = toScreen(rr, cc); k ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }); };
+  for (const r of rs) {
+    const focus = sel >= 0 ? r.i === sel : !r.dup;
+    if (!focus && (sel < 0 || r.dup)) continue;
+    const col = TEAM_COLORS[r.team] || '#fff';
+    ctx.globalAlpha = sel >= 0 && !focus ? 0.22 : 1;
+    line(r); ctx.strokeStyle = 'rgba(0,0,0,.45)'; ctx.lineWidth = w + 3; ctx.setLineDash([]); ctx.stroke();
+    line(r); ctx.strokeStyle = col; ctx.lineWidth = w; ctx.setLineDash([w * 3.2, w * 2.2]); ctx.lineDashOffset = off; ctx.stroke();
+  }
+  ctx.setLineDash([]); ctx.globalAlpha = 1;
+  const lab = sel >= 0 ? rs.find(r => r.i === sel) : null;
+  if (lab && lab.pts.length) {
+    const [rr, cc] = lab.pts[Math.floor(lab.pts.length / 2)], [x, y] = toScreen(rr, cc), t = `${Math.round(lab.d)} 格`;
+    ctx.font = '700 11px system-ui,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    const tw = ctx.measureText(t).width + 12;
+    ctx.fillStyle = 'rgba(10,16,28,.88)'; ctx.strokeStyle = TEAM_COLORS[lab.team]; ctx.lineWidth = 1.2;
+    ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(x - tw / 2, y - 10, tw, 20, 10); else ctx.rect(x - tw / 2, y - 10, tw, 20); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#fff'; ctx.fillText(t, x, y + 0.5);
+  }
+  ctx.restore();
+}
+
+/* ------------------------------------------------------------------ 择优生成（3.7.0 新增，Ctrl+Shift+Enter）
+ * 做图时最常见的操作是「不满意 → 再生成一次」，一张张比较既慢又容易错过更好的那张。
+ * 这里一次生成 N 张候选（每张都走与「生成地图」相同的出生点智能布局），逐张自动体检，按
+ * 综合分 = 健康度 55% + 出生点公平度 45% 排序，以缩略图并排展示，点选一张即可采用。
+ * 在用户采用之前当前地图保持不变；采用时先备份当前地图（可「找回上一张」）。
+ * 限制：只有最后生成的那张与引擎内部状态一致，选中其他候选时地形分步编辑不可用（出生点编辑 / 导出不受影响）。 */
+const BEST_KEY = 'tmx_bestof_n', BEST_MAX_AREA = 400 * 400;
+let bestOfN = (() => { try { return clamp(Number(localStorage.getItem(BEST_KEY)) || 4, 2, 8); } catch { return 4; } })();
+function updateBestLabel() { const el = $('bestOfLabel'); if (el) el.textContent = `择优 ×${bestOfN}`; }
+/** 在候选快照上临时执行出生点布局 / 体检 / 缩略图（这些函数都读取全局 S），结束后完整恢复当前地图状态 */
+function sandbox(s, fn) {
+  const keep = { snapshot: S.snapshot, auth: S.spawnAuthority, teams: S.teamOverrides, opt: S.lastOptimized, sel: S.selectedSpawn, pop: new Map(spawnPop) };
+  S.snapshot = s; S.teamOverrides = new Map(); S.selectedSpawn = -1;
+  try { return fn(); }
+  finally {
+    S.snapshot = keep.snapshot; S.spawnAuthority = keep.auth; S.teamOverrides = keep.teams; S.lastOptimized = keep.opt; S.selectedSpawn = keep.sel;
+    spawnPop.clear(); keep.pop.forEach((v, k) => spawnPop.set(k, v));
+  }
+}
+function buildCandidate(r, idx) {
+  const s = r?.snapshot; if (!s || !r.tmx_bytes?.length) return null;
+  r.quick_frames = null; r.frames = null;
+  return sandbox(s, () => {
+    applySpawnPolicy(s, 'quick_generate');
+    const spawns = currentSpawns();
+    // 3.9.0：择优生成的每张候选也要计入近家资源点，否则「资源分配」体检分与实际导出结果对不上，
+    // 排序/推荐也会偏向「候选阶段看似资源够、采用后才自动补点」的方案。规划是同步的，sandbox 内可直接调用；
+    // 实际写入 TMX 的异步修补延后到 adoptCandidate（只对用户最终选中的那一张做，其余候选直接丢弃不必浪费工作量）。
+    const near = planNearSpawnResources(s, spawns);
+    const a = analyzeMap(s, spawns), f = spawnFairness(spawns, s);
+    const cv = drawExportPng(240, 'dots');
+    const health = a?.score ?? 0;
+    return {
+      idx, snap: s, tmx: r.tmx_bytes, spawns, health, fair: f.score || 0, score: Math.round(health * 0.55 + (f.score || 0) * 0.45),
+      sum: { conn: !a || a.n < 2 || a.conn.allConnected || a.conn.teamsApart, rush: a?.rush?.ratio ?? 1, terr: a?.terr?.ratio ?? 1, land: a?.comp?.land ?? 0 },
+      thumb: cv ? cv.toDataURL('image/png') : '', epoch: S.engineEpoch, shapeSeed: r.shapeSeed ?? null, shapeStats: r.shapeStats || null,
+      nearResAdded: near.added.map(x => x.p)
+    };
+  });
+}
+function clearBusyThumbs() { const b = $('busyThumbs'); if (b) { b.innerHTML = ''; b.hidden = true; } }
+function addBusyThumb(c) {
+  const b = $('busyThumbs'); if (!b || !c.thumb) return;
+  b.hidden = false;
+  const el = document.createElement('span'); el.className = 'busy-thumb';
+  el.innerHTML = `<img src="${c.thumb}" alt=""><b>${c.score}</b>`;
+  b.appendChild(el);
+}
+async function generateBestOf() {
+  if (!guard()) return;
+  normalizeParamInputs();
+  const p = params(), area = p.width * p.height;
+  if (area > BEST_MAX_AREA) { toast(`择优生成适用于 400×400 以内的地图（当前 ${p.width}×${p.height}），大地图请直接「生成地图」`, 'warn', 4800); return; }
+  const n = clamp(bestOfN, 2, area > 256 * 256 ? 4 : 8);
+  const cands = [];
+  let cancelled = false;
+  await locked(async () => {
+    stopAnimation();
+    const bp = await blueprint();
+    clearBusyThumbs();
+    const useShape = shapeActive(), seed0 = useShape ? shapeSeed() : 0;
+    for (let i = 0; i < n; i++) {
+      busy(true, `正在择优生成 ${i + 1}/${n}…`, useShape ? `「${shapeMeta(shapeState.id).label}」形态 · 每张候选地图都会自动体检评分` : '每张候选地图都会自动体检评分', Math.round(i / n * 100));
+      let r;
+      try { r = useShape ? await shapeCandidateRaw(p, i === 0 ? seed0 : randSeed(), bp) : await Engine.call('quick_generate', { ...p, blueprintXml: bp }); }
+      catch (e) {
+        if (e.cancelled) { cancelled = true; break; }
+        if (useShape) { console.warn('候选生成失败', e); continue; }
+        try { await Engine.ready; r = await Engine.call('quick_generate', { ...p, numPlayers: 0, blueprintXml: bp }); } // 与「生成地图」相同的引擎布点失败兜底
+        catch (e2) { if (e2.cancelled) { cancelled = true; break; } console.warn('候选生成失败', e2); continue; }
+      }
+      await nextFrame();
+      const c = buildCandidate(r, i);
+      if (c) { cands.push(c); addBusyThumb(c); }
+    }
+    if (cands.length) {
+      busy(true, cancelled ? '已取消，整理已生成的方案…' : '正在排序候选方案…', '', 100, { cancellable: false });
+      await sleep(420);
+      if (S.source === 'engine') S.snapshotEpoch = -1; // 引擎状态已被候选覆盖：当前地图不能再做地形分步编辑
+    }
+    busy(false);
+  });
+  if (!cands.length) { if (!cancelled) toast('没有生成成功的候选方案', 'error'); return; }
+  await showCandidates(cands, cancelled);
+}
+async function showCandidates(cands, cancelled) {
+  const ranked = [...cands].sort((a, b) => b.score - a.score || b.health - a.health);
+  let pick = ranked[0];
+  const card = (c, rank) => `<button type="button" class="cand${rank === 0 ? ' selected best' : ''}" data-i="${c.idx}" style="--d:${rank * 70}ms" aria-label="方案 ${rank + 1}，综合 ${c.score}">
+      <span class="cand-img"><img src="${c.thumb}" alt=""></span>
+      <span class="cand-rank">${rank === 0 ? '★ 推荐' : '#' + (rank + 1)}</span>
+      <span class="cand-score"><b>${c.score}</b><small>综合</small></span>
+      <span class="cand-meta"><em>体检 ${c.health}</em><em>公平 ${c.fair}</em><em>${c.spawns.length} 人</em>${c.shapeSeed != null ? `<em>种子 ${c.shapeSeed}</em>` : ''}${c.sum.rush < 0.9 ? `<em class="warn">接敌 ${Math.round(c.sum.rush * 100)}%</em>` : ''}${c.sum.conn ? '' : '<em class="bad">不连通</em>'}</span>
+    </button>`;
+  const opts = [2, 3, 4, 6, 8].map(v => `<option value="${v}"${v === bestOfN ? ' selected' : ''}>${v} 张</option>`).join('');
+  const body = `<p class="help-p">${cancelled ? '已取消，' : ''}共 ${cands.length} 张候选地图，按<b>综合分</b>（体检健康度 55% + 出生点公平度 45%）排序。点选一张后「采用」；当前地图会先备份，可在「项目 / 恢复」找回。双击缩略图可直接采用。</p>
+    <div class="cand-grid">${ranked.map(card).join('')}</div>
+    <div class="cand-tools"><label class="cand-n"><span>每次择优生成</span><select id="candN" aria-label="每次择优生成的候选数量">${opts}</select></label>
+      <button type="button" id="candExport" class="cand-export" title="把这 ${cands.length} 张候选各自的 TMX + 小地图打包成一个 ZIP，方便一次拿走、之后慢慢挑">导出全部 ${cands.length} 张 ZIP</button></div>`;
+  const p = uiChoice('择优生成 · 挑一张', body, [{ key: 'cancel', label: S.snapshot ? '保留当前地图' : '都不要' }, { key: 'ok', label: '采用所选', primary: true }], { wide: true });
+  requestAnimationFrame(() => {
+    const box = $('modalBody');
+    box.querySelectorAll('.cand').forEach(el => {
+      const c = cands.find(x => x.idx === Number(el.dataset.i));
+      el.onclick = () => { box.querySelectorAll('.cand').forEach(x => x.classList.toggle('selected', x === el)); pick = c; };
+      el.ondblclick = () => { pick = c; closeModal('ok'); };
+    });
+    const ex = $('candExport');
+    if (ex) ex.onclick = () => exportCandidatesZip(ranked, ex);
+    const sel = $('candN');
+    if (sel) sel.onchange = () => { bestOfN = clamp(Number(sel.value) || 4, 2, 8); try { localStorage.setItem(BEST_KEY, String(bestOfN)); } catch { /* ignore */ } updateBestLabel(); };
+  });
+  const k = await p;
+  if (k !== 'ok' || !pick) { toast(S.snapshot ? '已保留当前地图，候选方案已丢弃' : '未采用候选方案'); return; }
+  const last = cands[cands.length - 1];
+  await adoptCandidate(pick, pick === last && !cancelled && pick.epoch === S.engineEpoch);
+}
+/* ------------------------------------------------------------------ 导出全部候选（3.14.0 新增）
+ * 择优生成一次出 N 张图，过去只能采用其中一张，其余随弹窗关闭而丢弃。做地图包 / 想拿回去慢慢比较时很可惜。
+ * 现在可把全部候选各自的 TMX + 同名小地图 + 说明打包成一个 ZIP：每张候选单独补写自己的近家资源点与出生点（与「采用」走同一套补丁，
+ * 不改动候选本身，之后仍可正常采用），小地图在沙箱里按各自快照绘制，不会影响当前画布。 */
+async function candidateTmx(c) {
+  let tmx = c.tmx;
+  if (c.nearResAdded?.length) { try { const r = await patchTmxItems(tmx, c.nearResAdded); if (r.changed) tmx = r.tmx; } catch (e) { console.warn('候选写入近家资源点失败', e); } }
+  try { const r = await patchTmxUnits(tmx, c.spawns); if (r.changed) tmx = r.tmx; } catch (e) { console.warn('候选写入出生点失败', e); }
+  return tmx;
+}
+async function candidatePng(c) {
+  let maxDim = PNG_MAX_DIM;
+  for (let step = 0; step < 14; step++) {
+    const cv = sandbox(c.snap, () => drawExportPng(maxDim, mapPngStyle()));
+    if (!cv) return null;
+    const blob = await canvasToPng(cv);
+    if (blob && blob.size <= PNG_MAX_BYTES) return new Uint8Array(await blob.arrayBuffer());
+    maxDim = Math.max(96, Math.floor(maxDim * 0.92));
+  }
+  return null;
+}
+async function exportCandidatesZip(ranked, btn) {
+  if (btn?.disabled) return;
+  const label = btn?.textContent;
+  if (btn) btn.disabled = true;
+  try {
+    const stampStr = stamp(), custom = sanitizeName($('mapName').value), entries = [], lines = [];
+    for (let i = 0; i < ranked.length; i++) {
+      const c = ranked[i];
+      if (btn) btn.textContent = `打包中 ${i + 1}/${ranked.length}…`;
+      await nextFrame();
+      const base = `${custom || `[p${c.spawns.length}]铁锈地图_${stampStr}`}_方案${i + 1}`;
+      entries.push({ name: `${base}.tmx`, data: await candidateTmx(c) });
+      const png = await candidatePng(c);
+      if (png) entries.push({ name: `${base}_map.png`, data: png });
+      const [rr, cc] = dimsOf(c.snap);
+      lines.push(`方案 ${i + 1}${i === 0 ? '（推荐）' : ''}：${base}.tmx　${cc}×${rr}　出生点 ${c.spawns.length}　资源点 ${(c.snap.resource_positions || []).length}　综合 ${c.score}（体检 ${c.health} / 公平度 ${c.fair}）${c.shapeSeed != null ? `　形态种子 ${c.shapeSeed}` : ''}${c.sum.conn ? '' : '　⚠ 出生点陆路不连通'}`);
+    }
+    entries.push({ name: '候选说明.txt', data: new TextEncoder().encode(`铁锈战争地图生成器离线版 v${APP_VERSION} · 择优生成候选包\r\n导出时间：${new Date().toLocaleString()}\r\n排序依据：综合分 = 体检健康度 55% + 出生点公平度 45%\r\n\r\n${lines.join('\r\n')}\r\n`) });
+    if (btn) btn.textContent = '正在保存…';
+    beginShareBatch();
+    const r = await saveFile(zipStore(entries), `${custom || `铁锈地图_择优候选_${stampStr}`}.zip`, 'application/zip', ExportLoc.target());
+    if (r.desktop) window.DesktopBridge.savedToast(r, `已导出 ${ranked.length} 张候选：${r.name}`);
+    else toast(r.pending ? '等待存储权限授予后自动保存' : `已导出 ${ranked.length} 张候选${r.where ? `（${r.where}）` : ''}：${r.name || '候选包.zip'}`, 'success', 4200, r.pending ? {} : shareAction());
+  } catch (e) { toast('导出候选失败：' + e.message, 'error', 4200); }
+  finally { if (btn) { btn.disabled = false; btn.textContent = label; } }
+}
+async function adoptCandidate(c, editable) {
+  await locked(async () => {
+    const backedUp = await backupCurrent();
+    const prev = S.snapshot;
+    resetEditorState();
+    S.source = 'engine';
+    S.snapshotEpoch = editable ? S.engineEpoch : -1;
+    S.lastTmx = c.tmx; S.tmxDirty = false; S.unitsDirty = true; S.slotVerified = null;
+    // 3.9.0：c.snap.resource_positions 在 buildCandidate 阶段已经算过近家资源点，这里只需把同一批点补写进
+    // 这一张候选自己的 TMX（c.tmx）；没被选中的候选连同它们的 nearResAdded 一起丢弃，不做多余的 TMX 修补。
+    if (c.nearResAdded?.length) {
+      S.nearResKeys = new Set([...S.nearResKeys, ...c.nearResAdded.map(keyOf)]);
+      try { const r = await patchTmxItems(S.lastTmx, c.nearResAdded); if (r.changed) S.lastTmx = r.tmx; }
+      catch (e) { console.warn('择优生成：近家资源点写入 TMX 失败', e); }
+    }
+    setExportEnabled(true);
+    c.snap.cc_positions = c.spawns.map(p => [...p]);
+    S.spawnAuthority = c.spawns.map(p => [...p]);
+    markSpawnPop(c.spawns, true);
+    const [nr, nc] = dimsOf(c.snap), [or, oc] = prev ? dimsOf(prev) : [0, 0];
+    S.selectedSpawn = -1;
+    setSnapshot(c.snap, { fit: nr !== or || nc !== oc || !S.view.fitted, fade: true });
+    attachCliffMask(c.snap, c.tmx);
+    if (c.shapeSeed != null) afterShapeGenerated(c.shapeSeed, c.shapeStats);
+    updateDirtyNote(); queueAutoSave(); pulseMap();
+    pushHistorySnapshot('择优采用').catch(() => {}); // 3.11.0：择优采用也入历史
+    setStatus(`已采用择优方案（综合 ${c.score} · 体检 ${c.health} · 公平度 ${c.fair}）`);
+    toast(`已采用方案 · 综合分 ${c.score}${editable ? '' : ' · 如需地形分步编辑请重新生成'}`, 'success', 4400, backedUp ? { action: { label: '找回上一张', fn: () => restorePrevious() } } : {});
+  });
+}
+
+/* ------------------------------------------------------------------ 分享海报（3.7.0 新增）
+ * 导出一张适合发到群聊 / 论坛的竖版 PNG：地图（地形 + 悬崖 + 资源 + 带编号的出生点，可叠加领地）+ 标题 + 体检数据。
+ * 宽 1080px，高度随地图比例变化；所有绘制在本机 Canvas 完成。 */
+function fitText(ctx, text, maxW) {
+  if (ctx.measureText(text).width <= maxW) return text;
+  let t = text; while (t.length > 1 && ctx.measureText(t + '…').width > maxW) t = t.slice(0, -1);
+  return t + '…';
+}
+function roundRectPath(ctx, x, y, w, h, r) { ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(x, y, w, h, r); else ctx.rect(x, y, w, h); }
+function buildPoster() {
+  const s = S.snapshot, [rows, cols] = dims(); if (!s || !rows || !cols) return null;
+  let a = null; try { a = analyzeMap(); } catch { /* 体检失败时只画地图 */ }
+  const f = spawnFairness(), sp = currentSpawns(), res = s.resource_positions || [];
+  const W = 1080, pad = 54, maxSide = W - pad * 2;
+  const k = maxSide / Math.max(rows, cols), mw = Math.round(cols * k), mh = Math.round(rows * k);
+  const headH = 168, statH = a && a.n >= 2 ? 300 : 90, footH = 76, H = headH + mh + statH + footH;
+  const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const ctx = cv.getContext('2d'), FONT = 'system-ui,"Microsoft YaHei","PingFang SC","Noto Sans CJK SC",sans-serif';
+  const bg = ctx.createLinearGradient(0, 0, W, H); bg.addColorStop(0, '#0f2140'); bg.addColorStop(0.55, '#0a1528'); bg.addColorStop(1, '#060c18');
+  ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+  const glow = ctx.createRadialGradient(W * 0.86, 40, 10, W * 0.86, 40, 520); glow.addColorStop(0, 'rgba(75,138,255,.35)'); glow.addColorStop(1, 'rgba(75,138,255,0)');
+  ctx.fillStyle = glow; ctx.fillRect(0, 0, W, H);
+  const glow2 = ctx.createRadialGradient(80, H - 60, 10, 80, H - 60, 460); glow2.addColorStop(0, 'rgba(55,211,155,.20)'); glow2.addColorStop(1, 'rgba(55,211,155,0)');
+  ctx.fillStyle = glow2; ctx.fillRect(0, 0, W, H);
+  // 标题
+  const title = sanitizeName($('mapName').value) || '铁锈战争 · 自定义地图';
+  ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
+  ctx.fillStyle = '#ffd45c'; ctx.font = `800 20px ${FONT}`; ctx.fillText('RUSTED WARFARE MAP', pad, 62);
+  ctx.fillStyle = '#eef4ff'; ctx.font = `800 46px ${FONT}`; ctx.fillText(fitText(ctx, title, W - pad * 2), pad, 116);
+  ctx.fillStyle = '#9fb4d3'; ctx.font = `500 22px ${FONT}`;
+  ctx.fillText(`${cols} × ${rows} · ${sp.length} 个出生点 · ${res.length} 个资源点 · ${MIRROR_LABELS[s.meta?.mirroring] || '不对称'}`, pad, 150);
+  // 地图
+  const mx = Math.round((W - mw) / 2), my = headH;
+  ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.55)'; ctx.shadowBlur = 36; ctx.shadowOffsetY = 12;
+  roundRectPath(ctx, mx, my, mw, mh, 18); ctx.fillStyle = '#050b14'; ctx.fill(); ctx.restore();
+  ctx.save(); roundRectPath(ctx, mx, my, mw, mh, 18); ctx.clip(); ctx.imageSmoothingEnabled = false;
+  const base = baseCanvasFor(terrainMatrix() || getMatrix('id_matrix')); if (base) ctx.drawImage(base, mx, my, mw, mh);
+  const wall = wallLayerFor(); if (wall) ctx.drawImage(wall, mx, my, mw, mh);
+  if (S.layers.territory && terrCache?.canvas && terrCache.snap === snapId(s)) {
+    const g = terrCache.canvas._grid; ctx.globalAlpha = 0.5;
+    ctx.drawImage(terrCache.canvas, mx, my, g.cols * g.scale * k, g.rows * g.scale * k); ctx.globalAlpha = 1;
+  }
+  ctx.imageSmoothingEnabled = true;
+  const at = (r, c) => [mx + (c + 0.5) * k, my + (r + 0.5) * k];
+  const rr = clamp(Math.min(mw, mh) * 0.012, 4, 9);
+  for (const [r, c] of res) { const [x, y] = at(r, c); drawPngResource(ctx, x, y, rr); }
+  if (sp.length) {
+    const pts = sp.map(q => at(q[0], q[1]));
+    let R = clamp(Math.min(mw, mh) * 0.022, 7, 19), dMin = Infinity;
+    for (let i = 0; i < pts.length; i++) for (let j = i + 1; j < pts.length; j++) dMin = Math.min(dMin, Math.hypot(pts[i][0] - pts[j][0], pts[i][1] - pts[j][1]));
+    if (Number.isFinite(dMin)) R = clamp(Math.min(R, dMin * 0.48), 5, 19);
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    sp.forEach((q, i) => drawPngSpawn(ctx, pts[i][0], pts[i][1], R, teamOf(q, i), R >= 8 ? String(i + 1) : ''));
+  }
+  ctx.restore();
+  roundRectPath(ctx, mx + 0.5, my + 0.5, mw - 1, mh - 1, 18); ctx.strokeStyle = 'rgba(160,190,240,.35)'; ctx.lineWidth = 1.5; ctx.stroke();
+  // 数据区
+  let y0 = my + mh + 40;
+  ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+  if (a && a.n >= 2) {
+    const lvCol = a.score >= 80 ? '#55e6a5' : a.score >= 60 ? '#ffbd5a' : '#ff6b6b';
+    const cx = pad + 78, cy = y0 + 92, R = 70;
+    ctx.lineWidth = 14; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.strokeStyle = 'rgba(255,255,255,.10)'; ctx.stroke();
+    ctx.beginPath(); ctx.arc(cx, cy, R, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * a.score / 100); ctx.strokeStyle = lvCol; ctx.stroke();
+    ctx.textAlign = 'center'; ctx.fillStyle = '#fff'; ctx.font = `800 48px ${FONT}`; ctx.fillText(String(a.score), cx, cy + 12);
+    ctx.fillStyle = '#9fb4d3'; ctx.font = `600 17px ${FONT}`; ctx.fillText('体检健康度', cx, cy + R + 44);
+    const tiles = [
+      ['出生点公平度', `${f.score ?? 0}`, '/100'],
+      ['领地 A / B', a.hasBoth && a.terr.owned ? `${Math.round(a.terr.share.A / a.terr.owned * 100)} : ${Math.round(a.terr.share.B / a.terr.owned * 100)}` : '—', '%'],
+      ['接敌距离 A / B', a.rush?.avgA != null && a.rush?.avgB != null ? `${Math.round(a.rush.avgA)} / ${Math.round(a.rush.avgB)}` : '—', '格'],
+      ['资源 A / B', a.hasBoth ? `${a.res.team.A} / ${a.res.team.B}` : `${res.length}`, '个'],
+      ['陆路连通', a.conn.allConnected ? '全部连通' : a.conn.teamsApart ? '两岸隔开' : '存在隔断', ''],
+      ['地形', `陆地 ${Math.round(a.comp.land * 100)}%`, '']
+    ];
+    const tx0 = pad + 190, tw = (W - pad - tx0 - 24) / 3, th = 104;
+    tiles.forEach(([lab, val, unit], i) => {
+      const x = tx0 + (i % 3) * (tw + 12), y = y0 + Math.floor(i / 3) * (th + 12);
+      roundRectPath(ctx, x, y, tw, th, 16); ctx.fillStyle = 'rgba(255,255,255,.055)'; ctx.fill(); ctx.strokeStyle = 'rgba(160,190,240,.18)'; ctx.lineWidth = 1; ctx.stroke();
+      ctx.textAlign = 'left'; ctx.fillStyle = '#8ea5c6'; ctx.font = `600 16px ${FONT}`; ctx.fillText(lab, x + 18, y + 32);
+      ctx.fillStyle = '#f2f6ff'; ctx.font = `800 30px ${FONT}`; const v = fitText(ctx, val, tw - 60); ctx.fillText(v, x + 18, y + 76);
+      if (unit) { const vw = ctx.measureText(v).width; ctx.fillStyle = '#8ea5c6'; ctx.font = `600 16px ${FONT}`; ctx.fillText(unit, x + 24 + vw, y + 76); }
+    });
+    if (a.hasBoth && a.terr.owned) {
+      const by = y0 + 2 * (th + 12) + 14, bw = W - pad * 2, A = a.terr.share.A / a.terr.owned;
+      roundRectPath(ctx, pad, by, bw, 12, 6); ctx.fillStyle = TEAM_COLORS.B; ctx.fill();
+      roundRectPath(ctx, pad, by, Math.max(12, bw * A), 12, 6); ctx.fillStyle = TEAM_COLORS.A; ctx.fill();
+    }
+  }
+  ctx.textAlign = 'center'; ctx.fillStyle = '#6f86a6'; ctx.font = `500 17px ${FONT}`;
+  const d = new Date(), ds = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  ctx.fillText(`铁锈战争地图生成器 · TMX MapForge Offline v${APP_VERSION} · ${ds}`, W / 2, H - 32);
+  return cv;
+}
+async function showPoster() {
+  if (!S.snapshot) { toast('请先生成或导入地图', 'warn'); return; }
+  if (!guard()) return;
+  S.locked = true;
+  let cv = null, bytes = null;
+  try {
+    busy(true, '正在绘制分享海报…', '', null, { cancellable: false }); await nextFrame();
+    cv = buildPoster();
+    const blob = cv && await canvasToPng(cv);
+    bytes = blob ? new Uint8Array(await blob.arrayBuffer()) : null;
+  } catch (e) { console.error(e); toast('海报生成失败：' + e.message, 'error'); }
+  finally { busy(false); S.locked = false; }
+  if (!bytes) return;
+  const url = URL.createObjectURL(new Blob([bytes], { type: 'image/png' })), name = `${exportBaseName()}_poster.png`;
+  const k = await uiChoice('分享海报', `<div class="poster-preview"><img src="${url}" alt="分享海报预览"></div>
+    <div class="png-meta"><span>${cv.width} × ${cv.height}</span><span>${(bytes.length / 1024).toFixed(0)} KB</span><span>PNG</span></div>
+    <p class="help-p">适合发到群聊 / 论坛展示：包含地形、悬崖、带编号的出生点、资源点与体检数据。${S.layers.territory ? '已叠加领地图层。' : '先开启「领地」图层再生成，海报会同时显示双方领地。'}<br>文件名：<code>${escapeHtml(name)}</code></p>`,
+  [{ key: 'cancel', label: '关闭' }, { key: 'save', label: '保存海报', primary: true }], { wide: true });
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  if (k !== 'save') return;
+  await locked(async () => {
+    try {
+      beginShareBatch();
+      const r = await saveFile(bytes, name, 'image/png');
+      if (r.desktop) window.DesktopBridge.savedToast(r, `海报已保存：${r.name}`);
+      else toast(r.pending ? '等待存储权限授予后自动保存' : `海报已保存：${r.name || name}`, 'success', 3600, r.pending ? {} : shareAction());
+    } catch (e) { toast('保存海报失败：' + e.message, 'error'); }
+  });
+}
+
+/* ------------------------------------------------------------------ 另存为 / 导出位置（3.8.0 新增）
+ * 旧版导出只能静默写进「下载」目录，文件多了很难找，也没法直接存进游戏的地图文件夹。现在：
+ *   · Android：可通过系统文件夹选择器（SAF）指定一个导出文件夹并长期授权；「另存为…」面板里可改文件名、
+ *     选择导出内容（TMX+小地图 / ZIP / 项目文件）和位置（下载目录 / 导出文件夹），并可设为默认位置。
+ *   · PC：位置即「项目 / 恢复」中的导出目录，可在面板里直接更改。
+ *   · 浏览器调试：只能交给浏览器下载。
+ * 面板本身是应用内对话框，顶部留出安全区（刘海 / 状态栏），在 Android 15 强制边到边时也不会被遮挡；
+ * 系统文件夹选择器直接以「下载」或上次选择的文件夹为初始位置打开，无需再从「共享存储」根目录逐级导航。 */
+const EXPORT_TARGET_KEY = 'tmx_export_target_v1';
+const ExportLoc = {
+  folder: { set: false },           // Android 导出文件夹 {set, name, path}
+  pref: 'downloads',                 // 默认位置：downloads | folder
+  waiters: [],
+  android() { return !!window.AndroidBridge?.chooseExportFolder && !window.DesktopBridge; },
+  load() {
+    try { this.pref = localStorage.getItem(EXPORT_TARGET_KEY) === 'folder' ? 'folder' : 'downloads'; } catch { /* ignore */ }
+    this.refresh();
+  },
+  refresh() {
+    if (!this.android()) return this.folder;
+    try { this.folder = JSON.parse(window.AndroidBridge.getExportFolder() || '{}') || { set: false }; } catch { this.folder = { set: false }; }
+    if (!this.folder.set && this.pref === 'folder') this.setPref('downloads');
+    renderExportLocRow();
+    return this.folder;
+  },
+  setPref(p) { this.pref = p === 'folder' ? 'folder' : 'downloads'; try { localStorage.setItem(EXPORT_TARGET_KEY, this.pref); } catch { /* ignore */ } renderExportLocRow(); },
+  /** 当前默认写入目标（传给原生层） */
+  target() { return this.android() && this.pref === 'folder' && this.folder.set ? 'tree' : 'downloads'; },
+  /** 打开系统文件夹选择器；resolve 最新的文件夹信息（取消时 cancelled=true） */
+  choose() {
+    if (!this.android()) return Promise.resolve(this.folder);
+    return new Promise(resolve => { this.waiters.push(resolve); window.AndroidBridge.chooseExportFolder(); });
+  },
+  clear() { if (this.android()) { window.AndroidBridge.clearExportFolder(); this.refresh(); this.setPref('downloads'); } },
+  label(t = this.target()) {
+    if (window.DesktopBridge) return '导出目录';
+    if (!this.android()) return '浏览器下载';
+    return t === 'tree' ? `文件夹「${this.folder.name || '已选择'}」` : '下载目录';
+  }
+};
+/* 原生层回调：选择结果 / 授权失效 */
+window.__onExportFolder = raw => {
+  let j = {}; try { j = typeof raw === 'string' ? JSON.parse(raw) : (raw || {}); } catch { j = {}; }
+  ExportLoc.folder = j.set ? { set: true, name: j.name, path: j.path } : { set: false };
+  if (j.lost) { ExportLoc.setPref('downloads'); toast(`导出文件夹已无法访问（${j.error || '授权已失效'}），已改为保存到下载目录`, 'warn', 6000); }
+  else if (j.error) toast(j.error, 'warn', 5000);
+  renderExportLocRow();
+  const ws = ExportLoc.waiters.splice(0); ws.forEach(w => w({ ...ExportLoc.folder, cancelled: !!j.cancelled }));
+};
+function renderExportLocRow() {
+  const row = $('exportLocRow'); if (!row) return;
+  row.hidden = !ExportLoc.android();
+  if (row.hidden) return;
+  const f = ExportLoc.folder;
+  $('exportLocName').textContent = ExportLoc.pref === 'folder' && f.set ? (f.path || f.name) : '下载目录（Download）';
+  $('exportLocTag').textContent = ExportLoc.pref === 'folder' && f.set ? '自选文件夹' : '默认';
+  $('exportLocReset').disabled = !(ExportLoc.pref === 'folder' && f.set);
+}
+async function pickExportFolder() {
+  const f = await ExportLoc.choose();
+  if (f.cancelled) return false;
+  if (f.set) { ExportLoc.setPref('folder'); toast(`导出位置已设为：${f.path || f.name}`, 'success'); return true; }
+  return false;
+}
+async function showSaveAs() {
+  if (!S.lastTmx) { toast('请先生成或导入地图', 'warn'); return; }
+  if (S.locked) { guard(); return; }
+  const desk = !!window.DesktopBridge, android = ExportLoc.android();
+  if (android) ExportLoc.refresh();
+  let deskDir = null;
+  if (desk) { try { deskDir = await window.DesktopBridge.getDir?.(); } catch { deskDir = null; } }
+  let kind = 'pair', target = ExportLoc.target();
+  const base0 = exportBaseName();
+  const locHtml = () => {
+    if (desk) return `<div class="sa-loc-opt active" data-t="downloads"><i class="sa-ico">📁</i><span><b>导出目录</b><small>${escapeHtml(deskDir?.path || '系统下载目录')}</small></span><button type="button" id="saPick" class="sa-pick">更改…</button></div>`;
+    if (!android) return `<div class="sa-loc-opt active" data-t="downloads"><i class="sa-ico">⬇</i><span><b>浏览器下载</b><small>由浏览器决定保存位置</small></span></div>`;
+    const f = ExportLoc.folder;
+    return `<button type="button" class="sa-loc-opt${target === 'downloads' ? ' active' : ''}" data-t="downloads" role="radio" aria-checked="${target === 'downloads'}"><i class="sa-ico">⬇</i><span><b>下载目录</b><small>内部存储/Download</small></span></button>
+      <div class="sa-loc-opt${target === 'tree' ? ' active' : ''}${f.set ? '' : ' empty'}" data-t="tree" role="radio" tabindex="0" aria-checked="${target === 'tree'}"><i class="sa-ico">📁</i><span><b>${f.set ? escapeHtml(f.name || '导出文件夹') : '自选文件夹'}</b><small>${f.set ? escapeHtml(f.path || '') : '尚未选择，点「选择…」打开系统文件夹选择器'}</small></span><button type="button" id="saPick" class="sa-pick">${f.set ? '更换…' : '选择…'}</button></div>`;
+  };
+  const body = `<div class="saveas">
+    <label class="wide-label"><span>文件名</span><input id="saName" type="text" maxlength="80" value="${escapeHtml(base0)}" autocomplete="off" spellcheck="false"></label>
+    <div class="sa-label">导出内容</div>
+    <div class="sa-seg" role="radiogroup" aria-label="导出内容">
+      <button type="button" data-k="pair" class="active">TMX + 小地图</button><button type="button" data-k="zip">ZIP 包</button><button type="button" data-k="project">项目文件</button>
+    </div>
+    <div class="sa-label">保存位置</div>
+    <div class="sa-loc" id="saLoc" role="radiogroup" aria-label="保存位置">${locHtml()}</div>
+    ${android ? '<label class="sa-remember"><input id="saRemember" type="checkbox"> 设为默认导出位置（「导出 TMX+小地图」等按钮也保存到这里）</label>' : ''}
+    <div class="sa-preview" id="saPreview"></div>
+  </div>`;
+  const pr = uiChoice('另存为', body, [{ key: 'cancel', label: '取消' }, { key: 'ok', label: '保存', primary: true }], { wide: true });
+  const files = () => {
+    const b = sanitizeName($('saName')?.value) || base0;
+    return kind === 'pair' ? [`${b}.tmx`, `${b}_map.png`] : kind === 'zip' ? [`${b}.zip`] : [`${b}_project.json`];
+  };
+  const refresh = () => {
+    const pv = $('saPreview'); if (!pv) return;
+    pv.innerHTML = `将保存到 <b>${escapeHtml(desk ? (deskDir?.path || '导出目录') : ExportLoc.label(target))}</b>：${files().map(f => `<code>${escapeHtml(f)}</code>`).join(' ')}`;
+    pv.classList.remove('pulse'); void pv.offsetWidth; pv.classList.add('pulse');
+  };
+  const bindLoc = () => {
+    const box = $('saLoc'); if (!box) return;
+    box.querySelectorAll('.sa-loc-opt[data-t]').forEach(el => {
+      el.onclick = async ev => {
+        if (ev.target.closest('#saPick')) return;
+        const t = el.dataset.t;
+        if (t === 'tree' && !ExportLoc.folder.set) { $('saPick')?.click(); return; }
+        target = t; box.innerHTML = locHtml(); bindLoc(); refresh();
+      };
+    });
+    const pick = $('saPick');
+    if (pick) pick.onclick = async () => {
+      if (desk) { try { const d = await window.DesktopBridge.chooseDir?.(); if (d) { deskDir = d; box.innerHTML = locHtml(); bindLoc(); refresh(); } } catch (e) { toast('选择目录失败：' + e, 'error'); } return; }
+      const f = await ExportLoc.choose();
+      if (f.set && !f.cancelled) target = 'tree';
+      if (!$('saLoc')) return; // 面板已关闭
+      box.innerHTML = locHtml(); bindLoc(); refresh();
+    };
+  };
+  requestAnimationFrame(() => {
+    document.querySelectorAll('.sa-seg button').forEach(b => b.onclick = () => {
+      kind = b.dataset.k; document.querySelectorAll('.sa-seg button').forEach(x => x.classList.toggle('active', x === b)); refresh();
+    });
+    $('saName')?.addEventListener('input', refresh);
+    bindLoc(); refresh();
+    $('saName')?.select?.();
+  });
+  const k = await pr;
+  if (k !== 'ok') return;
+  const base = sanitizeName($('saName')?.value) || base0;
+  if (android && $('saRemember')?.checked) ExportLoc.setPref(target === 'tree' ? 'folder' : 'downloads');
+  const t = android ? target : undefined;
+  if (kind === 'pair') await exportPair({ base, target: t });
+  else if (kind === 'zip') await exportZipFn({ base, target: t });
+  else await exportProject({ base, target: t });
+}
+
+/* ------------------------------------------------------------------ 地形形态（3.8.0 新增）
+ * 11 套形态模板（岛屿 / 半岛 / 群岛 / 双河 / 山湖 / 大陆 / 沙漠 / 雪原 / 火山 / 迷宫 / 两岸狭路）移植自「锈匠地图生成器」，
+ * 算法与对战化后处理见 terrain-shapes.js。形态在独立的 shape-worker.js 中计算（不占用引擎 Worker，取消时只结束它自己），
+ * 结果是「水 / 平地 / 高地 / 坡道」矩阵，经引擎 set_coastline_from_image 导入后，沿用与大地图相同的分步流水线：
+ *   形态 → 高度与海洋 → 资源 → JS 智能出生点 → 完成并生成 TMX。
+ * 「经典」即原有的 5×5 海岸线模板算法，行为不变。
+ * 所见即所得：预览使用的种子就是下一次生成使用的种子；种子框留空时每次生成后自动换一个新种子。 */
+const SHAPE_KEY = 'tmx_shape_v1';
+const SHAPE_THEMES = { 1: '丛林', 2: '雪山', 3: '火山', 4: '沙漠', 5: '森林' };
+const ShapeWorker = {
+  w: null, seq: 0, pending: new Map(),
+  ensure() {
+    if (this.w) return this.w;
+    this.w = new Worker('./shape-worker.js');
+    this.w.onmessage = e => {
+      const m = e.data || {}, p = this.pending.get(m.id);
+      if (!p) return;
+      if (m.progress != null) { p.onProgress?.(m.stage, m.progress); return; }
+      this.pending.delete(m.id);
+      if (m.ok) p.resolve(m.result); else p.reject(new Error(m.error || '地形形态计算失败'));
+    };
+    this.w.onerror = e => { e.preventDefault?.(); this.reset(new Error('地形形态计算失败：' + (e.message || 'Worker 错误'))); };
+    return this.w;
+  },
+  call(action, opts, onProgress) {
+    const w = this.ensure();
+    return new Promise((resolve, reject) => {
+      const id = ++this.seq;
+      this.pending.set(id, { resolve, reject, onProgress, action });
+      w.postMessage({ id, action, opts });
+    });
+  },
+  /** 取消：结束 Worker（大地图形态计算可能要十几秒），所有等待中的请求以「已取消」拒绝 */
+  reset(err = new EngineError('操作已取消', { cancelled: true })) {
+    try { this.w?.terminate(); } catch { /* ignore */ }
+    this.w = null;
+    for (const p of this.pending.values()) p.reject(err);
+    this.pending.clear();
+  }
+};
+const shapeState = { id: 'classic', land: 50, rough: '0.3', seedText: '', previewSeed: 0, auto: true, lastSeed: null, lastStats: null };
+const shapeMeta = id => (window.TerrainShapes?.SHAPE_MAP.get(id)) || null;
+const shapeActive = () => shapeState.id !== 'classic' && !!shapeMeta(shapeState.id);
+const randSeed = () => 1 + Math.floor(Math.random() * 999999);
+function shapeSeed() {
+  const t = String($('shapeSeed')?.value ?? '').trim();
+  if (t !== '' && Number.isFinite(Number(t))) return Math.abs(Math.trunc(Number(t))) || 1;
+  if (!shapeState.previewSeed) shapeState.previewSeed = randSeed();
+  return shapeState.previewSeed;
+}
+function shapeOpts(p, seed) {
+  return { shape: shapeState.id, width: p.width, height: p.height, seed, land: shapeState.land / 100, rough: Number(shapeState.rough), mirror: p.mirroring };
+}
+function saveShapePrefs() {
+  try { localStorage.setItem(SHAPE_KEY, JSON.stringify({ id: shapeState.id, land: shapeState.land, rough: shapeState.rough, seed: $('shapeSeed').value, auto: shapeState.auto })); } catch { /* ignore */ }
+}
+function loadShapePrefs() {
+  try {
+    const s = JSON.parse(localStorage.getItem(SHAPE_KEY) || 'null');
+    if (!s) return;
+    if (s.id === 'classic' || shapeMeta(s.id)) shapeState.id = s.id;
+    if (Number.isFinite(+s.land)) shapeState.land = clamp(+s.land, 30, 70);
+    if (['0', '0.3', '0.8'].includes(String(s.rough))) shapeState.rough = String(s.rough);
+    if (typeof s.auto === 'boolean') shapeState.auto = s.auto;
+    if (s.seed != null) $('shapeSeed').value = s.seed;
+  } catch { /* ignore */ }
+}
+function renderShapeGrid() {
+  const box = $('shapeGrid'); if (!box || !window.TerrainShapes) return;
+  const items = [{ id: 'classic', label: '经典', desc: '原有 5×5 海岸线模板算法' }, ...TerrainShapes.SHAPES];
+  box.innerHTML = items.map((s, i) => `<button type="button" class="shape-tile${s.id === shapeState.id ? ' active' : ''}" data-shape="${s.id}" role="radio" aria-checked="${s.id === shapeState.id}" title="${escapeHtml(s.desc)}" style="--d:${i * 28}ms">
+      <span class="shape-thumb">${s.id === 'classic' ? '<svg viewBox="0 0 40 40" aria-hidden="true"><g fill="currentColor"><rect x="4" y="4" width="9" height="9" rx="2"/><rect x="15.5" y="15.5" width="9" height="9" rx="2"/><rect x="27" y="4" width="9" height="9" rx="2"/><rect x="4" y="27" width="9" height="9" rx="2"/><rect x="27" y="27" width="9" height="9" rx="2"/><rect x="15.5" y="4" width="9" height="9" rx="2" opacity=".35"/><rect x="4" y="15.5" width="9" height="9" rx="2" opacity=".35"/><rect x="27" y="15.5" width="9" height="9" rx="2" opacity=".35"/><rect x="15.5" y="27" width="9" height="9" rx="2" opacity=".35"/></g></svg>' : `<img src="shapes/${s.id}.png" alt="" loading="lazy" decoding="async">`}</span>
+      <span class="shape-name">${s.label}</span></button>`).join('');
+  box.querySelectorAll('.shape-tile').forEach(b => b.onclick = () => selectShape(b.dataset.shape, true));
+}
+function syncShapeUI() {
+  const on = shapeActive(), m = shapeMeta(shapeState.id);
+  $('shapeSec').classList.toggle('shape-on', on);
+  $('shapeFields').hidden = !on;
+  $('shapeDetail').hidden = !on;
+  $('gridSec').classList.toggle('dimmed', on);
+  $('gridSec').querySelector('.coast-note').hidden = !on;
+  $('shapeLand').value = shapeState.land; $('shapeLandText').textContent = shapeState.land + '%';
+  $('shapeRough').value = shapeState.rough;
+  $('shapeAuto').classList.toggle('on', shapeState.auto); $('shapeAuto').setAttribute('aria-checked', String(shapeState.auto));
+  $('shapeTag').textContent = on ? m.label : '经典';
+  document.querySelectorAll('#shapeGrid .shape-tile').forEach(b => { const a = b.dataset.shape === shapeState.id; b.classList.toggle('active', a); b.setAttribute('aria-checked', String(a)); });
+  if (on) {
+    $('shapeTitle').textContent = m.label;
+    $('shapeDesc').textContent = m.desc;
+    $('shapeRec').innerHTML = `推荐：${m.size[0]}×${m.size[1]} · ${SHAPE_THEMES[m.theme]}主题 · ${MIRROR_LABELS[m.mirror]}`;
+  }
+  const btn = document.querySelector('[data-act="run_coastline"]');
+  if (btn) btn.textContent = on ? `生成「${m.label}」形态` : '生成海岸线';
+  updateShapeSeedHint();
+}
+function updateShapeSeedHint() {
+  const el = $('shapeSeedHint'); if (!el) return;
+  const fixed = String($('shapeSeed').value).trim() !== '';
+  el.innerHTML = (fixed ? '已固定种子，每次生成相同形态' : `预览种子 <b>${shapeSeed()}</b>，生成后自动换新`) + (shapeState.lastSeed != null ? ` · 当前地图 <a href="#" id="shapeReuse">${shapeState.lastSeed}</a>` : '');
+  $('shapeReuse')?.addEventListener('click', ev => { ev.preventDefault(); $('shapeSeed').value = shapeState.lastSeed; saveShapePrefs(); updateShapeSeedHint(); queueShapePreview(); toast('已固定为当前地图的形态种子', 'success'); });
+}
+/** 选择形态；auto 开启时同时套用推荐的贴图主题 / 对称方式 / 高度与海洋层级 */
+function selectShape(id, user = false) {
+  if (id !== 'classic' && !shapeMeta(id)) id = 'classic';
+  const changed = id !== shapeState.id;
+  shapeState.id = id;
+  const m = shapeMeta(id);
+  if (user && m && shapeState.auto && changed) {
+    const set = (k, v) => { const el = $(k); if (el && String(el.value) !== String(v)) { el.value = v; flashInput(k); } };
+    set('tileset', m.theme); set('mirror', m.mirror); set('heightLevels', m.levels); set('oceanLevels', m.ocean);
+    updateMirrorHint(); queuePrefs();
+    toast(`已套用「${m.label}」推荐：${SHAPE_THEMES[m.theme]}主题 · ${MIRROR_LABELS[m.mirror]} · 高度 ${m.levels} / 海洋 ${m.ocean}`, 'info', 3200);
+  }
+  syncShapeUI(); saveShapePrefs();
+  if (shapeActive()) queueShapePreview(0);
+}
+let shapePreviewTimer = null, shapePreviewSeq = 0;
+function queueShapePreview(delay = 260) {
+  clearTimeout(shapePreviewTimer);
+  if (!shapeActive()) return;
+  $('shapePreviewWrap').classList.add('loading');
+  shapePreviewTimer = setTimeout(renderShapePreview, delay);
+}
+async function renderShapePreview() {
+  if (!shapeActive()) return;
+  const p = params(), seq = ++shapePreviewSeq;
+  try {
+    const r = await ShapeWorker.call('preview', { ...shapeOpts(p, shapeSeed()), maxSide: 160 });
+    if (seq !== shapePreviewSeq) return;
+    const cv = $('shapePreview'), ctx = cv.getContext('2d');
+    cv.width = r.width; cv.height = r.height;
+    ctx.putImageData(new ImageData(new Uint8ClampedArray(r.rgba), r.width, r.height), 0, 0);
+    cv.style.aspectRatio = `${p.width} / ${p.height}`;
+    const s = r.stats;
+    $('shapeStats').innerHTML = `<span><b>${Math.round(s.landRatio * 100)}%</b>陆地</span><span><b>${Math.round(s.mountainRatio * 100)}%</b>高地</span><span><b>${s.landmasses}</b>陆块</span>`;
+    $('shapePreviewWrap').classList.remove('loading');
+    $('shapePreviewWrap').classList.remove('pop'); void $('shapePreviewWrap').offsetWidth; $('shapePreviewWrap').classList.add('pop');
+    $('shapePreviewBadge').textContent = r.stride > 1 ? `预览 1:${r.stride}` : '预览';
+  } catch (e) {
+    if (seq === shapePreviewSeq && !e.cancelled) { $('shapePreviewWrap').classList.remove('loading'); console.warn('形态预览失败', e); }
+  }
+}
+/** 计算形态矩阵（带进度），返回 {data:Int32Array, stats} */
+async function computeShape(p, seed, stage) {
+  const m = shapeMeta(shapeState.id);
+  busy(true, `正在生成「${m.label}」地形形态…`, stage, 0);
+  const t0 = performance.now();
+  const r = await ShapeWorker.call('build', shapeOpts(p, seed), (st, f) => {
+    busy(true, st === 'terrain' ? `正在计算「${m.label}」地形噪声…` : `正在整理高地 / 坡道 / 通道…`, stage, Math.round(f * 100));
+  });
+  r.stats.ms = Math.round(performance.now() - t0);
+  return r;
+}
+/** 形态 → 引擎：导入矩阵（作为「① 海岸线」结果） */
+async function importShapeToEngine(p, r, m, opts = {}) {
+  const payload = { data: r.data, height: p.height, width: p.width, mirroring: p.mirroring, tileset: p.tileset, heightLevels: p.heightLevels, oceanLevels: p.oceanLevels, numPlayers: p.numPlayers, numResources: p.numResources, wallMagnetism: m.magnet };
+  return opts.raw ? Engine.call('set_coastline_from_image', payload, [r.data.buffer])
+    : run('set_coastline_from_image', payload, `正在导入「${m.label}」形态…`, { transfer: [r.data.buffer], keepBusy: true, stage: opts.stage || '' });
+}
+function afterShapeGenerated(seed, stats) {
+  shapeState.lastSeed = seed; shapeState.lastStats = stats;
+  S.mapShape = { id: shapeState.id, label: shapeMeta(shapeState.id)?.label || shapeState.id, seed, land: shapeState.land };
+  if (String($('shapeSeed').value).trim() === '') shapeState.previewSeed = randSeed();
+  updateShapeSeedHint();
+  queueShapePreview(600);
+}
+const shapeSummary = st => st ? [st.fords ? `浅滩 ${st.fords}` : '', st.ramps ? `坡道 ${st.ramps}` : '', st.channels ? `通道 ${st.channels}` : ''].filter(Boolean).join(' · ') : '';
+/** 快速生成：形态流水线（与大地图分步流程相同的 5 步） */
+async function generateShapePipeline(p) {
+  const m = shapeMeta(shapeState.id), seed = shapeSeed();
+  const r = await computeShape(p, seed, '1/5');
+  await importShapeToEngine(p, r, m, { stage: '2/5' });
+  await run('run_height_ocean', { heightLevels: p.heightLevels, oceanLevels: p.oceanLevels, wallMagnetism: m.magnet, seed: seed % 100000 }, '正在生成高度与海洋…', { keepBusy: true, stage: '3/5' });
+  await run('place_resource_random', { mirroring: p.mirroring, numResources: p.numResources }, '正在布置资源点…', { keepBusy: true, stage: '4/5' });
+  busy(true, '正在智能布置出生点…', '4/5');
+  await nextFrame();
+  try { await smartPlaceAll(p.numPlayers, { history: false, quiet: true, allowPartial: true }); }
+  catch (e) { toast(e.message, 'warn', 5000); }
+  await run('run_finalize', { blueprintXml: await blueprint() }, '正在完成地图并生成 TMX…', { stage: '5/5' });
+  afterShapeGenerated(seed, r.stats);
+  return { seed, stats: r.stats, label: m.label };
+}
+/** 择优生成用：不更新界面的原始流水线，返回 run_finalize 的结果（含 snapshot 与 tmx_bytes） */
+async function shapeCandidateRaw(p, seed, bp) {
+  const m = shapeMeta(shapeState.id);
+  const r = await ShapeWorker.call('build', shapeOpts(p, seed));
+  await importShapeToEngine(p, r, m, { raw: true });
+  await Engine.call('run_height_ocean', { heightLevels: p.heightLevels, oceanLevels: p.oceanLevels, wallMagnetism: m.magnet, seed: seed % 100000 });
+  await Engine.call('place_resource_random', { mirroring: p.mirroring, numResources: p.numResources });
+  const out = await Engine.call('run_finalize', { blueprintXml: bp });
+  out.shapeSeed = seed; out.shapeStats = r.stats;
+  return out;
+}
+function bindShapeControls() {
+  loadShapePrefs();
+  renderShapeGrid();
+  $('shapeLand').addEventListener('input', () => { shapeState.land = clamp(Number($('shapeLand').value) || 50, 30, 70); $('shapeLandText').textContent = shapeState.land + '%'; saveShapePrefs(); queueShapePreview(); });
+  $('shapeRough').onchange = () => { shapeState.rough = $('shapeRough').value; saveShapePrefs(); queueShapePreview(); };
+  $('shapeSeed').addEventListener('input', () => { saveShapePrefs(); updateShapeSeedHint(); queueShapePreview(); });
+  $('shapeDice').onclick = () => {
+    if (String($('shapeSeed').value).trim() !== '') $('shapeSeed').value = randSeed(); else shapeState.previewSeed = randSeed();
+    $('shapeDice').classList.remove('spin'); void $('shapeDice').offsetWidth; $('shapeDice').classList.add('spin');
+    saveShapePrefs(); updateShapeSeedHint(); queueShapePreview(0);
+  };
+  $('shapeAuto').onclick = () => { shapeState.auto = !shapeState.auto; syncShapeUI(); saveShapePrefs(); };
+  $('shapeRecSize').onclick = () => {
+    const m = shapeMeta(shapeState.id); if (!m) return;
+    $('width').value = m.size[0]; $('height').value = m.size[1]; flashInput('width'); flashInput('height');
+    updateMirrorHint(); queuePrefs(); queueShapePreview(0);
+  };
+  $('shapePreviewWrap').onclick = () => { if (shapeActive()) generate(); };
+  for (const id of ['width', 'height', 'mirror']) $(id).addEventListener('change', () => queueShapePreview());
+  syncShapeUI();
+  if (shapeActive()) queueShapePreview(300);
 }
 
 /* ------------------------------------------------------------------ 图片导入海岸线 */
 async function importImage(file) {
   if (!file) return;
   await locked(async () => {
+    // 3.18.0：捕获点声明在 try 之外，保证导入早期失败（如 createImageBitmap 解码失败）时 catch 仍能安全还原
+    let kept = null, prevW = '', prevH = '';
     try {
       busy(true, '正在分析地形图片…', file.name, null, { cancellable: false });
       const bmp = await createImageBitmap(file);
@@ -2706,6 +5064,10 @@ async function importImage(file) {
         else if (g > 60 && g > r * 1.5 && g > b * 1.5) data[i] = -2;
         else data[i] = Math.min(9, Math.max(1, Math.round((lum / 255) * 9)));
       }
+      /* 3.18.0 修复：与 generateNow() 同款保护。旧版在导入前就 resetEditorState() 并把宽高改成图片尺寸，
+       * 若用户在引擎导入阶段点「取消」或引擎失败，队伍 / 撤销历史 / 多边形 / 近家资源标记被清空、宽高被改写，
+       * 而地图并未替换。现在失败 / 取消时还原编辑器状态与宽高输入（restoreEditorState 仅在快照未被替换时生效）。 */
+      kept = captureEditorState(); prevW = $('width').value; prevH = $('height').value;
       resetEditorState();
       $('width').value = iw; $('height').value = ih;
       const p = params();
@@ -2715,7 +5077,11 @@ async function importImage(file) {
       $('imageName').textContent = `已导入：${file.name} · ${iw} × ${ih}`;
       toast('图片地形导入完成，下一步请绘制墙体或直接生成高度', 'success');
       setStep(1);
-    } catch (e) { if (!e.cancelled) { setStatus('图片导入失败：' + e.message); toast('图片导入失败：' + e.message, 'error'); } }
+    } catch (e) {
+      // 失败 / 取消：地图未被替换，还原被清空的编辑器状态与宽高输入
+      if (kept) { restoreEditorState(kept); $('width').value = prevW; $('height').value = prevH; updateMirrorHint(); queuePrefs(); }
+      if (!e.cancelled) { setStatus('图片导入失败：' + e.message); toast('图片导入失败：' + e.message, 'error'); }
+    }
     finally { busy(false); $('imageFile').value = ''; }
   });
 }
@@ -2756,7 +5122,9 @@ function projectPayload() {
     symmetryStrength: $('symmetryStrength').value, slotOrder: $('slotOrder').value,
     grid: getGrid(), polygons: clonePolys(), spawnPositions: currentSpawns(),
     teamOverrides: [...S.teamOverrides], tmx: S.lastTmx && S.lastTmx.length < 64e6 ? S.lastTmx : null,
-    autoSaveEnabled: S.autoSave, mode: S.mode
+    autoSaveEnabled: S.autoSave, mode: S.mode,
+    nearResKeys: [...S.nearResKeys], // 3.14.0：恢复后仍能逐点删除近家资源点
+    shape: { id: shapeState.id, land: shapeState.land, rough: shapeState.rough, seed: shapeState.lastSeed }
   };
 }
 async function saveProject(silent = false) {
@@ -2772,7 +5140,8 @@ async function saveProject(silent = false) {
   }
 }
 let autoSaveTimer = null;
-function queueAutoSave() { if (!S.autoSave) return; clearTimeout(autoSaveTimer); autoSaveTimer = setTimeout(() => { if (!S.locked) saveProject(true); else queueAutoSave(); }, 1500); }
+// 3.17.0 修复：关闭「自动保存」后，已排队的那次保存仍会在 1.5 秒后写入；现在关闭时取消计时器，触发时再确认一次开关
+function queueAutoSave() { if (!S.autoSave) return; clearTimeout(autoSaveTimer); autoSaveTimer = setTimeout(() => { autoSaveTimer = null; if (!S.autoSave) return; if (!S.locked) saveProject(true); else queueAutoSave(); }, 1500); }
 function applyProjectParams(p) {
   const set = (id, v) => { if (v != null && $(id)) $(id).value = v; };
   const pr = p.params || {};
@@ -2781,6 +5150,13 @@ function applyProjectParams(p) {
   set('gamePreset', p.preset); set('symmetryStrength', p.symmetryStrength || 'balanced'); set('slotOrder', p.slotOrder || 'alternate');
   set('mapName', p.mapName || '');
   renderGrid(p.grid);
+  if (p.shape && (p.shape.id === 'classic' || shapeMeta(p.shape.id))) {
+    shapeState.id = p.shape.id;
+    if (Number.isFinite(+p.shape.land)) shapeState.land = clamp(+p.shape.land, 30, 70);
+    if (['0', '0.3', '0.8'].includes(String(p.shape.rough))) shapeState.rough = String(p.shape.rough);
+    shapeState.lastSeed = p.shape.seed ?? null;
+    syncShapeUI(); saveShapePrefs();
+  }
   updateMirrorHint();
 }
 async function restoreProject(p, label = '项目') {
@@ -2791,6 +5167,10 @@ async function restoreProject(p, label = '项目') {
   applyProjectParams(p);
   if (tmx?.length) {
     await loadTmxBytes(tmx instanceof Uint8Array ? tmx : new Uint8Array(tmx), p.mapName, { fromProject: true });
+    if (Array.isArray(p.nearResKeys) && S.snapshot) {
+      const have = new Set((S.snapshot.resource_positions || []).map(keyOf));
+      S.nearResKeys = new Set(p.nearResKeys.filter(k => typeof k === 'string' && have.has(k)));
+    }
     if (Array.isArray(p.spawnPositions)) {
       S.teamOverrides = new Map(p.teamOverrides || []);
       const valid = p.spawnPositions.filter(q => Array.isArray(q) && validCell({ row: q[0], col: q[1] }));
@@ -2819,15 +5199,19 @@ async function loadProject() {
     finally { busy(false); }
   });
 }
-async function exportProject() {
+async function exportProject(opts = {}) {
   await locked(async () => {
     try {
+      busy(true, '正在导出项目文件…', '', null, { cancellable: false }); // 3.8.0：大地图项目 Base64 编码要一两秒，旧版没有任何反馈
       if (S.unitsDirty) await syncTmxUnits();
       const p = projectPayload();
       p.tmx = S.lastTmx ? bytesToBase64(S.lastTmx) : null;
-      const r = await saveFile(new TextEncoder().encode(JSON.stringify(p)), `${exportBaseName()}_project.json`, 'application/json');
-      toast(r.pending ? '等待存储权限授予后自动保存' : '项目文件已导出', 'success');
+      beginShareBatch();
+      const r = await saveFile(new TextEncoder().encode(JSON.stringify(p)), `${opts.base || exportBaseName()}_project.json`, 'application/json', opts.target || ExportLoc.target());
+      if (r.desktop) window.DesktopBridge.savedToast(r, `项目文件已导出：${r.name}`);
+      else toast(r.pending ? '等待存储权限授予后自动保存' : `项目文件已导出${r.where ? `到${r.where}` : ''}：${r.name || ''}`, 'success', 3600, r.pending ? {} : shareAction());
     } catch (e) { toast('导出项目失败：' + e.message, 'error'); }
+    finally { busy(false); }
   });
 }
 async function importProjectFile(file) {
@@ -2842,17 +5226,241 @@ async function importProjectFile(file) {
     finally { busy(false); $('tmxFile').value = ''; }
   });
 }
+
+/* ------------------------------------------------------------------ 版本历史快照（3.11.0 新增）
+ * 需求：做图最常见的动作是「不满意 → 再生成一次」，而自动保存只有一个草稿槽、「上一张地图」也只能找回最近一张。
+ * 现在把每次成功生成、择优采用、导入地图以及手动「保存快照」都记录成一个带缩略图与参数的版本（IndexedDB，最多 10 个），
+ * 随时打开「历史版本」面板预览并一键恢复任意一张；单个版本可删除、也可整体清空。
+ * 存储：IndexedDB 单键 HISTORY_KEY，值为结构化克隆数组；TMX 以 Uint8Array 原样保存（不经 Base64），
+ * 缩略图为 160px 的 PNG dataURL，体积小、够辨认即可。 */
+const HISTORY_KEY = 'tmx_history_v1';      // 3.11.0 旧格式：单键保存整个数组（含全部 TMX），仅用于迁移
+const HISTORY_INDEX = 'tmx_history_idx_v2'; // 3.14.0：只保存元数据（缩略图 / 名称 / 收藏标记）的索引
+const HISTORY_PAYLOAD = id => 'tmx_history_p_' + id; // 3.14.0：每个快照的完整载荷（含 TMX）单独一个键
+const HISTORY_MAX = 10;        // 未收藏的快照最多保留的数量
+const HISTORY_PIN_MAX = 30;    // 收藏（置顶）的快照上限
+/* 3.14.0 重构（修复）：
+ *  1. 旧实现每次新增 / 删除都「读出整个数组 → 改 → 整体写回」，而数组里带着 10 份完整 TMX：
+ *     大地图每生成一次就要重写几十 MB；「自动生成」的异步写入与手动「保存快照」并发时还会互相覆盖、丢记录。
+ *     现在索引与载荷分键存储，新增只写一份载荷 + 一份很小的索引；所有写操作经同一条串行队列执行。
+ *  2. 列表 / 打开面板不再把所有载荷读进内存，只读索引。
+ *  3. 写入超出浏览器配额时自动淘汰最旧的未收藏快照后重试，仍失败再明确提示（旧版只在控制台警告）。
+ *  4. 新增「收藏」：收藏的快照不会被自动淘汰；新增「重命名」。
+ *  5. 首次读取时把 3.11.0 的旧格式自动迁移到新格式。 */
+const HistoryStore = {
+  _q: Promise.resolve(),
+  _enqueue(fn) { const job = this._q.then(fn, fn); this._q = job.catch(() => {}); return job; },
+  async _readIndex() {
+    let idx = null;
+    try { idx = await ProjectStore.get(HISTORY_INDEX); } catch { idx = null; }
+    if (Array.isArray(idx)) return idx;
+    // 迁移旧格式
+    let legacy = null;
+    try { legacy = await ProjectStore.get(HISTORY_KEY); } catch { legacy = null; }
+    if (!Array.isArray(legacy) || !legacy.length) return [];
+    const metas = [];
+    for (const e of legacy) {
+      if (!e?.id || !e.payload) continue;
+      try { await ProjectStore.put(HISTORY_PAYLOAD(e.id), e.payload); } catch { continue; }
+      const { payload, ...meta } = e;
+      metas.push({ ...meta, pinned: false, bytes: payload.tmx?.length || 0 });
+    }
+    try { await ProjectStore.put(HISTORY_INDEX, metas); await ProjectStore.del(HISTORY_KEY); } catch { /* 下次再迁移 */ }
+    return metas;
+  },
+  async _writeIndex(idx) { await ProjectStore.put(HISTORY_INDEX, idx); },
+  /** 只返回元数据（不含载荷） */
+  list() { return this._enqueue(() => this._readIndex()).catch(() => []); },
+  async get(id) { try { return await ProjectStore.get(HISTORY_PAYLOAD(id)); } catch { return null; } },
+  add(entry) {
+    return this._enqueue(async () => {
+      const { payload, ...meta } = entry;
+      meta.pinned = !!meta.pinned; meta.bytes = payload?.tmx?.length || 0;
+      let idx = await this._readIndex();
+      const evict = async () => { // 淘汰最旧的未收藏快照；返回是否淘汰了一个
+        for (let i = idx.length - 1; i >= 0; i--) if (!idx[i].pinned) { const [gone] = idx.splice(i, 1); try { await ProjectStore.del(HISTORY_PAYLOAD(gone.id)); } catch { /* ignore */ } return true; }
+        return false;
+      };
+      for (let attempt = 0; ; attempt++) {
+        try { await ProjectStore.put(HISTORY_PAYLOAD(meta.id), payload); break; }
+        catch (e) { if (attempt >= 6 || !(await evict())) throw e; }
+      }
+      idx.unshift(meta);
+      while (idx.filter(x => !x.pinned).length > HISTORY_MAX) await evict();
+      if (idx.length > HISTORY_PIN_MAX + HISTORY_MAX) { const gone = idx.pop(); try { await ProjectStore.del(HISTORY_PAYLOAD(gone.id)); } catch { /* ignore */ } }
+      await this._writeIndex(idx);
+      return idx;
+    });
+  },
+  del(id) {
+    return this._enqueue(async () => {
+      const idx = (await this._readIndex()).filter(e => e.id !== id);
+      await this._writeIndex(idx);
+      try { await ProjectStore.del(HISTORY_PAYLOAD(id)); } catch { /* ignore */ }
+    });
+  },
+  /** 修改元数据（收藏 / 重命名）。收藏数量超过上限时返回 false */
+  update(id, patch) {
+    return this._enqueue(async () => {
+      const idx = await this._readIndex();
+      const e = idx.find(x => x.id === id); if (!e) return false;
+      if (patch.pinned && !e.pinned && idx.filter(x => x.pinned).length >= HISTORY_PIN_MAX) return false;
+      Object.assign(e, patch);
+      await this._writeIndex(idx);
+      return true;
+    });
+  },
+  clear(keepPinned = false) {
+    return this._enqueue(async () => {
+      const idx = await this._readIndex();
+      const keep = keepPinned ? idx.filter(e => e.pinned) : [];
+      for (const e of idx) if (!keep.includes(e)) { try { await ProjectStore.del(HISTORY_PAYLOAD(e.id)); } catch { /* ignore */ } }
+      await this._writeIndex(keep);
+      try { await ProjectStore.del(HISTORY_KEY); } catch { /* ignore */ }
+    });
+  }
+};
+/** 记录当前地图为一个历史快照（同步生成缩略图，异步写入 IndexedDB）。无地图时返回 null。 */
+async function pushHistorySnapshot(label = '') {
+  if (!S.snapshot && !S.lastTmx) return null;
+  let thumb = '';
+  try { const cv = drawExportPng(160, 'dots'); if (cv) thumb = cv.toDataURL('image/png'); } catch (e) { console.warn('历史缩略图生成失败', e); }
+  const p = projectPayload();
+  if (S.lastTmx) p.tmx = S.lastTmx; // 历史快照始终带 TMX（覆盖草稿 64MB 上限）
+  const [w, h] = dims();
+  const entry = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), at: Date.now(), name: exportBaseName(), w, h, players: currentSpawns().length, thumb, label: label + (S.mapShape?.label ? ` · ${S.mapShape.label}` : ''), payload: p };
+  try { await HistoryStore.add(entry); } catch (e) { console.warn('历史快照写入失败', e); if (label === '手动保存') toast('快照保存失败：存储空间不足，请先删除一些历史版本', 'error', 4600); return null; }
+  return entry;
+}
+function fmtWhen(t) { const d = new Date(t), p = n => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`; }
+const fmtBytes = n => !n ? '' : n >= 1048576 ? (n / 1048576).toFixed(1) + 'MB' : Math.max(1, Math.round(n / 1024)) + 'KB';
+const STAR_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.2l2.6 5.4 5.9.8-4.3 4.1 1 5.9L12 16.6 6.8 19.4l1-5.9L3.5 9.4l5.9-.8z"/></svg>';
+/** 通用文本输入对话框（WebView 里没有 prompt()）。取消返回 null */
+async function uiPrompt(title, value = '', placeholder = '') {
+  const k = await uiChoice(title, `<input id="promptInput" class="prompt-input" type="text" maxlength="60" autocomplete="off" spellcheck="false" placeholder="${escapeHtml(placeholder)}" value="${escapeHtml(value)}">`,
+    [{ key: 'cancel', label: '取消' }, { key: 'ok', label: '确定', primary: true }]);
+  return k === 'ok' ? String($('promptInput')?.value ?? '').trim() : null;
+}
+async function showHistory() {
+  if (!guard()) return;
+  const list = await HistoryStore.list();
+  if (!list.length) { toast('还没有历史快照。生成地图后会自动记录，也可以点「保存快照」手动记录当前地图', 'info', 4400); return; }
+  // 收藏在前，其余按时间倒序（索引本身已是时间倒序）
+  const sorted = [...list.filter(e => e.pinned), ...list.filter(e => !e.pinned)];
+  const rows = sorted.map((e, i) => `<li class="hist-row${e.pinned ? ' pinned' : ''}" style="--d:${Math.min(i, 12) * 36}ms" data-id="${e.id}">
+      <span class="hist-thumb">${e.thumb ? `<img src="${e.thumb}" alt="">` : '<i>—</i>'}</span>
+      <div class="hist-main"><b>${escapeHtml(e.name || '未命名地图')}</b><small>${e.w || '—'}×${e.h || '—'} · ${e.players ?? '—'} 个出生点 · ${fmtWhen(e.at)}${e.bytes ? ` · ${fmtBytes(e.bytes)}` : ''}${e.label ? ` · ${escapeHtml(e.label)}` : ''}</small></div>
+      <div class="hist-actions"><button type="button" class="hist-pin${e.pinned ? ' on' : ''}" aria-pressed="${!!e.pinned}" title="收藏：收藏的版本不会被自动清理" aria-label="收藏">${STAR_SVG}</button><button type="button" class="hist-ren" title="重命名">改名</button><button type="button" class="hist-restore">恢复</button><button type="button" class="hist-del ghost-danger">删除</button></div>
+    </li>`).join('');
+  const pinned = list.filter(e => e.pinned).length;
+  const p = uiChoice('版本历史', `<p class="help-p">自动记录最近 ${HISTORY_MAX} 张生成 / 保存的地图（含缩略图）；点 ☆ <b>收藏</b>的版本不会被自动清理（最多 ${HISTORY_PIN_MAX} 个，当前 <b id="pinCount">${pinned}</b> 个）。点击「恢复」回到对应版本，恢复不会删除历史本身；当前地图会先备份到「上一张地图」。</p><ul class="hist-list">${rows}</ul>`,
+    [{ key: 'clear', label: '清空未收藏' }, { key: 'ok', label: '关闭', primary: true }], { wide: true });
+  requestAnimationFrame(() => {
+    const box = $('modalBody'); if (!box) return;
+    box.querySelectorAll('.hist-row').forEach(li => {
+      const id = li.dataset.id;
+      li.querySelector('.hist-restore').onclick = () => { closeModal('ok'); restoreHistoryEntry(id); };
+      li.querySelector('.hist-pin').onclick = async ev => {
+        const btn = ev.currentTarget, want = !btn.classList.contains('on');
+        const ok = await HistoryStore.update(id, { pinned: want });
+        if (!ok) { toast(`收藏已达上限（${HISTORY_PIN_MAX} 个），请先取消一些`, 'warn'); return; }
+        btn.classList.toggle('on', want); btn.setAttribute('aria-pressed', String(want)); li.classList.toggle('pinned', want);
+        const pc = $('pinCount'); if (pc) pc.textContent = String(box.querySelectorAll('.hist-row.pinned').length);
+        toast(want ? '已收藏，不会被自动清理' : '已取消收藏', 'info', 1800);
+      };
+      li.querySelector('.hist-ren').onclick = async () => {
+        const cur = list.find(x => x.id === id);
+        const name = await uiPrompt('重命名历史版本', cur?.name || '', '给这个版本起个名字');
+        if (name) await HistoryStore.update(id, { name: sanitizeName(name) || name.slice(0, 60) });
+        showHistory(); // 3.17.0 修复：旧版点「取消」后整个历史面板直接消失，需要重新打开
+      };
+      li.querySelector('.hist-del').onclick = async () => {
+        if (!await uiConfirm('删除历史快照', '删除后无法恢复，确定删除这个历史版本吗？', '删除', true)) { showHistory(); return; } // 3.17.0 修复：取消后回到列表
+        await HistoryStore.del(id);
+        showHistory();
+      };
+    });
+  });
+  const k = await p;
+  if (k === 'clear') {
+    if (!await uiConfirm('清空未收藏的历史', '将删除全部<b>未收藏</b>的历史版本（收藏的、当前地图与自动保存草稿都不受影响），确定继续吗？', '清空', true)) { showHistory(); return; }
+    await HistoryStore.clear(true);
+    toast('已清空未收藏的历史版本', 'success');
+  }
+}
+async function restoreHistoryEntry(id) {
+  await locked(async () => {
+    try {
+      const payload = await HistoryStore.get(id);
+      if (!payload) { toast('历史快照不存在或已损坏', 'warn'); return; }
+      busy(true, '正在恢复历史版本…', '', null, { cancellable: false });
+      let cur = null;
+      if (S.lastTmx) { if (S.unitsDirty) await syncTmxUnits(); cur = projectPayload(); }
+      await restoreProject(payload, '历史版本');
+      if (cur) await ProjectStore.put('previous', cur);
+      updatePrevButton();
+      queueAutoSave();
+      toast('已恢复历史版本（当前地图已备份到「上一张地图」）', 'success');
+    } catch (err) { toast('恢复历史版本失败：' + err.message, 'error'); }
+    finally { busy(false); }
+  });
+}
+
+/* ------------------------------------------------------------------ 惊喜生成（3.11.0 新增）
+ * 一键随机出一套「合理且好玩」的参数并立即生成：尺寸 / 地形模板 / 人数 / 对称方式 / 地形形态 / 资源数量等都在
+ * 可玩的范围内随机，省去「不知道选什么」的纠结；每次结果都能在历史快照里找回。 */
+function randomizeParams() {
+  const sizePicks = [80, 120, 160, 160, 256, 400];
+  const size = sizePicks[Math.floor(Math.random() * sizePicks.length)];
+  $('width').value = size; $('height').value = size;
+  const shapeIds = ['classic', ...window.TerrainShapes.SHAPES.map(x => x.id)];
+  const shape = Math.random() < 0.45 ? 'classic' : shapeIds[1 + Math.floor(Math.random() * (shapeIds.length - 1))];
+  selectShape(shape, false);
+  if (shapeActive()) {
+    // 形态与推荐主题 / 层级配套，成品观感一致
+    const m = shapeMeta(shape);
+    $('tileset').value = m.theme; $('heightLevels').value = m.levels; $('oceanLevels').value = m.ocean; $('mirror').value = m.mirror;
+    shapeState.land = 30 + Math.floor(Math.random() * 41); // 30..70
+    shapeState.rough = ['0.8', '0.3', '0'][Math.floor(Math.random() * 3)];
+    $('shapeLand').value = shapeState.land; $('shapeLandText').textContent = shapeState.land + '%';
+    $('shapeRough').value = shapeState.rough;
+  } else {
+    $('tileset').value = 1 + Math.floor(Math.random() * 5);
+    $('heightLevels').value = 5 + Math.floor(Math.random() * 8); // 5..12
+    $('oceanLevels').value = Math.floor(Math.random() * 5);       // 0..4
+    $('mirror').value = ['none', 'horizontal', 'vertical', 'diagonal1', 'diagonal2', 'both'][Math.floor(Math.random() * 6)];
+  }
+  const keys = Object.keys(PRESET_COUNTS), preset = keys[Math.floor(Math.random() * keys.length)];
+  const players = PRESET_COUNTS[preset];
+  $('players').value = players; $('gamePreset').value = preset;
+  $('resources').value = clamp(Math.round(players * (0.8 + Math.random() * 1.6)), 0, MAX_RESOURCES);
+  syncShapeUI(); saveShapePrefs(); updateMirrorHint(); syncPresetFromPlayers();
+  for (const id of ['width', 'height', 'tileset', 'players', 'resources', 'mirror', 'heightLevels', 'oceanLevels']) flashInput(id);
+  queuePrefs(); queueShapePreview(0);
+}
+function surpriseSummary() {
+  const m = $('mirror').value;
+  const theme = SHAPE_THEMES[intOf('tileset', 1, 5, 5)] || ('模板' + $('tileset').value);
+  return `${$('width').value}×${$('height').value} · ${theme} · ${MIRROR_LABELS[m] || '不对称'} · ${intOf('players', 0, MAX_SPAWN_POINTS, 10)} 人${shapeActive() ? ` · 形态「${shapeMeta(shapeState.id).label}」` : ''}`;
+}
+async function surpriseGenerate() {
+  if (!guard()) return;
+  randomizeParams();
+  toast(`惊喜配方：${surpriseSummary()}`, 'info', 3200);
+  await generate();
+}
 async function newProject() {
   const ok = await uiConfirm('新建项目', '将清除当前地图、出生点与编辑历史（参数保留）。本机自动保存的草稿也会被清空。', '新建', true);
   if (!ok) return;
   await resetAll({ keepParams: true });
-  try { await ProjectStore.del('current'); } catch { /* ignore */ }
-  localStorage.removeItem(LEGACY_PROJECT_KEY);
+  try { await ProjectStore.del('current'); await ProjectStore.del('previous'); } catch { /* ignore */ }
+  updatePrevButton(false);
+  try { localStorage.removeItem(LEGACY_PROJECT_KEY); } catch { /* ignore */ }
   $('projectInfo').textContent = '已新建项目 · 草稿已清空';
   toast('已新建项目', 'success');
 }
 async function resetAll({ keepParams = false } = {}) {
   stopAnimation();
+  setMeasure(false, { quiet: true }); // 3.17.0 修复：旧版地图已清空，测距按钮仍高亮、光标仍是十字、旧测量点还留着
   resetEditorState();
   Engine.call('reset_state').catch(() => {});
   S.lastTmx = null; S.snapshot = null; S.source = null; S.tmxDirty = false; S.unitsDirty = false; S.slotVerified = null;
@@ -2869,9 +5477,69 @@ async function resetAll({ keepParams = false } = {}) {
   }
   $('stats').textContent = '';
   $('emptyState').classList.remove('hide');
+  $('mapPanel').classList.add('no-map');
   $('imageName').textContent = '未导入图片 · 暗色=水域，亮色=陆地，绿色=缺口';
   S.step = 0; updateSteps(-1); updateSpawnUI(); updateMirrorHint(); scheduleRender();
   setStatus(keepParams ? '已清空当前地图' : '已恢复默认设置');
+}
+
+/* ------------------------------------------------------------------ 我的参数方案（3.6.0 新增）
+ * 经常做同一类地图（如「1V1 小图」「5V5 大陆」）时，不必每次重新调 10 个参数：保存为命名方案，下拉一选即用。 */
+const PRESETS_KEY = 'tmx_param_presets_v1';
+function loadPresets() {
+  try { const v = JSON.parse(localStorage.getItem(PRESETS_KEY) || '[]'); return Array.isArray(v) ? v.filter(x => x && typeof x.name === 'string' && x.p && typeof x.p === 'object') : []; }
+  catch { return []; }
+}
+function savePresets(list) { try { localStorage.setItem(PRESETS_KEY, JSON.stringify(list.slice(0, 20))); return true; } catch { toast('无法保存方案：本机存储不可用', 'error'); return false; } }
+function renderPresetOptions(selected = '') {
+  const el = $('userPreset'); if (!el) return;
+  const list = loadPresets();
+  el.innerHTML = '';
+  const o0 = document.createElement('option'); o0.value = ''; o0.textContent = list.length ? '选择方案…' : '暂无方案'; el.appendChild(o0);
+  list.forEach(x => { const o = document.createElement('option'); o.value = x.name; o.textContent = x.name; el.appendChild(o); });
+  el.value = list.some(x => x.name === selected) ? selected : '';
+  $('presetDel').disabled = !el.value;
+}
+function presetSnapshot() {
+  const p = params();
+  return { w: p.width, h: p.height, ts: p.tileset, hl: p.heightLevels, ol: p.oceanLevels, pl: p.numPlayers, rs: p.numResources, mirror: p.mirroring, sym: $('symmetryStrength').value, slot: $('slotOrder').value, grid: p.grid,
+    shape: shapeState.id, land: shapeState.land, rough: shapeState.rough, seed: $('shapeSeed').value };
+}
+function applyUserPreset(name) {
+  const x = loadPresets().find(v => v.name === name); if (!x) return;
+  const q = x.p, set = (id, v) => { const el = $(id); if (el && v != null && String(el.value) !== String(v)) { el.value = v; flashInput(id); } };
+  set('width', q.w); set('height', q.h); set('tileset', q.ts); set('heightLevels', q.hl); set('oceanLevels', q.ol);
+  set('players', q.pl); set('resources', q.rs); set('mirror', q.mirror); set('symmetryStrength', q.sym); set('slotOrder', q.slot);
+  if (Array.isArray(q.grid) && q.grid.length === 5) renderGrid(q.grid);
+  if (q.shape && (q.shape === 'classic' || shapeMeta(q.shape))) {
+    shapeState.id = q.shape;
+    if (Number.isFinite(+q.land)) shapeState.land = clamp(+q.land, 30, 70);
+    if (['0', '0.3', '0.8'].includes(String(q.rough))) shapeState.rough = String(q.rough);
+    if (q.seed != null) $('shapeSeed').value = q.seed;
+    syncShapeUI(); saveShapePrefs(); queueShapePreview(0);
+  }
+  syncPresetFromPlayers(); updateMirrorHint(); queuePrefs();
+  toast(`已应用方案「${name}」`, 'success');
+}
+async function saveUserPreset() {
+  const list = loadPresets();
+  const dft = $('userPreset').value || `方案 ${list.length + 1}`;
+  const k = await uiChoice('保存为我的方案',
+    `<p class="help-p">保存当前的尺寸、地形模板、高度 / 海洋层级、出生点与资源数量、对称方式、槽位规则、海岸线模板和地形形态（含陆地比例 / 山地 / 固定种子），之后一键套用。同名方案会被覆盖。</p>
+     <label class="wide-label"><span>方案名称</span><input id="presetName" type="text" maxlength="24" value="${escapeHtml(dft)}" autocomplete="off" spellcheck="false"></label>`,
+    [{ key: 'cancel', label: '取消' }, { key: 'ok', label: '保存', primary: true }]);
+  const name = ($('presetName')?.value || '').trim().slice(0, 24);
+  if (k !== 'ok') return;
+  if (!name) { toast('方案名称不能为空', 'warn'); return; }
+  const i = list.findIndex(v => v.name === name), item = { name, p: presetSnapshot(), at: Date.now() };
+  if (i >= 0) list[i] = item;
+  else { if (list.length >= 20) { toast('最多保存 20 个方案，请先删除不用的', 'warn'); return; } list.push(item); }
+  if (savePresets(list)) { renderPresetOptions(name); toast(`已保存方案「${name}」`, 'success'); }
+}
+async function deleteUserPreset() {
+  const v = $('userPreset').value; if (!v) return;
+  if (!await uiConfirm('删除方案', `确定删除方案「${escapeHtml(v)}」吗？`, '删除', true)) return;
+  if (savePresets(loadPresets().filter(x => x.name !== v))) { renderPresetOptions(); toast('已删除方案'); }
 }
 
 /* ------------------------------------------------------------------ 偏好持久化 */
@@ -2881,12 +5549,16 @@ function savePrefs() {
     localStorage.setItem(PREF_KEY, JSON.stringify({
       w: p.width, h: p.height, hl: p.heightLevels, ol: p.oceanLevels, pl: p.numPlayers, rs: p.numResources, ts: p.tileset,
       mirror: $('mirror').value, grid: getGrid(), preset: $('gamePreset').value, sym: $('symmetryStrength').value, slot: $('slotOrder').value,
-      name: $('mapName').value, smart: S.smartPlacement, autoSave: S.autoSave, animate: S.animate, png: mapPngStyle()
+      name: $('mapName').value, smart: S.smartPlacement, autoSave: S.autoSave, animate: S.animate, png: mapPngStyle(), orient: S.orientMode !== 'auto', orientMode: S.orientMode,
+      nearRes: { ...S.nearRes }
     }));
   } catch { /* 隐私模式等 */ }
 }
 let prefsTimer = null;
-function queuePrefs() { clearTimeout(prefsTimer); prefsTimer = setTimeout(savePrefs, 400); }
+function queuePrefs() { clearTimeout(prefsTimer); prefsTimer = setTimeout(() => { prefsTimer = null; savePrefs(); }, 400); }
+/* 3.10.0 修复：偏好写入有 400ms 防抖，旧版在这 400ms 内切到后台 / 被系统回收 / 关闭 PC 窗口，刚改的设置就丢了。
+ * 现在切后台（__onAppPause / visibilitychange / pagehide）时立即落盘挂起的写入。 */
+function flushPrefs() { if (prefsTimer) { clearTimeout(prefsTimer); prefsTimer = null; savePrefs(); } }
 function loadPrefs() {
   let s = null;
   try { s = JSON.parse(localStorage.getItem(PREF_KEY) || 'null'); } catch { s = null; }
@@ -2897,7 +5569,13 @@ function loadPrefs() {
   if (typeof s.smart === 'boolean') S.smartPlacement = s.smart;
   if (typeof s.autoSave === 'boolean') S.autoSave = s.autoSave;
   if (typeof s.animate === 'boolean') S.animate = s.animate;
+  if (ORIENT_MODES.includes(s.orientMode)) S.orientMode = s.orientMode;
+  else if (s.orient === true) S.orientLegacy = true; // 3.9.0 及更早：只知道「锁了」，不知道锁的是哪个方向
   if (PNG_STYLES[s.png]) set('mapPngStyle', s.png);
+  if (s.nearRes && typeof s.nearRes === 'object') {
+    S.nearRes = { enabled: s.nearRes.enabled !== false, perSpawn: clamp(Number(s.nearRes.perSpawn) || 2, 2, 4), min: clamp(Number(s.nearRes.min) || 10, 4, 120), max: clamp(Number(s.nearRes.max) || 20, 4, 160) };
+    if (S.nearRes.max < S.nearRes.min) S.nearRes.max = S.nearRes.min;
+  }
   renderGrid(Array.isArray(s.grid) && s.grid.length === 5 ? s.grid : undefined);
 }
 function syncPresetFromPlayers() {
@@ -2913,17 +5591,256 @@ function applyPreset() {
 function flashInput(id) { const el = $(id); el.classList.remove('flash-input'); void el.offsetWidth; el.classList.add('flash-input'); }
 
 /* ------------------------------------------------------------------ 主题 / 系统栏 */
-function applyTheme(i, announce = false) {
-  S.themeIndex = ((i % THEMES.length) + THEMES.length) % THEMES.length;
-  const t = THEMES[S.themeIndex];
-  document.body.dataset.theme = t.id;
+/* 3.7.0 修复：旧版启动时就把主题写入本机存储，「首次启动跟随系统深浅色」只生效一次，之后系统切换深浅色不再跟随。
+ * 现在只有用户点主题按钮才保存；未手动选择过时，系统切换深浅色会实时跟随。
+ * 3.16.0：上面的「未手动选择」现在就是显式的「跟随系统」选项（选它 = 删除存储项，与旧版语义一致）；
+ *         新增 5 套动态主题与「昼夜流转」，主题按钮改为打开选择面板。 */
+const themeById = id => THEMES.find(t => t.id === id);
+const themeChoiceById = id => THEME_CHOICES.find(t => t.id === id);
+let themeCycleTimer = 0;
+function systemPrefersLight() { try { return !!window.matchMedia?.('(prefers-color-scheme: light)').matches; } catch { return false; } }
+function cycleSlot(hour) { let slot = THEME_CYCLE[0]; for (const it of THEME_CYCLE) if (hour >= it[0]) slot = it; return slot; }
+function resolveTheme(choice, now = new Date()) {
+  if (choice === 'system') return systemPrefersLight() ? 'light' : 'dark';
+  if (choice === 'cycle') return cycleSlot(now.getHours())[1];
+  return themeById(choice) ? choice : 'dark';
+}
+function readThemeChoice() {
+  let saved = null;
+  try { saved = localStorage.getItem(THEME_KEY); } catch { /* ignore */ }
+  if (saved == null) return 'system';
+  if (themeChoiceById(saved)) return saved;
+  const n = Number(saved); // 3.15.0 及更早：保存的是下标（0 深空 / 1 青岚 / 2 亮白）
+  return Number.isInteger(n) && LEGACY_THEME_ORDER[n] ? LEGACY_THEME_ORDER[n] : 'dark';
+}
+function fxEnabled() { try { return localStorage.getItem(THEME_FX_KEY) !== '0'; } catch { return true; } }
+function setFxEnabled(on) {
+  try { on ? localStorage.removeItem(THEME_FX_KEY) : localStorage.setItem(THEME_FX_KEY, '0'); } catch { /* ignore */ }
+  document.body.classList.toggle('fx-off', !on);
+  renderThemeMenu();
+}
+function themeLabel() {
+  const c = themeChoiceById(S.themeChoice), t = themeById(S.themeId);
+  if (S.themeChoice === 'cycle') return `${c.name}（${cycleSlot(new Date().getHours())[2]} · ${t.name}）`;
+  return S.themeChoice === 'system' ? `${c.name}（${t.name}）` : t.name;
+}
+function applyTheme(choice, announce = false, persist = announce) {
+  if (!themeChoiceById(choice)) choice = 'dark';
+  S.themeChoice = choice;
+  const id = resolveTheme(choice), t = themeById(id), b = document.body;
+  S.themeId = id;
+  b.dataset.theme = id;
+  b.dataset.tone = t.tone;
+  if (t.fx) b.dataset.fx = id; else delete b.dataset.fx;
   document.querySelector('meta[name=theme-color]').setAttribute('content', t.bar);
   canvasBg = cssVar('--canvas-bg') || '#050b14';
-  try { localStorage.setItem(THEME_KEY, String(S.themeIndex)); } catch { /* ignore */ }
-  try { window.AndroidBridge?.setSystemBars?.(t.bar, t.lightIcons); } catch { /* 旧版桥接 */ }
-  $('themeToggle').title = `主题：${t.name}（点击切换）`;
-  if (announce) toast(`主题：${t.name}`);
+  canvasClear = !!t.fx;
+  if (persist) try { choice === 'system' ? localStorage.removeItem(THEME_KEY) : localStorage.setItem(THEME_KEY, choice); } catch { /* ignore */ }
+  try { window.AndroidBridge?.setSystemBars?.(t.bar, t.tone === 'light'); } catch { /* 旧版桥接 */ }
+  const label = themeLabel();
+  $('themeToggle').title = `主题：${label}（点击选择）`;
+  $('themeToggle').setAttribute('aria-label', `选择主题，当前：${label}`);
+  clearInterval(themeCycleTimer); themeCycleTimer = 0;
+  if (choice === 'cycle') themeCycleTimer = setInterval(refreshAutoTheme, 60000);
+  renderThemeMenu();
+  if (announce) toast(`主题：${label}${t.fx && !fxEnabled() ? '（动态背景已暂停）' : ''}`);
   scheduleRender();
+}
+/** 自动主题（跟随系统 / 昼夜流转）的实际主题变了才重新应用；不写存储、不弹提示 */
+function refreshAutoTheme() {
+  if (S.themeChoice !== 'system' && S.themeChoice !== 'cycle') return;
+  if (resolveTheme(S.themeChoice) !== S.themeId) applyTheme(S.themeChoice, false, false);
+}
+function themeWash(fromEl) {
+  if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+  const r = fromEl?.getBoundingClientRect?.(); if (!r) return;
+  const w = document.createElement('div');
+  w.className = 'theme-wash';
+  w.style.left = (r.left + r.width / 2) + 'px'; w.style.top = (r.top + r.height / 2) + 'px';
+  document.body.appendChild(w);
+  setTimeout(() => w.remove(), 800);
+}
+function buildThemeMenu() {
+  const m = $('themeMenu'); if (!m || m.dataset.built) return;
+  m.dataset.built = '1';
+  const groups = [['经典', ''], ['动态', '带动态背景'], ['自动', '随系统 / 时间变化']];
+  let delay = 0;
+  m.innerHTML = '<div class="om-head">界面主题</div>' + groups.map(([g, note]) => `<div class="tm-group">${g}${note ? `<em>${note}</em>` : ''}</div><div class="tm-grid">` +
+    THEME_CHOICES.filter(t => t.group === g).map(t => `<button type="button" role="menuitemradio" aria-checked="false" data-theme-id="${t.id}" style="animation-delay:${(delay++ * 0.025).toFixed(3)}s" title="${t.desc}"><span class="tm-sw" data-sw="${t.id}"><i></i></span><b>${t.name}</b></button>`).join('') +
+    '</div>').join('') +
+    '<div class="tm-desc" id="themeDesc" aria-live="polite"></div>' +
+    '<label class="switch-row tm-fx"><span>动态背景<small>关闭后停在静止画面，更省电</small></span><button id="themeFxToggle" class="switch" role="switch" aria-checked="true" type="button"><i></i></button></label>';
+  m.addEventListener('click', e => {
+    const it = e.target.closest('[data-theme-id]');
+    if (it) { // 面板保持打开，方便连续试几套
+      if (it.dataset.themeId !== S.themeChoice) { themeWash(it); applyTheme(it.dataset.themeId, true); }
+      return;
+    }
+    if (e.target.closest('#themeFxToggle')) { const on = !fxEnabled(); setFxEnabled(on); toast(on ? '动态背景：开' : '动态背景：已暂停'); }
+  });
+  const showDesc = id => { const c = themeChoiceById(id); if (c) $('themeDesc').innerHTML = `<b>${c.name}</b> · ${c.desc}`; };
+  m.addEventListener('pointerover', e => { const it = e.target.closest('[data-theme-id]'); if (it) showDesc(it.dataset.themeId); });
+  m.addEventListener('focusin', e => { const it = e.target.closest('[data-theme-id]'); if (it) showDesc(it.dataset.themeId); });
+  m.addEventListener('pointerleave', () => renderThemeMenu());
+  m.addEventListener('keydown', e => { // 方向键在网格里移动焦点
+    const items = [...m.querySelectorAll('[data-theme-id]')], i = items.indexOf(document.activeElement);
+    if (i < 0) return;
+    let to = -1;
+    if (e.key === 'ArrowRight') to = Math.min(i + 1, items.length - 1);
+    else if (e.key === 'ArrowLeft') to = Math.max(i - 1, 0);
+    else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') to = themeGridMove(m, items, items[i], e.key === 'ArrowDown' ? 1 : -1);
+    else if (e.key === 'Home') to = 0;
+    else if (e.key === 'End') to = items.length - 1;
+    if (to < 0) return;
+    e.preventDefault(); items[to].focus();
+  });
+}
+/* 3.17.0 修复：三组主题的数量分别是 3 / 5 / 2，旧版上下键固定按 ±3 跳，跨组时焦点落到错误的列（例如「深潮」下面是「昼夜流转」）。
+ * 现在按每组的实际网格计算：组内上下移一行；越过组边界时进入相邻组、保持同一列（该组这一列不存在时取最后一个）。 */
+function themeGridMove(menu, items, el, dir) {
+  const grids = [...menu.querySelectorAll('.tm-grid')].map(g => [...g.querySelectorAll('[data-theme-id]')]);
+  const gi = grids.findIndex(g => g.includes(el)); if (gi < 0) return -1;
+  const cols = Math.max(1, (getComputedStyle(el.parentElement).gridTemplateColumns || '').split(' ').filter(Boolean).length || 3);
+  const g = grids[gi], idx = g.indexOf(el), col = idx % cols, row = Math.floor(idx / cols), lastRow = Math.floor((g.length - 1) / cols);
+  let target = el;
+  if (dir > 0) {
+    if (row < lastRow) target = g[Math.min(idx + cols, g.length - 1)];
+    else if (grids[gi + 1]) target = grids[gi + 1][Math.min(col, grids[gi + 1].length - 1)];
+  } else if (row > 0) target = g[idx - cols];
+  else if (grids[gi - 1]) { const p = grids[gi - 1], pr = Math.floor((p.length - 1) / cols) * cols; target = p[Math.min(pr + col, p.length - 1)]; }
+  return items.indexOf(target);
+}
+function renderThemeMenu() {
+  const m = $('themeMenu'); if (!m || !m.dataset.built) return;
+  m.querySelectorAll('[data-theme-id]').forEach(it => {
+    const on = it.dataset.themeId === S.themeChoice;
+    it.classList.toggle('current', on);
+    it.setAttribute('aria-checked', String(on));
+  });
+  const c = themeChoiceById(S.themeChoice), t = themeById(S.themeId);
+  const now = S.themeChoice === 'cycle' ? `现在是${cycleSlot(new Date().getHours())[2]}，使用「${t.name}」。` : S.themeChoice === 'system' ? `当前使用「${t.name}」。` : '';
+  $('themeDesc').innerHTML = `<b>${c.name}</b> · ${c.desc}${now ? '<br>' + now : ''}`;
+  const on = fxEnabled(), sw = $('themeFxToggle');
+  sw.classList.toggle('on', on); sw.setAttribute('aria-checked', String(on));
+  sw.disabled = !t.fx && S.themeChoice !== 'cycle';
+  sw.title = sw.disabled ? '当前主题没有动态背景' : '';
+}
+const themeMenuOpen = () => !!$('themeMenu')?.classList.contains('show');
+function openThemeMenu() {
+  const m = $('themeMenu'); if (!m) return;
+  closeOrientMenu();
+  buildThemeMenu(); renderThemeMenu();
+  clearTimeout(m._hideT);
+  m.hidden = false;
+  requestAnimationFrame(() => m.classList.add('show'));
+  $('themeToggle').setAttribute('aria-expanded', 'true');
+  (m.querySelector('.current') || m.querySelector('[data-theme-id]'))?.focus({ preventScroll: true });
+}
+function closeThemeMenu() {
+  const m = $('themeMenu'); if (!m || !m.classList.contains('show')) return false;
+  m.classList.remove('show');
+  $('themeToggle').setAttribute('aria-expanded', 'false');
+  m._hideT = setTimeout(() => { m.hidden = true; }, 220);
+  return true;
+}
+function nextTheme(d = 1) { // 只在具体主题间轮换（命令面板「下一个主题」）
+  const i = THEMES.findIndex(t => t.id === S.themeId);
+  applyTheme(THEMES[(i + d + THEMES.length) % THEMES.length].id, true);
+}
+
+/* ------------------------------------------------------------------ 屏幕方向（3.10.0 重写）
+ * 旧版：按钮只是一个开关，调用原生 setOrientationLock(true) = SCREEN_ORIENTATION_LOCKED（锁定为「此刻」的方向），
+ *       网页 localStorage 里只记了 orient=true。冷启动时 App 先按手机姿态显示，网页加载完再锁一次——锁住的是
+ *       启动时手机恰好的方向，而不是上次锁定的竖屏 / 横屏，于是「横屏锁定」重开后经常变成「竖屏锁定」。
+ * 现在：方向模式（auto / portrait / landscape）由 Android 原生层用 SharedPreferences 持久化，Activity onCreate
+ *       时就恢复（第一帧即正确方向），网页启动时只「读取」原生状态来显示，不再在启动时调用任何锁定接口；
+ *       只有用户在菜单里选择时才写入。原生通过 window.__onOrientationMode(mode) 回传实际生效的模式。 */
+const ORIENT_MODES = ['auto', 'portrait', 'landscape'];
+const ORIENT_TEXT = { auto: '自动旋转', portrait: '已锁定竖屏', landscape: '已锁定横屏' };
+let orientAnnounce = false;
+const orientBridge = () => {
+  const b = window.AndroidBridge;
+  return b && typeof b.setOrientationMode === 'function' ? b : null;
+};
+function renderOrientation() {
+  const b = $('orientToggle'); if (!b) return;
+  const m = S.orientMode, locked = m !== 'auto';
+  if (b.dataset.mode && b.dataset.mode !== m) { b.classList.remove('orient-swap'); void b.offsetWidth; b.classList.add('orient-swap'); }
+  b.dataset.mode = m;
+  b.classList.toggle('active', locked);
+  b.setAttribute('aria-pressed', String(locked));
+  b.title = `屏幕方向：${ORIENT_TEXT[m]}（点击更改）`;
+  b.setAttribute('aria-label', `屏幕方向：${ORIENT_TEXT[m]}`);
+  document.querySelectorAll('#orientMenu [data-orient]').forEach(it => {
+    const on = it.dataset.orient === m;
+    it.classList.toggle('current', on);
+    it.setAttribute('aria-checked', String(on));
+  });
+}
+/** 原生回调：实际生效的方向模式（用户选择「锁定当前方向」时由原生解析为 portrait / landscape） */
+window.__onOrientationMode = mode => {
+  S.orientMode = ORIENT_MODES.includes(mode) ? mode : 'auto';
+  renderOrientation();
+  savePrefs(); // 网页侧备份立即写入（不走防抖）
+  if (orientAnnounce) {
+    orientAnnounce = false;
+    toast(S.orientMode === 'auto' ? '已恢复自动旋转' : `${ORIENT_TEXT[S.orientMode]}，下次打开会保持此方向`, 'success');
+  }
+};
+function setOrientationMode(mode, announce = true) {
+  const br = orientBridge(); if (!br) return;
+  orientAnnounce = announce;
+  // 明确的模式先乐观更新界面；「当前方向」等原生回调后再更新
+  if (ORIENT_MODES.includes(mode)) { S.orientMode = mode; renderOrientation(); }
+  try { br.setOrientationMode(mode); }
+  catch (e) { orientAnnounce = false; toast('无法设置屏幕方向：' + (e?.message || e), 'error'); }
+}
+function initOrientation() {
+  const btn = $('orientToggle'); if (!btn) return;
+  const br = orientBridge();
+  if (!br) { btn.closest('.orient-wrap')?.setAttribute('hidden', ''); return; } // PC / 浏览器：没有屏幕方向的概念
+  let st = null;
+  try { st = JSON.parse(br.getOrientationMode?.() || 'null'); } catch { st = null; }
+  if (st && st.stored && ORIENT_MODES.includes(st.mode)) {
+    S.orientMode = st.mode; // 原生已持久化：以原生为准
+    renderOrientation();
+    savePrefs();
+  } else if (ORIENT_MODES.includes(S.orientMode) && S.orientMode !== 'auto') {
+    setOrientationMode(S.orientMode, false); // 原生数据被清除但网页备份还在：以网页备份恢复
+  } else if (S.orientLegacy) {
+    setOrientationMode('current', false);    // 从 3.9.0 升级：只能按此刻方向迁移一次，之后由原生持久化
+    S.orientLegacy = false;
+  } else {
+    S.orientMode = 'auto';
+    renderOrientation();
+  }
+  btn.onclick = e => { e.stopPropagation(); toggleOrientMenu(); };
+  $('orientMenu').addEventListener('click', e => {
+    const it = e.target.closest('[data-orient]'); if (!it) return;
+    closeOrientMenu();
+    const m = it.dataset.orient;
+    if (m === S.orientMode) return;
+    setOrientationMode(m, true);
+  });
+  document.addEventListener('pointerdown', e => { if (!e.target.closest?.('.orient-wrap')) closeOrientMenu(); }, true);
+}
+const orientMenuOpen = () => !!$('orientMenu')?.classList.contains('show');
+function toggleOrientMenu() { orientMenuOpen() ? closeOrientMenu() : openOrientMenu(); }
+function openOrientMenu() {
+  const m = $('orientMenu'); if (!m) return;
+  closeThemeMenu(); // 3.16.0：两个顶栏菜单互斥
+  clearTimeout(m._hideT);
+  m.hidden = false;
+  requestAnimationFrame(() => m.classList.add('show'));
+  $('orientToggle').setAttribute('aria-expanded', 'true');
+  (m.querySelector('.current') || m.querySelector('[data-orient]'))?.focus({ preventScroll: true });
+}
+function closeOrientMenu() {
+  const m = $('orientMenu'); if (!m || !m.classList.contains('show')) return false;
+  m.classList.remove('show');
+  $('orientToggle').setAttribute('aria-expanded', 'false');
+  m._hideT = setTimeout(() => { m.hidden = true; }, 220);
+  return true;
 }
 
 /* ------------------------------------------------------------------ 抽屉 / 折叠卡片 */
@@ -2950,6 +5867,9 @@ function setMode(m) {
   S.mode = m;
   $('quickTab').classList.toggle('active', m === 'quick');
   $('wizardTab').classList.toggle('active', m === 'wizard');
+  // 3.18.0：标签页补齐 aria-selected，与 role="tablist/tab" 语义保持一致
+  $('quickTab').setAttribute('aria-selected', String(m === 'quick'));
+  $('wizardTab').setAttribute('aria-selected', String(m === 'wizard'));
   document.querySelector('.tabs').dataset.active = m;
   $('wizardSec').hidden = m !== 'wizard';
   $('toolPalette').hidden = m !== 'wizard';
@@ -2964,32 +5884,57 @@ function showHelp() {
   uiChoice('快捷键与操作说明', `
     <div class="help-grid">
       <div><kbd>Ctrl</kbd>+<kbd>Enter</kbd></div><div>生成地图</div>
-      <div><kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Y</kbd></div><div>全局撤销 / 重做</div>
+      <div><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Enter</kbd></div><div>择优生成：一次生成多张，自动体检后挑一张</div>
+      <div><kbd>Ctrl</kbd>+<kbd>K</kbd> / <kbd>/</kbd></div><div>命令面板：搜索并执行任意功能（支持拼音首字母，如 dc = 导出）</div>
+      <div><kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Y</kbd></div><div>全局撤销 / 重做（<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd> 也可重做）</div>
       <div><kbd>Ctrl</kbd>+<kbd>S</kbd></div><div>保存项目</div>
       <div><kbd>Ctrl</kbd>+<kbd>E</kbd></div><div>导出 TMX + 小地图</div>
+      <div><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd></div><div>另存为：改文件名 / 选内容 / 选保存位置</div>
       <div><kbd>F</kbd> / <kbd>0</kbd></div><div>适应画布 / 1:1 像素</div>
       <div><kbd>+</kbd> / <kbd>-</kbd></div><div>放大 / 缩小</div>
       <div><kbd>V</kbd> <kbd>B</kbd> <kbd>P</kbd> <kbd>C</kbd> <kbd>R</kbd></div><div>分步模式：平移 / 画笔 / 多边形 / 出生点 / 资源</div>
       <div><kbd>Del</kbd></div><div>删除选中的出生点</div>
       <div><kbd>M</kbd></div><div>打开出生点槽位映射表</div>
       <div><kbd>I</kbd></div><div>预览导出的小地图 PNG</div>
+      <div><kbd>D</kbd></div><div>地图体检：连通性 / 领地平衡 / 资源分配</div>
+      <div><kbd>T</kbd></div><div>显示 / 隐藏领地图层</div>
+      <div><kbd>L</kbd></div><div>显示 / 隐藏接敌路线（选中出生点时只看它自己的）</div>
+      <div><kbd>U</kbd></div><div>测距：点两个点（或拖动画线）量直线 / 步行距离，出生点自动吸附；量完显示沿线地形剖面</div>
+      <div><kbd>N</kbd></div><div>显示 / 隐藏近家资源范围</div>
+      <div><kbd>Z</kbd></div><div>专注模式：收起侧栏和顶栏，画布铺满（<kbd>Z</kbd> / <kbd>Esc</kbd> 退出）</div>
+      <div><kbd>Ctrl</kbd>+<kbd>V</kbd></div><div>在画布区粘贴配方码（TMX1-…）：直接打开「使用配方码」</div>
       <div><kbd>[</kbd> / <kbd>]</kbd></div><div>画笔变小 / 变大</div>
       <div><kbd>H</kbd> / <kbd>?</kbd></div><div>打开本帮助</div>
       <div><kbd>Space</kbd>+拖动</div><div>任意工具下临时平移</div>
       <div><kbd>Esc</kbd></div><div>取消绘制 / 取消选择 / 关闭面板</div>
     </div>
     <p class="help-p">槽位规则：<b>出生点 N = 游戏玩家 N = 瓦片 team 属性 N-1</b>。导出前会按 team 属性写入 GID 并读回校验；修改队伍会自动重排槽位，「设为玩家 1」只交换槽位、不影响其他玩家。</p>
+    <p class="help-p">地图体检：检查所有出生点之间是否有陆路相通、双方能控制多大的地盘（按行走距离划分，蓝 = A 队、红 = B 队、橙 = 无人可达的孤岛）、资源点分配是否均衡；点击问题项可直接定位到对应出生点。重新生成前会自动备份当前地图，可在「项目 / 恢复」中找回。</p>
+    <p class="help-p">3.7.0：「择优」按钮一次生成多张候选地图并按体检分排序；体检新增接敌（Rush）距离——每位玩家走到最近敌人要多远，「路线」图层把这些最短路径画在地图上；导入的地图会读取 TMX 中的悬崖 / 水域瓦片，体检更精确；底部「海报」可导出带体检数据的分享图。</p>
+    <p class="help-p">3.8.0：「地形形态」提供 11 套模板（岛屿 / 半岛 / 群岛 / 双河 / 山湖 / 大陆 / 沙漠 / 雪原 / 火山 / 迷宫 / 两岸狭路），生成时自动对称、加浅滩渡口、为高地开坡道并打通被围死的空地；预览即成图（同一种子），种子可固定复用。山地会生成为带悬崖的高地，坡道处可通行。「另存为…」可自定义文件名、导出内容和保存位置（Android 可选导出文件夹）；画布与小地图按所选地形模板的贴图着色。</p>
     <p class="help-p">触屏：单指拖动平移，双指缩放（抬起一指可继续平移）；长按删除出生点/资源点；拖动出生点可直接移动。手机上右下角的悬浮按钮可直接生成 / 导出 / 撤销。</p>
-    <p class="help-p">版本 v${APP_VERSION} · 所有计算均在本机完成，不联网。</p>`, [{ key: 'ok', label: '知道了', primary: true }]);
+    ${window.DesktopBridge ? '<p class="help-p">PC 版：<kbd>F11</kbd> 全屏；<kbd>Ctrl</kbd>+<kbd>O</kbd> 导入；把 TMX / 项目文件 / 地形图片拖进窗口即可导入；导出文件保存在「项目 / 恢复」卡片中设置的导出目录（默认系统下载目录）；关闭窗口前自动保存草稿。</p>' : ''}
+    <p class="help-p">版本 v${APP_VERSION}${window.DesktopBridge ? ' · PC 版' : ''} · 所有计算均在本机完成，不联网。</p>`, [{ key: 'ok', label: '知道了', primary: true }]);
 }
 
 /* ------------------------------------------------------------------ Android 返回键 / 生命周期 */
 window.__onAndroidBack = () => {
+  if (closeThemeMenu()) return true; // 3.16.0
+  if (closeOrientMenu()) return true;
   if (closeModal('cancel')) return true;
+  if (cmdkOpen()) { closeCmdk(); return true; } // 3.15.0：命令面板
+  // 3.15.0：与 Esc 一致——有测量结果时第一次返回只清除测量，第二次才退出测距（旧版一次就退出，测量结果直接丢失）
+  if (measure.on) { if (measure.a) { clearMeasurePoints(); scheduleRender(); setStatus('已清除测量，再按一次返回退出测距'); } else setMeasure(false); return true; }
   if (!$('busy').hidden && animTimer) { stopAnimation(); return true; }
+  // 3.7.0 修复：旧版生成大地图途中按返回键会直接退出 App；现在与对话框一致——可取消时取消当前操作，否则提示稍候
+  if (S.locked && !$('busy').hidden) {
+    if (!$('busyCancel').hidden) $('busyCancel').click(); else toast('正在处理中，请稍候…', 'warn');
+    return true;
+  }
   if ($('sidebar').classList.contains('open')) { closeDrawer(); return true; }
   if (S.drawingPolygon) { S.drawingPolygon = null; updatePolygonInfo(); scheduleRender(); return true; }
   if (S.selectedSpawn >= 0) { selectSpawn(-1); return true; }
+  if (focusOn()) { setFocusMode(false); return true; } // 3.17.0
   return false;
 };
 /* 3.2.0：原生侧异步保存结果回调（Android 9 及以下等待存储权限后才真正写入，旧版网页永远不知道结果） */
@@ -2997,7 +5942,13 @@ window.__onNativeSaveResult = (ok, msg) => {
   if (ok) toast(`已保存到下载目录：${msg}`, 'success', 3600);
   else toast(`保存失败：${msg}`, 'error', 4600);
 };
-window.__onAppPause = () => { if (S.autoSave && (S.snapshot || S.lastTmx)) saveProject(true); };
+// 3.5.0：返回 Promise，PC 版关闭窗口时可等待保存完成（Android 端忽略返回值，行为不变）
+window.__onAppPause = () => { flushPrefs(); return (S.autoSave && (S.snapshot || S.lastTmx)) ? saveProject(true) : Promise.resolve(); };
+// 3.10.0：浏览器 / WebView 被切到后台或页面卸载时同样立即落盘挂起的偏好写入
+document.addEventListener('visibilitychange', () => { if (document.hidden) flushPrefs(); });
+window.addEventListener('pagehide', flushPrefs);
+// 3.5.0：供 desktop-bridge.js 使用的最小接口（Toast 提示）
+window.TMXApp = { toast: (...a) => toast(...a), version: APP_VERSION };
 
 /* ------------------------------------------------------------------ 按钮涟漪 */
 document.addEventListener('pointerdown', e => {
@@ -3010,37 +5961,590 @@ document.addEventListener('pointerdown', e => {
   setTimeout(() => rip.remove(), 600);
 }, { passive: true });
 
+/* ================================================================== 3.15.0 新功能 */
+
+/* ------------------------------------------------------------------ ① 命令面板（Ctrl+K / 「/」 / 顶栏搜索按钮）
+ * 功能越来越多：生成、择优、惊喜、测距、体检、领地、接敌路线、近家资源、槽位表、海报、历史版本……分散在侧栏七八张卡片里，
+ * 手机上还要先打开抽屉再滚动找。命令面板把所有操作集中到一个可搜索的列表：输入「导出」「测距」「dc」都能找到，
+ * 显示快捷键，最近用过的排在最前；需要地图的命令在没有地图时置灰并说明原因。
+ * 搜索：标题子串 > 关键词（含拼音首字母 / 英文）子串 > 标题字符按序出现（子序列），同分按最近使用排序。 */
+const CMDK_RECENT_KEY = 'tmx_cmdk_recent_v1';
+const clickId = id => () => $(id)?.click();
+const CMDS = [
+  { id: 'generate', g: '地图', t: '生成地图', k: 'Ctrl+Enter', kw: 'scdt generate shengcheng', run: () => generate() },
+  { id: 'bestof', g: '地图', t: '择优生成（多张候选自动评分）', k: 'Ctrl+Shift+Enter', kw: 'zy best of zeyou houxuan', run: () => generateBestOf() },
+  { id: 'surprise', g: '地图', t: '惊喜生成（随机一套好玩的参数）', kw: 'jx surprise random suiji jingxi', run: clickId('surprise') },
+  { id: 'name', g: '地图', t: '随机起一个地图名', kw: 'qm name mingzi suiji qiming', run: () => rollMapName(true) },
+  { id: 'import', g: '地图', t: '导入 TMX / 项目文件', kw: 'dr import daoru tmx json', run: clickId('tmxImport') },
+  { id: 'export', g: '导出', t: '导出 TMX + 小地图', k: 'Ctrl+E', kw: 'dc export daochu png', map: 1, run: () => exportPair() },
+  { id: 'zip', g: '导出', t: '导出 ZIP（TMX + 小地图 + 说明）', kw: 'zip dabao daochu', map: 1, run: () => exportZipFn() },
+  { id: 'saveas', g: '导出', t: '另存为…（改名 / 选内容 / 选位置）', k: 'Ctrl+Shift+S', kw: 'lcw save as lingcunwei', map: 1, run: () => showSaveAs() },
+  { id: 'shot', g: '导出', t: '保存当前视图截图（含已开启的图层）', kw: 'jt screenshot jietu shitu dangqian tuceng', map: 1, run: () => saveViewShot() },
+  { id: 'recipecopy', g: '地图', t: '复制配方码（分享整套参数）', kw: 'pfm recipe peifang fuzhi fenxiang code canshu', run: () => copyRecipe() },
+  { id: 'recipepaste', g: '地图', t: '使用配方码…', kw: 'pfm recipe peifang zhantie paste shiyong', run: () => pasteRecipe() },
+  { id: 'png', g: '导出', t: '预览 / 复制小地图图片', k: 'I', kw: 'xdt minimap png yulan fuzhi copy', map: 1, run: () => showMapPngPreview() },
+  { id: 'poster', g: '导出', t: '生成分享海报', kw: 'hb poster haibao fenxiang', map: 1, run: () => showPoster() },
+  { id: 'projexp', g: '导出', t: '导出项目文件（.json）', kw: 'xm project json xiangmu', map: 1, run: () => exportProject() },
+  { id: 'doctor', g: '分析', t: '地图体检', k: 'D', kw: 'tj doctor tijian jiancha', map: 1, run: () => showMapDoctor() },
+  { id: 'measure', g: '分析', t: '测距 + 地形剖面', k: 'U', kw: 'cj measure ceju juli poumian', map: 1, run: () => setMeasure(!measure.on) },
+  { id: 'territory', g: '分析', t: '显示 / 隐藏领地图层', k: 'T', kw: 'ld territory lingdi', map: 1, run: () => setTerritoryLayer(!S.layers.territory) },
+  { id: 'routes', g: '分析', t: '显示 / 隐藏接敌路线', k: 'L', kw: 'jd rush route jiedi luxian', map: 1, run: () => setRoutesLayer(!S.layers.routes) },
+  { id: 'nearlayer', g: '分析', t: '显示 / 隐藏近家资源范围', k: 'N', kw: 'jj near jinjia fanwei', map: 1, run: clickId('layerNearRes') },
+  { id: 'slots', g: '出生点', t: '出生点槽位映射表', k: 'M', kw: 'cw slot caowei yingshe', map: 1, run: () => showSlotTable() },
+  { id: 'spawnauto', g: '出生点', t: '智能重新布置出生点', kw: 'zn auto spawn zhineng buzhi chushengdian', map: 1, run: clickId('spawnAuto') },
+  { id: 'reorder', g: '出生点', t: '按队伍重排玩家槽位', kw: 'cp reorder chongpai duiwu', map: 1, run: clickId('spawnReorder') },
+  { id: 'nearfill', g: '出生点', t: '补齐近家资源点', kw: 'bq near resource buqi ziyuan', map: 1, run: () => fillNearSpawnResourcesManual() },
+  { id: 'fit', g: '视图', t: '适应画布', k: 'F', kw: 'sy fit shiying', map: 1, run: () => fitView(true) },
+  { id: 'zoom1', g: '视图', t: '1:1 像素', k: '0', kw: 'zoom 1:1 xiangsu', map: 1, run: clickId('zoomReset') },
+  { id: 'focus', g: '视图', t: '专注模式（收起侧栏，画布铺满）', k: 'Z', kw: 'zz focus zhuanzhu quanping pumang fullscreen', run: () => setFocusMode(!focusOn()) },
+  { id: 'grid', g: '视图', t: '显示 / 隐藏网格', kw: 'wg grid wangge', map: 1, run: clickId('layerGrid') },
+  { id: 'theme', g: '主题', t: '选择主题…', kw: 'zt xz theme zhuti xuanze yanse pifu', run: () => openThemeMenu() },
+  { id: 'themenext', g: '主题', t: '下一个主题', kw: 'zt xyg next theme zhuti xiayige qiehuan', run: () => nextTheme(1) },
+  ...THEME_CHOICES.map(t => ({ id: 'theme-' + t.id, g: '主题', t: `主题：${t.name}${t.fx ? '（动态）' : ''}`, kw: `zt theme zhuti ${t.id} ${t.fx ? 'dt dongtai' : ''}`, run: () => applyTheme(t.id, true) })),
+  { id: 'themefx', g: '主题', t: '开 / 关动态背景', kw: 'dt bj fx dongtai beijing donghua shengdian', run: () => { const on = !fxEnabled(); setFxEnabled(on); toast(on ? '动态背景：开' : '动态背景：已暂停'); } },
+  { id: 'mode', g: '视图', t: '切换「快速生成 / 分步编辑」', kw: 'fb wizard mode fenbu kuaisu', run: () => setMode(S.mode === 'quick' ? 'wizard' : 'quick') },
+  { id: 'save', g: '项目', t: '保存项目到本机', k: 'Ctrl+S', kw: 'bc save baocun xiangmu', run: () => saveProject(false) },
+  { id: 'load', g: '项目', t: '恢复项目草稿', kw: 'hf load huifu caogao', run: () => loadProject() },
+  { id: 'snap', g: '项目', t: '保存当前地图为历史快照', kw: 'kz snapshot kuaizhao lishi', map: 1, run: clickId('histSave') },
+  { id: 'history', g: '项目', t: '版本历史', kw: 'ls history lishi banben', run: () => showHistory() },
+  { id: 'prev', g: '项目', t: '找回上一张地图', kw: 'zh previous zhaohui shangyizhang', run: () => restorePrevious() },
+  { id: 'new', g: '项目', t: '新建项目', kw: 'xj new xinjian', run: () => newProject() },
+  { id: 'engine', g: '系统', t: '重新启动本地引擎', kw: 'yq engine restart yinqing chongqi', run: () => Engine.manualRestart() },
+  { id: 'help', g: '系统', t: '快捷键与帮助', k: '?', kw: 'bz help bangzhu kuaijiejian', run: () => showHelp() }
+];
+const cmdk = { open: false, items: [], active: 0, lastFocus: null };
+const cmdkOpen = () => cmdk.open;
+function cmdkRecent() { try { const v = JSON.parse(localStorage.getItem(CMDK_RECENT_KEY) || '[]'); return Array.isArray(v) ? v : []; } catch { return []; } }
+function cmdkTouch(id) { try { localStorage.setItem(CMDK_RECENT_KEY, JSON.stringify([id, ...cmdkRecent().filter(x => x !== id)].slice(0, 6))); } catch { /* ignore */ } }
+/** 返回 { score, at, len }：at / len 为标题中命中的子串位置（用于高亮），0 分表示不匹配 */
+function cmdkScore(c, q) {
+  if (!q) return { score: 1 };
+  const t = c.t.toLowerCase(), kw = (c.kw || '').toLowerCase();
+  const at = t.indexOf(q);
+  if (at >= 0) return { score: 100 - at, at, len: q.length };
+  if (kw.split(/\s+/).some(w => w.startsWith(q))) return { score: 60 };
+  if (kw.includes(q)) return { score: 40 };
+  let i = 0; for (const ch of t) if (ch === q[i]) i++;
+  return { score: i === q.length ? 20 : 0 };
+}
+function renderCmdk() {
+  const q = $('cmdkInput').value.trim().toLowerCase(), recent = cmdkRecent(), hasMap = !!S.snapshot;
+  let list = CMDS.map(c => ({ c, m: cmdkScore(c, q) })).filter(x => x.m.score > 0);
+  const rank = id => { const i = recent.indexOf(id); return i < 0 ? 99 : i; };
+  if (q) list.sort((a, b) => b.m.score - a.m.score || rank(a.c.id) - rank(b.c.id));
+  else { const rc = list.filter(x => rank(x.c.id) < 99).sort((a, b) => rank(a.c.id) - rank(b.c.id)).map(x => ({ ...x, recent: true })); list = [...rc, ...list]; }
+  cmdk.items = list;
+  cmdk.active = Math.min(cmdk.active, Math.max(0, list.length - 1));
+  let lastG = '';
+  const html = list.map((x, i) => {
+    const { c, m } = x, off = c.map && !hasMap, g = x.recent ? '最近使用' : c.g;
+    const head = !q && g !== lastG ? `<li class="cmdk-group" role="presentation">${g}</li>` : '';
+    lastG = g;
+    const title = m.at != null ? `${escapeHtml(c.t.slice(0, m.at))}<mark>${escapeHtml(c.t.slice(m.at, m.at + m.len))}</mark>${escapeHtml(c.t.slice(m.at + m.len))}` : escapeHtml(c.t);
+    return `${head}<li class="cmdk-item${i === cmdk.active ? ' active' : ''}${off ? ' off' : ''}" role="option" id="cmdk-${i}" data-i="${i}" aria-selected="${i === cmdk.active}" style="--d:${Math.min(i, 14) * 14}ms"><span class="cmdk-g">${escapeHtml(c.g)}</span><span class="cmdk-t">${title}${off ? '<small>需要先生成或导入地图</small>' : ''}</span>${c.k ? `<kbd>${escapeHtml(c.k)}</kbd>` : ''}</li>`;
+  }).join('');
+  $('cmdkList').innerHTML = html || '<li class="cmdk-empty">没有匹配的功能，换个关键词试试（支持拼音首字母，如 dc = 导出）</li>';
+  $('cmdkInput').setAttribute('aria-activedescendant', list.length ? `cmdk-${cmdk.active}` : '');
+}
+function moveCmdk(d) {
+  if (!cmdk.items.length) return;
+  cmdk.active = (cmdk.active + d + cmdk.items.length) % cmdk.items.length;
+  $('cmdkList').querySelectorAll('.cmdk-item').forEach(li => { const on = Number(li.dataset.i) === cmdk.active; li.classList.toggle('active', on); li.setAttribute('aria-selected', String(on)); if (on) li.scrollIntoView({ block: 'nearest' }); });
+  $('cmdkInput').setAttribute('aria-activedescendant', `cmdk-${cmdk.active}`);
+}
+function openCmdk() {
+  if (cmdk.open) return;
+  closeOrientMenu(); closeThemeMenu(); closeModal('cancel'); if (isNarrow()) closeDrawer();
+  cmdk.open = true; cmdk.active = 0; cmdk.lastFocus = document.activeElement;
+  const el = $('cmdk'); el.hidden = false; requestAnimationFrame(() => el.classList.add('show'));
+  $('cmdkInput').value = ''; renderCmdk();
+  setTimeout(() => $('cmdkInput').focus({ preventScroll: true }), 30);
+}
+function closeCmdk() {
+  if (!cmdk.open) return false;
+  cmdk.open = false;
+  const el = $('cmdk'); el.classList.remove('show');
+  setTimeout(() => { if (!cmdk.open) el.hidden = true; }, 180);
+  try { cmdk.lastFocus?.focus?.({ preventScroll: true }); } catch { /* ignore */ }
+  return true;
+}
+function runCmdk(i = cmdk.active) {
+  const x = cmdk.items[i]; if (!x) return;
+  if (x.c.map && !S.snapshot) { toast('请先生成或导入地图', 'warn'); return; }
+  closeCmdk(); cmdkTouch(x.c.id);
+  setTimeout(() => { try { const r = x.c.run(); r?.catch?.(() => {}); } catch (e) { console.error(e); toast('操作失败：' + e.message, 'error'); } }, 120); // 等面板淡出后再弹出可能的对话框
+}
+function bindCmdk() {
+  $('cmdkBtn')?.addEventListener('click', openCmdk);
+  $('cmdk').addEventListener('click', e => { if (e.target === $('cmdk')) closeCmdk(); });
+  $('cmdkInput').addEventListener('input', () => { cmdk.active = 0; renderCmdk(); });
+  $('cmdkInput').addEventListener('keydown', e => {
+    if (e.key === 'ArrowDown') { e.preventDefault(); moveCmdk(1); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); moveCmdk(-1); }
+    else if (e.key === 'Enter') { e.preventDefault(); runCmdk(); }
+    else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeCmdk(); }
+    else if (e.key === 'Tab') { e.preventDefault(); moveCmdk(e.shiftKey ? -1 : 1); } // 焦点留在输入框，Tab 也用来切换选项
+  });
+  $('cmdkList').addEventListener('click', e => { const li = e.target.closest('.cmdk-item'); if (li) runCmdk(Number(li.dataset.i)); });
+  $('cmdkList').addEventListener('pointermove', e => { const li = e.target.closest('.cmdk-item'); if (li && Number(li.dataset.i) !== cmdk.active) { cmdk.active = Number(li.dataset.i) - 1; moveCmdk(1); } });
+}
+
+/* ------------------------------------------------------------------ ② 测距升级：沿线地形剖面
+ * 测距只给出「多远」，看不出「好不好走」：两点之间是平地、要翻几道悬崖、还是要过一片海。
+ * 量完两点后，画布底部弹出一条剖面图：沿 A→B 直线等距采样高度矩阵，陆地按海拔着色、水域蓝色、墙体 / 悬崖处打红色刻度，
+ * 并汇总「海拔范围 · 跨越水域 N 段 · 墙体 / 悬崖 N 处 · 累计爬升 N 级」。鼠标 / 手指在剖面上移动时，画布上同步标出对应位置。 */
+const profileHover = { t: -1 };
+function measureProfile() {
+  const m = measure, s = S.snapshot, h = terrainMatrix(s);
+  if (!m.a || !m.b || !h?.data || m.straight < 1) return null;
+  const cols = h.shape[1], rows = h.shape[0];
+  const wm = getMatrix('wall_matrix', s), cm = getMatrix('cliff_mask', s);
+  const useWall = !!wm?.data && wm.shape?.[1] === cols && (s?.meta?.hill_drawing_mode || 'brush') !== 'polygon';
+  const useCliff = !!cm?.data && cm.shape?.[1] === cols;
+  const n = clamp(Math.ceil(m.straight) + 1, 2, 240);
+  const pts = [];
+  let waterRuns = 0, cliffs = 0, climb = 0, wasWater = false, wasCliff = false, prevH = null;
+  for (let i = 0; i < n; i++) {
+    const t = i / (n - 1), r = clamp(Math.round(m.a.r + (m.b.r - m.a.r) * t), 0, rows - 1), c = clamp(Math.round(m.a.c + (m.b.c - m.a.c) * t), 0, cols - 1);
+    const k = r * cols + c, v = h.data[k], water = v <= 0;
+    const cliff = !water && ((useWall && wm.data[k] === 1) || (useCliff && !!cm.data[k]));
+    if (water && !wasWater) waterRuns++;
+    if (cliff && !wasCliff) cliffs++;
+    if (!water && prevH != null && v > prevH) climb += v - prevH;
+    if (!water) prevH = v;
+    wasWater = water; wasCliff = cliff;
+    pts.push({ t, v, water, cliff });
+  }
+  const land = pts.filter(p => !p.water).map(p => p.v);
+  return { pts, waterRuns, cliffs, climb, lo: land.length ? Math.min(...land) : 0, hi: land.length ? Math.max(...land) : 0, min: Math.min(...pts.map(p => p.v)), max: Math.max(...pts.map(p => p.v)) };
+}
+function renderProfile() {
+  const box = $('measureProfile'); if (!box) return;
+  const m = measure, pf = m.on && m.a && m.b && m.final ? measureProfile() : null;
+  if (!pf) { box.classList.remove('show'); box.setAttribute('aria-hidden', 'true'); return; }
+  const W = 320, H = 70, pad = 4, span = Math.max(1, pf.max - Math.min(0, pf.min));
+  const y = v => H - pad - ((Math.max(v, Math.min(0, pf.min)) - Math.min(0, pf.min)) / span) * (H - pad * 2);
+  const x = t => pad + t * (W - pad * 2);
+  let area = `M${x(0)},${H} `, line = '';
+  pf.pts.forEach((p, i) => { const px = x(p.t).toFixed(1), py = y(p.water ? Math.min(0, pf.min) : p.v).toFixed(1); area += `L${px},${py} `; line += `${i ? 'L' : 'M'}${px},${py} `; });
+  area += `L${x(1)},${H} Z`;
+  const step = (W - pad * 2) / (pf.pts.length - 1);
+  const water = pf.pts.map(p => p.water ? `<rect x="${(x(p.t) - step / 2).toFixed(1)}" y="${(H * 0.55).toFixed(1)}" width="${(step + 0.6).toFixed(1)}" height="${(H * 0.45).toFixed(1)}"/>` : '').join('');
+  const cliff = pf.pts.map(p => p.cliff ? `<line x1="${x(p.t).toFixed(1)}" x2="${x(p.t).toFixed(1)}" y1="${(y(p.v) - 7).toFixed(1)}" y2="${(y(p.v) + 3).toFixed(1)}"/>` : '').join('');
+  const facts = [`海拔 ${pf.lo === pf.hi ? `L${pf.lo}` : `L${pf.lo}–L${pf.hi}`}`, pf.waterRuns ? `跨越水域 <b>${pf.waterRuns}</b> 段` : '全程陆地', pf.cliffs ? `墙体 / 悬崖 <b>${pf.cliffs}</b> 处` : '无墙体', pf.climb ? `累计爬升 <b>${pf.climb}</b> 级` : '无爬升'];
+  box.innerHTML = `<div class="mp-head"><b>地形剖面</b><span>${escapeHtml(m.a.label || 'A')} → ${escapeHtml(m.b.label || 'B')} · 直线 ${m.straight.toFixed(1)} 格</span><button type="button" class="mp-close" aria-label="关闭剖面">✕</button></div>
+    <svg class="mp-chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="沿线海拔剖面"><defs><linearGradient id="mpg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--gold)" stop-opacity=".85"/><stop offset="1" stop-color="var(--accent-2)" stop-opacity=".25"/></linearGradient></defs>
+      <g class="mp-water">${water}</g><path class="mp-area" d="${area}" fill="url(#mpg)"/><path class="mp-line" d="${line}"/><g class="mp-cliff">${cliff}</g>
+      <circle class="mp-a" cx="${x(0)}" cy="${y(pf.pts[0].water ? 0 : pf.pts[0].v)}" r="3.4"/><circle class="mp-b" cx="${x(1)}" cy="${y(pf.pts[pf.pts.length - 1].water ? 0 : pf.pts[pf.pts.length - 1].v)}" r="3.4"/><line class="mp-cursor" x1="-10" x2="-10" y1="0" y2="${H}"/></svg>
+    <div class="mp-facts">${facts.map(f => `<span>${f}</span>`).join('')}</div>`;
+  box.querySelector('.mp-close').onclick = () => { m.final = false; renderProfile(); };
+  const svg = box.querySelector('.mp-chart'), cur = box.querySelector('.mp-cursor');
+  const hover = e => { const r = svg.getBoundingClientRect(); const t = clamp((e.clientX - r.left) / Math.max(1, r.width), 0, 1); profileHover.t = t; const px = x(t); cur.setAttribute('x1', px); cur.setAttribute('x2', px); scheduleRender(); };
+  svg.addEventListener('pointermove', hover); svg.addEventListener('pointerdown', hover);
+  svg.addEventListener('pointerleave', () => { profileHover.t = -1; cur.setAttribute('x1', -10); cur.setAttribute('x2', -10); scheduleRender(); });
+  box.classList.add('show'); box.setAttribute('aria-hidden', 'false');
+}
+/** 画布上标出剖面光标对应的位置（在 drawMeasure 之后调用） */
+function drawProfileCursor(ctx) {
+  const m = measure; if (profileHover.t < 0 || !m.a || !m.b || !m.final) return;
+  const t = profileHover.t, [x, y] = toScreen(m.a.r + (m.b.r - m.a.r) * t, m.a.c + (m.b.c - m.a.c) * t);
+  ctx.save(); ctx.beginPath(); ctx.arc(x, y, 6, 0, Math.PI * 2); ctx.fillStyle = '#fff'; ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = '#ff8a3d'; ctx.stroke(); ctx.restore();
+}
+
+/* ------------------------------------------------------------------ ③ 随机地图起名
+ * 导出文件名默认是「[p10]铁锈地图_20261019_1313」，在群里发了十几张图之后谁也分不清哪张是哪张。
+ * 点地图名称旁的骰子（或命令面板「随机起名」），按「地形主题 + 地形形态 + 人数」生成一个好记的中文名，如「赤焰峡湾·5v5」。 */
+const NAME_PREFIX = { 1: ['翠影', '藤蔓', '雨林', '蛇牙', '密林', '绿谷'], 2: ['霜峰', '冰川', '白狼', '寒鸦', '雪线', '凛冬'], 3: ['熔岩', '赤焰', '焦土', '炎狱', '灰烬', '火脊'], 4: ['黄沙', '烈日', '蝎尾', '流沙', '旱海', '金丘'], 5: ['松涛', '暮林', '鹿角', '青苔', '晨雾', '橡木'] };
+const NAME_NOUN = { island: ['孤岛', '环礁'], peninsula: ['半岛', '海角'], archipelago: ['群岛', '列岛'], river: ['双河', '河口'], mountain_lake: ['山湖', '天池'], continent: ['大陆', '平原'], desert: ['沙海', '绿洲'], snowland: ['雪原', '冻土'], volcano: ['火山口', '熔炉'], labyrinth: ['迷城', '回廊'], two_sides: ['狭路', '对岸'] };
+const NAME_CLASSIC = ['峡湾', '要塞', '走廊', '高地', '海峡', '防线', '盆地', '前哨', '港湾', '隘口', '战线', '河谷'];
+const pick = a => a[Math.floor(Math.random() * a.length)];
+function rollMapName(announce = false) {
+  const theme = intOf('tileset', 1, 5, 5), n = intOf('players', 0, MAX_SPAWN_POINTS, 10);
+  const noun = shapeActive() ? pick(NAME_NOUN[shapeState.id] || NAME_CLASSIC) : pick(NAME_CLASSIC);
+  let pre = pick(NAME_PREFIX[theme] || NAME_PREFIX[5]);
+  if (noun.startsWith(pre.slice(-1))) pre = pick(NAME_PREFIX[theme] || NAME_PREFIX[5]); // 避免「雪原雪原」式的重字
+  const mode = n >= 2 && n % 2 === 0 ? `${n / 2}v${n / 2}` : n ? `${n}人` : '';
+  const name = `${pre}${noun}${mode ? '·' + mode : ''}`;
+  const el = $('mapName'); el.value = name; flashInput('mapName');
+  el.dispatchEvent(new Event('input', { bubbles: true }));
+  const d = $('nameDice'); if (d) { d.classList.remove('roll'); void d.offsetWidth; d.classList.add('roll'); }
+  if (announce) toast(`地图名：${name}`, 'info', 2200);
+  return name;
+}
+
+/* ------------------------------------------------------------------ ④ 复制小地图图片（剪贴板）
+ * PC 上做图后经常要把预览图贴到群聊 / 论坛帖子里；小地图预览弹窗新增「复制图片」。仅在系统支持图片剪贴板时显示。 */
+const canCopyImage = () => !!(navigator.clipboard?.write && window.ClipboardItem && window.isSecureContext);
+async function copyPngToClipboard(bytes) {
+  try {
+    await navigator.clipboard.write([new ClipboardItem({ 'image/png': new Blob([bytes], { type: 'image/png' }) })]);
+    toast('小地图图片已复制，可直接粘贴到聊天窗口', 'success');
+  } catch (e) { toast('复制失败：当前环境不允许写入图片剪贴板（' + (e?.message || e) + '）', 'warn', 4200); }
+}
+
+/* ================================================================== 3.17.0 新功能 */
+
+/* ------------------------------------------------------------------ ① 配方码
+ * 群里交流地图时常说「我用的 256、群岛、XY 对称、6 人……」，对方要逐项照着填，形态种子还经常抄错。
+ * 配方码把整套参数（尺寸 / 主题 / 层级 / 人数 / 资源 / 对称 / 海岸线模板 / 地形形态 + 陆地比例 + 山地 + 种子 /
+ * 模式预设 / 对称强度 / 槽位顺序 / 近家资源设置）按固定字段压成 27 字节，再加 2 字节 CRC 校验，
+ * Base64URL 编码后共 44 个字符（TMX1- + 39 位）。复制、截断、误改都能被校验发现；夹在聊天文字里整段粘贴也能识别。
+ * 形态模式下种子一并写入，对方套用后地形轮廓完全一致；经典模式只保证参数一致（引擎的海岸线随机性不受种子控制）。
+ * 字段表只能在末尾追加（RECIPE_* 列表的顺序就是编码值），保证旧码永远可解。 */
+const RECIPE_SHAPES = ['classic', 'island', 'peninsula', 'archipelago', 'river', 'mountain_lake', 'continent', 'desert', 'snowland', 'volcano', 'labyrinth', 'two_sides'];
+const RECIPE_MIRRORS = ['none', 'horizontal', 'vertical', 'diagonal1', 'diagonal2', 'both'];
+const RECIPE_PRESETS = ['1v1', '2v2', '3v3', '4v4', '5v5', '10v10', '20v20', '25v25', 'free'];
+const RECIPE_SYM = ['strict', 'balanced', 'soft'];
+const RECIPE_SLOT = ['alternate', 'grouped', 'engine'];
+const RECIPE_ROUGH = ['0', '0.3', '0.8'];
+const RECIPE_LEN = 29; // 27 字节参数 + 2 字节 CRC
+const RECIPE_RE = /TMX1-([A-Za-z0-9_-]{39})/;
+const toB64Url = bytes => bytesToBase64(bytes).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+/** 当前地图（有形态地图时取地图实际使用的形态与种子）+ 当前参数 */
+function recipeData() {
+  const p = params(), ms = S.snapshot && S.mapShape ? S.mapShape : null;
+  const shape = ms ? ms.id : (shapeActive() ? shapeState.id : 'classic');
+  return {
+    w: p.width, h: p.height, ts: p.tileset, mirror: p.mirroring, hl: p.heightLevels, ol: p.oceanLevels, pl: p.numPlayers, rs: p.numResources, grid: p.grid,
+    shape, land: ms ? ms.land : shapeState.land, rough: shapeState.rough,
+    seed: shape === 'classic' ? 0 : ((ms ? ms.seed : shapeSeed()) >>> 0),
+    preset: $('gamePreset').value, sym: $('symmetryStrength').value, slot: $('slotOrder').value, near: { ...S.nearRes }
+  };
+}
+function encodeRecipe(d = recipeData()) {
+  const b = new Uint8Array(RECIPE_LEN), v = new DataView(b.buffer);
+  let o = 0;
+  const u8 = x => { v.setUint8(o, x & 255); o += 1; }, u16 = x => { v.setUint16(o, x & 65535); o += 2; }, u32 = x => { v.setUint32(o, x >>> 0); o += 4; };
+  const idx = (list, x, dft) => { const i = list.indexOf(String(x)); return i < 0 ? dft : i; };
+  u8(1); u16(d.w); u16(d.h);
+  u8((clamp(d.ts | 0, 1, 5) << 4) | idx(RECIPE_MIRRORS, d.mirror, 2));
+  u8(d.hl); u8(d.ol); u8(d.pl); u16(d.rs);
+  let g = 0; (Array.isArray(d.grid) ? d.grid : DEFAULT_GRID).flat().slice(0, 25).forEach((x, i) => { if (Number(x)) g |= 1 << i; }); u32(g);
+  u8(idx(RECIPE_SHAPES, d.shape, 0)); u8(clamp(Math.round(Number(d.land) || 50), 30, 70)); u8(idx(RECIPE_ROUGH, d.rough, 1)); u32(d.seed || 0);
+  u8(idx(RECIPE_PRESETS, d.preset, 255)); u8((idx(RECIPE_SYM, d.sym, 1) << 4) | idx(RECIPE_SLOT, d.slot, 0));
+  const n = d.near || NEAR_RES_DEFAULTS;
+  u8((n.enabled !== false ? 1 : 0) | (clamp(n.perSpawn | 0 || 2, 2, 4) << 1)); u8(clamp(n.min | 0 || 10, 4, 160)); u8(clamp(n.max | 0 || 20, 4, 160));
+  u16(crc32(b.subarray(0, o)));
+  if (o !== RECIPE_LEN) throw new Error('配方码字段长度不一致'); // 防止以后增删字段时忘记同步 RECIPE_LEN
+  return 'TMX1-' + toB64Url(b);
+}
+/** 从任意文本中找出配方码并解码：{ data, code } 或 { error } */
+function decodeRecipe(text) {
+  const m = RECIPE_RE.exec(String(text || ''));
+  if (!m) return { error: /TMX\d+-/.test(String(text || '')) ? '配方码不完整：请确认整段复制（TMX1- 后面应有 39 个字符）' : '没有找到配方码（格式：TMX1-…）' };
+  let b; try { b = base64ToBytes(m[1]); } catch { return { error: '配方码已损坏' }; }
+  if (b.length !== RECIPE_LEN) return { error: '配方码已损坏' };
+  const v = new DataView(b.buffer, b.byteOffset, b.length);
+  if ((crc32(b.subarray(0, RECIPE_LEN - 2)) & 65535) !== v.getUint16(RECIPE_LEN - 2)) return { error: '配方码校验失败：可能复制不完整或被改动过' };
+  if (b[0] !== 1) return { error: '这是更新版本生成的配方码，请升级 App 后再使用' };
+  let o = 1;
+  const u8 = () => v.getUint8(o++), u16 = () => { const x = v.getUint16(o); o += 2; return x; }, u32 = () => { const x = v.getUint32(o); o += 4; return x; };
+  const d = { w: u16(), h: u16() };
+  const tm = u8(); d.ts = tm >> 4; d.mirror = RECIPE_MIRRORS[tm & 15];
+  d.hl = u8(); d.ol = u8(); d.pl = u8(); d.rs = u16();
+  const g = u32(); d.grid = Array.from({ length: 5 }, (_, r) => Array.from({ length: 5 }, (_, c) => (g >>> (r * 5 + c)) & 1));
+  d.shape = RECIPE_SHAPES[u8()]; d.land = u8(); d.rough = RECIPE_ROUGH[u8()]; d.seed = u32();
+  d.preset = RECIPE_PRESETS[u8()] || null;
+  const ss = u8(); d.sym = RECIPE_SYM[ss >> 4]; d.slot = RECIPE_SLOT[ss & 15];
+  const nf = u8(); d.near = { enabled: !!(nf & 1), perSpawn: nf >> 1, min: u8(), max: u8() };
+  const ok = d.w >= 40 && d.h >= 40 && d.w <= MAX_MAP_DIMENSION && d.h <= MAX_MAP_DIMENSION && d.ts >= 1 && d.ts <= 5 && d.mirror && d.hl >= 1 && d.hl <= 32 && d.ol <= 32
+    && d.pl <= MAX_SPAWN_POINTS && d.rs <= MAX_RESOURCES && d.shape && d.land >= 30 && d.land <= 70 && d.rough && d.sym && d.slot
+    && d.near.perSpawn >= 2 && d.near.perSpawn <= 4 && d.near.min >= 4 && d.near.max >= d.near.min;
+  if (!ok) return { error: '配方码中的参数超出范围（可能来自不兼容的版本）' };
+  return { data: d, code: 'TMX1-' + m[1] };
+}
+function recipeSummary(d) {
+  const shape = d.shape === 'classic' ? '经典地形' : `「${shapeMeta(d.shape)?.label || d.shape}」形态 · 种子 ${d.seed}`;
+  const n = d.pl, mode = n >= 2 && n % 2 === 0 ? `${n / 2}v${n / 2}` : `${n} 人`;
+  return `${d.w}×${d.h} · ${SHAPE_THEMES[d.ts] || '模板' + d.ts}主题 · ${shape} · ${MIRROR_LABELS[d.mirror] || d.mirror} · ${mode} · 资源 ${d.rs}`;
+}
+function applyRecipe(d) {
+  const set = (id, val) => { const el = $(id); if (el && val != null && String(el.value) !== String(val)) { el.value = val; flashInput(id); } };
+  set('width', d.w); set('height', d.h); set('tileset', d.ts); set('mirror', d.mirror); set('heightLevels', d.hl); set('oceanLevels', d.ol);
+  set('players', d.pl); set('resources', d.rs);
+  if (d.preset) set('gamePreset', d.preset);
+  set('symmetryStrength', d.sym); set('slotOrder', d.slot);
+  renderGrid(d.grid);
+  S.nearRes = { enabled: d.near.enabled, perSpawn: d.near.perSpawn, min: d.near.min, max: Math.max(d.near.min, d.near.max) };
+  $('nearResToggle').classList.toggle('on', S.nearRes.enabled); $('nearResToggle').setAttribute('aria-checked', String(S.nearRes.enabled));
+  $('nearResFields').classList.toggle('dim', !S.nearRes.enabled);
+  $('nearResCount').value = String(S.nearRes.perSpawn); $('nearResMin').value = String(S.nearRes.min); $('nearResMax').value = String(S.nearRes.max);
+  const shape = d.shape === 'classic' || shapeMeta(d.shape) ? d.shape : 'classic';
+  shapeState.land = d.land; shapeState.rough = d.rough;
+  $('shapeSeed').value = shape !== 'classic' && d.seed ? String(d.seed) : '';
+  selectShape(shape, false); // user=false：不再套用形态的推荐主题 / 对称（以配方码为准）
+  updateMirrorHint(); updateDensityHint(); savePrefs();
+  return shape === d.shape;
+}
+/** 复制文本到剪贴板（WebView 不支持异步剪贴板时退回 execCommand） */
+async function copyText(text) {
+  try {
+    if (navigator.clipboard?.writeText && window.isSecureContext) { await navigator.clipboard.writeText(text); return true; }
+  } catch { /* 退回旧方法 */ }
+  try {
+    const ta = document.createElement('textarea'); ta.value = text; ta.setAttribute('readonly', '');
+    ta.style.cssText = 'position:fixed;left:-9999px;top:0;opacity:0'; document.body.appendChild(ta); ta.select();
+    const ok = document.execCommand('copy'); ta.remove(); return !!ok;
+  } catch { return false; }
+}
+async function copyRecipe() {
+  const d = recipeData(), code = encodeRecipe(d);
+  const ok = await copyText(code);
+  const btn = $('recipeCopy');
+  if (btn) { btn.classList.remove('copied'); void btn.offsetWidth; btn.classList.add('copied'); clearTimeout(btn._t); btn._t = setTimeout(() => btn.classList.remove('copied'), 1600); }
+  if (ok) { toast(`配方码已复制：${recipeSummary(d)}`, 'success', 4200); return code; }
+  await uiChoice('配方码', `<p class="help-p">当前环境不允许写入剪贴板，请长按 / 全选下面的配方码手动复制：</p><input class="prompt-input recipe-code" type="text" readonly value="${escapeHtml(code)}" onfocus="this.select()"><p class="help-p">${escapeHtml(recipeSummary(d))}</p>`, [{ key: 'ok', label: '知道了', primary: true }]);
+  return code;
+}
+async function pasteRecipe(prefill = '') {
+  if (!guard()) return;
+  if (!prefill) { try { if (navigator.clipboard?.readText && window.isSecureContext) { const t = await navigator.clipboard.readText(); if (RECIPE_RE.test(t)) prefill = t; } } catch { /* 无剪贴板读取权限：让用户手动粘贴 */ } }
+  const p = uiChoice('使用配方码', `<p class="help-p">粘贴别人分享的配方码（以 <code>TMX1-</code> 开头）；可以连同聊天文字整段粘贴，会自动识别。</p>
+    <textarea id="recipeInput" class="prompt-input recipe-input" rows="3" spellcheck="false" autocomplete="off" placeholder="TMX1-…">${escapeHtml(prefill)}</textarea>
+    <div id="recipePreview" class="recipe-preview" aria-live="polite"></div>`,
+  [{ key: 'cancel', label: '取消' }, { key: 'apply', label: '只套用参数' }, { key: 'gen', label: '套用并生成', primary: true }]);
+  requestAnimationFrame(() => {
+    const ta = $('recipeInput'), pv = $('recipePreview'); if (!ta || !pv) return;
+    const show = () => {
+      const r = decodeRecipe(ta.value);
+      pv.dataset.state = !ta.value.trim() ? '' : r.error ? 'bad' : 'ok';
+      pv.textContent = !ta.value.trim() ? '' : r.error ? r.error : `✓ ${recipeSummary(r.data)}`;
+    };
+    ta.addEventListener('input', show); show();
+    if (!prefill) ta.focus({ preventScroll: true });
+  });
+  const k = await p;
+  if (k !== 'apply' && k !== 'gen') return;
+  const r = decodeRecipe($('recipeInput')?.value);
+  if (r.error) { toast(r.error, 'warn', 4200); return; }
+  const full = applyRecipe(r.data);
+  if (!full) toast('配方码里的地形形态在当前版本中不存在，已改用经典地形', 'warn', 4200);
+  toast(`已套用配方：${recipeSummary(r.data)}`, 'success', 3600);
+  if (k === 'gen') await generate();
+}
+
+/* ------------------------------------------------------------------ ② 实时体检徽章
+ * 体检原本要手动点「地图体检」才知道分数，拖完出生点并不知道变好还是变坏。现在状态栏常驻一个健康分徽章：
+ * 每次编辑后（出生点 / 队伍 / 资源 / 地形）防抖 0.9 秒，在浏览器空闲时重新评分；数字滚动到新值，并显示 ▲/▼ 涨跌，
+ * 点击打开完整体检。评分复用 analyzeMap()（同一个 docCache，体检面板随后打开是瞬时的）；签名不变时不重复计算；
+ * 处理中（S.locked）或页面在后台时延后。实测 1000×1000 地图单次约 0.47 秒，所以必须防抖、且只在空闲时跑。 */
+const health = { timer: 0, score: null, sig: '' };
+function resetHealthBadge() {
+  clearTimeout(health.timer); health.score = null; health.sig = '';
+  const b = $('healthBadge'); if (b) { b.hidden = true; const d = b.querySelector('.hb-delta'); if (d) { d.textContent = ''; d.dataset.dir = ''; } }
+}
+function queueHealthBadge(delay = 900) { clearTimeout(health.timer); health.timer = setTimeout(runHealthBadge, delay); }
+function runHealthBadge() {
+  const b = $('healthBadge'); if (!b) return;
+  if (!S.snapshot || currentSpawns().length < 2) { b.hidden = true; return; }
+  if (S.locked || document.hidden || drag) { queueHealthBadge(1200); return; }
+  const idle = window.requestIdleCallback ? fn => window.requestIdleCallback(fn, { timeout: 1500 }) : fn => setTimeout(fn, 16);
+  idle(() => {
+    if (!S.snapshot || S.locked || currentSpawns().length < 2) { if (!S.snapshot) b.hidden = true; else queueHealthBadge(1200); return; }
+    const sig = analysisSig();
+    if (sig === health.sig && !b.hidden) return;
+    let a = null;
+    try { a = analyzeMap(); } catch (e) { console.warn('实时体检失败', e); }
+    if (!a) return;
+    health.sig = sig;
+    const prev = health.score, diff = prev == null ? 0 : a.score - prev;
+    health.score = a.score;
+    const lv = a.score >= 85 ? 'ok' : a.score >= 65 ? 'warn' : 'bad';
+    const wasHidden = b.hidden;
+    b.hidden = false; b.dataset.level = lv;
+    if (wasHidden) { b.classList.remove('enter'); void b.offsetWidth; b.classList.add('enter'); }
+    animateNumber(b.querySelector('.hb-num'), a.score);
+    const d = b.querySelector('.hb-delta');
+    if (diff) { d.textContent = (diff > 0 ? '▲' : '▼') + Math.abs(diff); d.dataset.dir = diff > 0 ? 'up' : 'down'; d.classList.remove('pop'); void d.offsetWidth; d.classList.add('pop'); }
+    b.title = `地图健康度 ${a.score}/100${diff ? `（较上次 ${diff > 0 ? '+' : ''}${diff}）` : ''} · 点击查看完整体检（D）`;
+    b.setAttribute('aria-label', b.title);
+  });
+}
+
+/* ------------------------------------------------------------------ ③ 触屏放大镜
+ * 手指拖动出生点、拖线测距或画墙时，指尖正好挡住落点，只能凭感觉松手。现在在手指上方弹出一个放大 2 倍的圆镜：
+ * 每帧画布渲染完后从主画布直接截取指尖周围的像素（drawImage，不重新绘制地图），叠加十字准星；
+ * 靠近顶部时镜子自动翻到手指下方，左右不超出画布。只在 pointerType = touch 时出现，鼠标操作不受影响。 */
+const loupe = { on: false, x: 0, y: 0 };
+const LOUPE_SIZE = 124, LOUPE_ZOOM = 2;
+function updateLoupe(g, e) {
+  if (!g || !g.touch || g.cancelled || !g.moved || !['spawn', 'measure', 'paint'].includes(g.type) || pointers.size !== 1) { hideLoupe(); return; }
+  const r = $('map').getBoundingClientRect();
+  loupe.x = e.clientX - r.left; loupe.y = e.clientY - r.top;
+  if (!loupe.on) {
+    loupe.on = true;
+    const el = $('loupe'); clearTimeout(el._t); el.hidden = false;
+    requestAnimationFrame(() => el.classList.add('show'));
+  }
+  scheduleRender();
+}
+function hideLoupe() {
+  if (!loupe.on) return;
+  loupe.on = false;
+  const el = $('loupe'); if (!el) return;
+  el.classList.remove('show'); clearTimeout(el._t);
+  el._t = setTimeout(() => { if (!loupe.on) el.hidden = true; }, 200);
+}
+function drawLoupe() {
+  if (!loupe.on) return;
+  const el = $('loupe'), src = $('map'); if (!el || !src) return;
+  const cw = src.clientWidth || 1, ch = src.clientHeight || 1, dpr = src.width / cw;
+  const px = Math.round(LOUPE_SIZE * dpr);
+  if (el.width !== px) { el.width = px; el.height = px; }
+  const ctx = el.getContext('2d'), half = LOUPE_SIZE / LOUPE_ZOOM / 2;
+  ctx.save();
+  ctx.fillStyle = canvasBg; ctx.fillRect(0, 0, px, px);
+  ctx.imageSmoothingEnabled = false;
+  const sx = (loupe.x - half) * dpr, sy = (loupe.y - half) * dpr, sw = half * 2 * dpr;
+  try { ctx.drawImage(src, sx, sy, sw, sw, 0, 0, px, px); } catch { /* 画布尺寸为 0 */ }
+  const c = px / 2, u = dpr;
+  ctx.lineWidth = 3 * u; ctx.strokeStyle = 'rgba(0,0,0,.55)';
+  ctx.beginPath(); ctx.moveTo(c - 14 * u, c); ctx.lineTo(c - 5 * u, c); ctx.moveTo(c + 5 * u, c); ctx.lineTo(c + 14 * u, c);
+  ctx.moveTo(c, c - 14 * u); ctx.lineTo(c, c - 5 * u); ctx.moveTo(c, c + 5 * u); ctx.lineTo(c, c + 14 * u); ctx.stroke();
+  ctx.lineWidth = 1.5 * u; ctx.strokeStyle = '#fff'; ctx.stroke();
+  ctx.beginPath(); ctx.arc(c, c, 2 * u, 0, Math.PI * 2); ctx.fillStyle = '#fff'; ctx.fill();
+  ctx.restore();
+  const panel = $('mapPanel').getBoundingClientRect(), mr = src.getBoundingClientRect();
+  const fx = loupe.x + mr.left - panel.left, fy = loupe.y + mr.top - panel.top;
+  let top = fy - LOUPE_SIZE - 44;
+  const below = top < 8;
+  if (below) top = fy + 44;
+  const left = clamp(fx - LOUPE_SIZE / 2, 6, Math.max(6, panel.width - LOUPE_SIZE - 6));
+  el.style.left = left + 'px'; el.style.top = clamp(top, 6, Math.max(6, panel.height - LOUPE_SIZE - 6)) + 'px';
+  el.classList.toggle('below', below);
+}
+
+/* ------------------------------------------------------------------ ④ 专注模式（Z）
+ * 大地图细调时侧栏和顶栏占掉三分之一屏幕。专注模式收起侧栏和顶栏，画布铺满；画面中心对应的地图位置保持不变
+ * （由已有的 ResizeObserver → onResize 逐帧跟随，不会跳）。手机上侧栏本来就是抽屉，只收起顶栏、关闭抽屉。
+ * 退出：Z / Esc / Android 返回键 / 顶部胶囊按钮。状态不持久化（下次启动总是正常布局，避免用户找不到侧栏）。
+ * 注意（3.17.0 自查修复）：首版在手机上也把网格列改成「0 1fr」，而手机布局只有一列、侧栏是 fixed 抽屉不占网格，
+ * 画布被挤进宽度为 0 的第一列，整屏空白。现在列宽变化只在桌面布局（> 900px）生效。 */
+const focusOn = () => document.body.classList.contains('focus-mode');
+function setFocusMode(on, { quiet = false } = {}) {
+  on = !!on;
+  if (focusOn() === on) return;
+  if (on) { closeDrawer(); closeThemeMenu(); closeOrientMenu(); }
+  const body = document.body;
+  body.classList.add('focus-anim'); clearTimeout(setFocusMode._t);
+  setFocusMode._t = setTimeout(() => body.classList.remove('focus-anim'), 420);
+  body.classList.toggle('focus-mode', on);
+  const b = $('focusBtn'); if (b) { b.classList.toggle('active', on); b.setAttribute('aria-pressed', String(on)); }
+  if (!quiet) setStatus(on ? '专注模式：按 Z 或 Esc 退出' : '已退出专注模式');
+}
+
+/* ------------------------------------------------------------------ ⑤ 当前视图截图
+ * 「小地图 PNG」和「海报」都是整张地图的固定样式；讨论某个局部（「这条路线太近了」「这里卡住了」）时需要的是
+ * 「我现在看到的画面」：当前缩放与位置，连同已开启的领地 / 接敌路线 / 测距 / 近家范围等图层。直接复制主画布像素，
+ * 动态主题下透明的空白处补上底色，右下角加水印（地图名 · 尺寸 · 版本），保存方式与海报相同（Android 可「分享」）。 */
+async function saveViewShot() {
+  if (!S.snapshot) { toast('请先生成或导入地图', 'warn'); return; }
+  if (!guard()) return;
+  const src = $('map');
+  hoverCell = null; renderMap(); // 同步画一帧最新画面（去掉鼠标悬停格）
+  const cv = document.createElement('canvas'); cv.width = src.width; cv.height = src.height;
+  const ctx = cv.getContext('2d'), dpr = src.width / Math.max(1, src.clientWidth);
+  ctx.fillStyle = canvasBg; ctx.fillRect(0, 0, cv.width, cv.height);
+  ctx.drawImage(src, 0, 0);
+  const [rows, cols] = dims();
+  const mark = `${sanitizeName($('mapName').value) || '未命名地图'} · ${cols}×${rows} · 出生点 ${currentSpawns().length} · TMX MapForge v${APP_VERSION}`;
+  ctx.font = `600 ${Math.round(12 * dpr)}px system-ui, -apple-system, "Segoe UI", sans-serif`;
+  const tw = ctx.measureText(mark).width, pad = 8 * dpr, h = 24 * dpr, x = cv.width - tw - pad * 2 - 10 * dpr, y = cv.height - h - 10 * dpr;
+  ctx.fillStyle = 'rgba(0,0,0,.55)'; roundRectPath(ctx, x, y, tw + pad * 2, h, 8 * dpr); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,.92)'; ctx.textBaseline = 'middle'; ctx.fillText(mark, x + pad, y + h / 2);
+  const panel = $('mapPanel'); panel.classList.remove('shot-flash'); void panel.offsetWidth; panel.classList.add('shot-flash');
+  setTimeout(() => panel.classList.remove('shot-flash'), 600);
+  const blob = await canvasToPng(cv);
+  if (!blob) { toast('截图失败：无法编码 PNG', 'error'); return; }
+  const bytes = new Uint8Array(await blob.arrayBuffer()), name = `${exportBaseName()}_view_${stamp()}.png`;
+  await locked(async () => {
+    try {
+      beginShareBatch();
+      const r = await saveFile(bytes, name, 'image/png');
+      if (r.desktop) window.DesktopBridge.savedToast(r, `视图截图已保存：${r.name}`);
+      else toast(r.pending ? '等待存储权限授予后自动保存' : `视图截图已保存：${r.name || name}（${cv.width}×${cv.height}）`, 'success', 3600, r.pending ? {} : shareAction());
+    } catch (e) { toast('保存截图失败：' + e.message, 'error'); }
+  });
+}
+
 /* ------------------------------------------------------------------ 控件绑定 */
 function bindControls() {
-  $('versionBadge').textContent = 'v' + APP_VERSION;
+  $('versionBadge').textContent = 'v' + APP_VERSION + (window.DesktopBridge ? ' · PC' : '');
+  bindShapeControls();
+  bindCmdk(); // 3.15.0
+  // 3.17.0：配方码 / 实时体检徽章 / 专注模式 / 视图截图
+  $('recipeCopy').onclick = () => copyRecipe();
+  $('recipePaste').onclick = () => pasteRecipe();
+  $('healthBadge').onclick = () => showMapDoctor();
+  $('focusBtn').onclick = () => setFocusMode(!focusOn());
+  $('focusExit').onclick = () => setFocusMode(false);
+  $('shotBtn').onclick = () => saveViewShot();
+  // 在画布区（非输入框）直接 Ctrl+V 粘贴含配方码的文字 → 打开「使用配方码」并预填
+  document.addEventListener('paste', e => {
+    if (e.target.closest?.('input,textarea,select,[contenteditable="true"]') || modalOpen() || cmdk.open) return;
+    const t = e.clipboardData?.getData('text') || '';
+    if (RECIPE_RE.test(t)) { e.preventDefault(); pasteRecipe(t); }
+  });
+  $('nameDice')?.addEventListener('click', () => rollMapName());
+  // 3.15.0：引擎停用 / 初始化失败时，点击顶栏红色状态胶囊即可手动重启
+  $('runtimePill').addEventListener('click', () => { if ($('runtimePill').dataset.level === 'err') Engine.manualRestart(); });
+  $('runtimePill').addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && $('runtimePill').dataset.level === 'err') { e.preventDefault(); Engine.manualRestart(); } });
   $('menuBtn').onclick = () => $('sidebar').classList.contains('open') ? closeDrawer() : openDrawer();
   $('drawerBackdrop').onclick = closeDrawer;
+  $('drawerClose')?.addEventListener('click', closeDrawer);
+  $('measureBtn')?.addEventListener('click', () => { if (!S.snapshot) { toast('请先生成或导入地图', 'warn'); return; } setMeasure(!measure.on); });
+  $('densityHint')?.addEventListener('click', e => {
+    const b = e.target.closest('.dh-apply'); if (!b) return;
+    $('width').value = b.dataset.w; $('height').value = b.dataset.h;
+    flashInput('width'); flashInput('height'); updateMirrorHint(); queuePrefs(); queueShapePreview();
+    toast(`已套用推荐尺寸 ${b.dataset.w}×${b.dataset.h}`, 'success', 2200);
+  });
   // 修复：旧实现抽屉内任何按钮（包括海岸线方格、图层开关）点击后都会收起抽屉
   $('sidebar').addEventListener('click', e => {
     if (!isNarrow()) return;
     if (e.target.closest('#generate,[data-act],#spawnAuto,#ccRandom,#resRandom,#fitMap,#imageImport,#tmxImport,#export,#exportZip,#pngPreview')) setTimeout(closeDrawer, 160);
   });
+  // 3.6.0 修复：旧实现只在 pointerup 时移除 pointermove 监听，触屏手势被系统打断（pointercancel）或指针捕获丢失后，
+  // 监听器永久残留，之后鼠标仅仅悬停在小地图上视图也会跟着乱跳；且 setPointerCapture 抛异常会让整个处理函数中断。
   $('minimap').addEventListener('pointerdown', e => {
     if (!S.snapshot) return;
-    $('minimap').setPointerCapture(e.pointerId);
+    const mm = $('minimap'), pid = e.pointerId;
+    try { mm.setPointerCapture(pid); } catch { /* 指针已结束 / 合成事件 */ }
     minimapNavigate(e);
-    const mv = ev => minimapNavigate(ev), upf = () => { $('minimap').removeEventListener('pointermove', mv); $('minimap').removeEventListener('pointerup', upf); };
-    $('minimap').addEventListener('pointermove', mv); $('minimap').addEventListener('pointerup', upf);
+    const mv = ev => { if (ev.pointerId === pid) minimapNavigate(ev); };
+    const end = ev => {
+      if (ev && ev.pointerId !== undefined && ev.pointerId !== pid) return;
+      for (const t of ['pointermove', 'pointerup', 'pointercancel', 'lostpointercapture']) mm.removeEventListener(t, t === 'pointermove' ? mv : end);
+    };
+    mm.addEventListener('pointermove', mv);
+    for (const t of ['pointerup', 'pointercancel', 'lostpointercapture']) mm.addEventListener(t, end);
   });
   ['width', 'height', 'heightLevels', 'oceanLevels', 'players', 'resources', 'tileset', 'mirror', 'symmetryStrength', 'slotOrder', 'mapName'].forEach(id => {
     const el = $(id);
     const fn = () => { queuePrefs(); if (['players', 'mirror', 'width', 'height', 'symmetryStrength'].includes(id)) updateMirrorHint(); if (id === 'players') syncPresetFromPlayers(); };
     el.addEventListener('change', fn); el.addEventListener('input', fn);
   });
-  [['width', 40, 2000, 160], ['height', 40, 2000, 160], ['heightLevels', 1, 32, 7], ['oceanLevels', 0, 32, 3], ['players', 0, MAX_SPAWN_POINTS, 10], ['resources', 0, MAX_RESOURCES, 12]].forEach(([id, mn, mx, dft]) => {
-    $(id).addEventListener('blur', () => { clampInput(id, mn, mx, dft); updateMirrorHint(); });
+  // 3.14.0：除失焦外，「回车 / 确认」（change）时也立刻约束，生成前再统一约束一次（见 normalizeParamInputs）
+  PARAM_LIMITS.forEach(([id, mn, mx, dft]) => {
+    const fix = () => { clampInput(id, mn, mx, dft); updateMirrorHint(); updateDensityHint(); };
+    $(id).addEventListener('blur', fix); $(id).addEventListener('change', fix);
   });
-  document.querySelectorAll('[data-size]').forEach(b => b.onclick = () => { $('width').value = b.dataset.size; $('height').value = b.dataset.size; flashInput('width'); flashInput('height'); updateMirrorHint(); queuePrefs(); });
+  document.querySelectorAll('[data-size]').forEach(b => b.onclick = () => { $('width').value = b.dataset.size; $('height').value = b.dataset.size; flashInput('width'); flashInput('height'); updateMirrorHint(); queuePrefs(); queueShapePreview(); });
   $('gridRandom').onclick = randomGrid;
   $('gridInvert').onclick = () => { renderGrid(getGrid().map(r => r.map(v => v ? 0 : 1))); queuePrefs(); };
   $('gridDefault').onclick = () => { renderGrid(); queuePrefs(); };
 
   $('generate').onclick = () => generate();
+  $('bestOf').onclick = () => generateBestOf();
+  $('surprise').onclick = () => { $('surprise').classList.remove('spin'); void $('surprise').offsetWidth; $('surprise').classList.add('spin'); surpriseGenerate(); };
+  $('exportZipQuick').onclick = () => exportZipFn();
+  $('saveAsBtn').onclick = () => showSaveAs();
+  $('exportLocChange').onclick = () => pickExportFolder();
+  $('exportLocReset').onclick = () => { ExportLoc.setPref('downloads'); toast('导出位置已恢复为下载目录'); };
+  ExportLoc.load();
+  $('posterBtn').onclick = () => showPoster();
+  $('layerRoutes').onclick = () => setRoutesLayer(!S.layers.routes);
+  updateBestLabel();
   // 3.2.0：手机端悬浮操作按钮，无需打开抽屉即可生成 / 导出 / 撤销
   $('fabGenerate').onclick = () => generate();
   $('fabExport').onclick = () => exportPair();
@@ -3062,6 +6566,7 @@ function bindControls() {
   $('gapBrush').onclick = () => setBrush(2, false);
   $('eraseBrush').onclick = () => setBrush(S.brushValue, true);
   const setHill = async m => {
+    if (m === 'brush' && S.importedDepth && !(await confirmReplaceImportedDepth('切换到画笔模式'))) return;
     S.hillMode = m;
     $('brushMode').classList.toggle('active', m === 'brush'); $('polygonMode').classList.toggle('active', m === 'polygon');
     $('brushControls').hidden = m !== 'brush'; $('polygonControls').hidden = m !== 'polygon';
@@ -3096,6 +6601,11 @@ function bindControls() {
     makePlayerOne(idx);
   };
   $('slotTable').onclick = () => showSlotTable();
+  $('mapDoctor').onclick = () => showMapDoctor();
+  $('projectPrev').onclick = () => restorePrevious();
+  $('userPreset').onchange = () => { const v = $('userPreset').value; $('presetDel').disabled = !v; if (v) applyUserPreset(v); };
+  $('presetSave').onclick = () => saveUserPreset();
+  $('presetDel').onclick = () => deleteUserPreset();
   $('spawnAuto').onclick = async () => {
     if (!guard()) return;
     if (!S.snapshot) { toast('请先生成地图', 'warn'); return; }
@@ -3103,16 +6613,17 @@ function bindControls() {
     if (n < 1) { toast('「出生点数量」为 0，请先在参数中设置出生点数量', 'warn'); return; }
     try {
       const got = await smartPlaceAll(n, { quiet: true, allowPartial: true });
-      toast(`已智能布置 ${got.length} 个出生点 · 公平度 ${spawnFairness().score}`, 'success', 4000, { action: { label: '撤销', fn: () => undoSpawn() } });
+      toast(`已智能布置 ${got.length} 个出生点 · 公平度 ${spawnFairness().score}`, 'success', 4000, spawnUndoAction());
     } catch (e) { toast('智能重新布置失败：' + e.message, 'error', 4200); }
   };
   $('spawnReorder').onclick = () => {
+    if (!guard()) return;
     const p = currentSpawns(); if (p.length < 2) { toast('出生点不足'); return; }
     const mode = $('slotOrder').value === 'engine' ? 'alternate' : $('slotOrder').value;
     const next = orderBySlot(p, mode);
     if (next.every((q, i) => keyOf(q) === keyOf(p[i]))) { toast('槽位顺序已符合当前规则，无需重排'); return; }
     pushSpawnHistory(); setSpawns(next); S.selectedSpawn = -1; afterSpawnChange();
-    toast(mode === 'grouped' ? '已按「A 队在前」重排玩家槽位' : '已按「A/B 交替 + 镜像对位」重排玩家槽位', 'success', 3600, { action: { label: '撤销', fn: () => undoSpawn() } });
+    toast(mode === 'grouped' ? '已按「A 队在前」重排玩家槽位' : '已按「A/B 交替 + 镜像对位」重排玩家槽位', 'success', 3600, spawnUndoAction());
   };
   $('smartToggle').onclick = () => {
     S.smartPlacement = !S.smartPlacement;
@@ -3124,12 +6635,31 @@ function bindControls() {
   $('spawnAnalyze').onclick = () => { renderFairness(); $('fairnessReport').classList.remove('flash-box'); void $('fairnessReport').offsetWidth; $('fairnessReport').classList.add('flash-box'); };
   $('spawnUndo').onclick = () => undoSpawn();
   $('spawnRedo').onclick = () => redoSpawn();
-  const layerBtn = (name, id) => $(id).onclick = () => { S.layers[name] = !S.layers[name]; $(id).classList.toggle('active', S.layers[name]); scheduleRender(); };
-  layerBtn('terrain', 'layerTerrain'); layerBtn('spawns', 'layerSpawns'); layerBtn('resources', 'layerResources'); layerBtn('walls', 'layerWalls'); layerBtn('grid', 'layerGrid');
+  $('nearResFill').onclick = () => fillNearSpawnResourcesManual();
+  $('nearResToggle').onclick = () => {
+    S.nearRes.enabled = !S.nearRes.enabled;
+    $('nearResToggle').classList.toggle('on', S.nearRes.enabled);
+    $('nearResToggle').setAttribute('aria-checked', String(S.nearRes.enabled));
+    $('nearResFields').classList.toggle('dim', !S.nearRes.enabled);
+    toast(S.nearRes.enabled ? '已开启：生成地图时自动补齐近家资源点' : '已关闭：生成地图不再自动补齐近家资源点（可用「补齐近家资源」手动触发）');
+    queuePrefs();
+  };
+  $('nearResCount').onchange = () => { S.nearRes.perSpawn = clamp(Number($('nearResCount').value) || 2, 2, 4); queuePrefs(); };
+  const syncNearResRange = () => {
+    let mn = clamp(Math.round(Number($('nearResMin').value)) || 10, 4, 120), mx = clamp(Math.round(Number($('nearResMax').value)) || 20, 4, 160);
+    if (mx < mn) mx = mn;
+    S.nearRes.min = mn; S.nearRes.max = mx; $('nearResMin').value = mn; $('nearResMax').value = mx; queuePrefs();
+  };
+  $('nearResMin').onchange = syncNearResRange; $('nearResMax').onchange = syncNearResRange;
+  const layerBtn = (name, id) => $(id).onclick = () => { S.layers[name] = !S.layers[name]; $(id).classList.toggle('active', S.layers[name]); syncLayerAria(id); scheduleRender(); };
+  layerBtn('terrain', 'layerTerrain'); layerBtn('spawns', 'layerSpawns'); layerBtn('resources', 'layerResources'); layerBtn('walls', 'layerWalls'); layerBtn('grid', 'layerGrid'); layerBtn('nearRes', 'layerNearRes');
+  $('layerTerritory').onclick = () => setTerritoryLayer(!S.layers.territory);
   $('projectNew').onclick = () => newProject();
   $('projectSave').onclick = () => saveProject(false);
   $('projectLoad').onclick = () => loadProject();
   $('projectExport').onclick = () => exportProject();
+  $('histSave').onclick = async () => { if (!guard()) return; const e = await pushHistorySnapshot('手动保存'); if (e) toast('已把当前地图保存到历史快照', 'success'); else if (!S.snapshot && !S.lastTmx) toast('保存快照失败：当前还没有地图', 'warn'); };
+  $('histOpen').onclick = () => showHistory();
   $('tmxImport').onclick = () => $('tmxFile').click();
   $('tmxFile').onchange = e => importFile(e.target.files?.[0]);
   $('undoGlobal').onclick = () => globalUndo();
@@ -3139,12 +6669,15 @@ function bindControls() {
     $('autoSaveToggle').textContent = `自动保存：${S.autoSave ? '开' : '关'}`;
     $('autoSaveToggle').classList.toggle('active', S.autoSave);
     if (S.autoSave) saveProject(true);
+    else { clearTimeout(autoSaveTimer); autoSaveTimer = null; }
     queuePrefs();
   };
   $('animToggle').onclick = () => { S.animate = !S.animate; $('animToggle').classList.toggle('on', S.animate); $('animToggle').setAttribute('aria-checked', String(S.animate)); queuePrefs(); };
-  $('themeToggle').onclick = () => applyTheme(S.themeIndex + 1, true);
+  $('themeToggle').onclick = e => { e.stopPropagation(); themeMenuOpen() ? closeThemeMenu() : openThemeMenu(); };
+  document.addEventListener('pointerdown', e => { if (!e.target.closest?.('.theme-wrap')) closeThemeMenu(); }, true);
   $('helpBtn').onclick = showHelp;
-  $('busyCancel').onclick = () => { if (S.locked) Engine.restart('cancel'); };
+  // 3.8.0：取消时只结束真正在工作的线程 —— 旧逻辑无条件重启引擎，形态计算阶段（引擎空闲）取消也会让当前地图的分步编辑失效
+  $('busyCancel').onclick = () => { if (!S.locked) return; const shapeBusy = ShapeWorker.pending.size > 0; ShapeWorker.reset(); if (Engine.pending.size || !shapeBusy) Engine.restart('cancel'); };
   $('busySkip').onclick = () => stopAnimation();
   $('modal').addEventListener('click', e => { if (e.target === $('modal')) closeModal('cancel'); });
 
@@ -3152,10 +6685,35 @@ function bindControls() {
   $('smartToggle').textContent = `自动优化：${S.smartPlacement ? '开' : '关'}`; $('smartToggle').classList.toggle('active', S.smartPlacement);
   $('autoSaveToggle').textContent = `自动保存：${S.autoSave ? '开' : '关'}`; $('autoSaveToggle').classList.toggle('active', S.autoSave);
   $('animToggle').classList.toggle('on', S.animate); $('animToggle').setAttribute('aria-checked', String(S.animate));
+  initOrientation();
+  $('nearResToggle').classList.toggle('on', S.nearRes.enabled); $('nearResToggle').setAttribute('aria-checked', String(S.nearRes.enabled));
+  $('nearResFields').classList.toggle('dim', !S.nearRes.enabled);
+  $('nearResCount').value = String(S.nearRes.perSpawn); $('nearResMin').value = String(S.nearRes.min); $('nearResMax').value = String(S.nearRes.max);
 
-  let resizeRaf = 0;
-  const onResize = () => { cancelAnimationFrame(resizeRaf); resizeRaf = requestAnimationFrame(() => { if (!isNarrow()) closeDrawer(); if (S.view.fitted) fitView(); else scheduleRender(); }); };
+  let resizeRaf = 0, lastMapW = $('map').clientWidth, lastMapH = $('map').clientHeight;
+  // 3.10.0 修复：旋转屏幕 / 改变窗口大小后，未「适应画布」的视图以左上角为锚点，原来屏幕中央的内容会跑偏甚至移出画面；
+  // 现在保持画布中心对应的地图位置不变
+  const onResize = () => { cancelAnimationFrame(resizeRaf); resizeRaf = requestAnimationFrame(() => {
+    if (!isNarrow()) closeDrawer();
+    closeOrientMenu(); closeThemeMenu();
+    const w = $('map').clientWidth, h = $('map').clientHeight;
+    if (S.view.fitted) fitView();
+    else {
+      if (w && h && lastMapW && lastMapH) { S.view.x += (w - lastMapW) / 2; S.view.y += (h - lastMapH) / 2; }
+      scheduleRender();
+    }
+    if (w && h) { lastMapW = w; lastMapH = h; }
+  }); };
   window.addEventListener('resize', onResize);
+  // 3.10.0：屏幕旋转时给画布 / 顶栏一个短暂的淡入过渡，掩盖 WebView 重排瞬间的闪动
+  try {
+    let orientT = 0;
+    window.matchMedia('(orientation: landscape)').addEventListener('change', () => {
+      document.body.classList.remove('orient-changed'); void document.body.offsetWidth;
+      document.body.classList.add('orient-changed');
+      clearTimeout(orientT); orientT = setTimeout(() => document.body.classList.remove('orient-changed'), 480);
+    });
+  } catch { /* 旧 WebView 的 MediaQueryList 不支持 addEventListener */ }
   if (window.ResizeObserver) new ResizeObserver(onResize).observe($('mapPanel'));
 }
 
@@ -3164,20 +6722,38 @@ function bindKeyboard() {
   document.addEventListener('keydown', e => {
     const typing = e.target.closest?.('input,select,textarea');
     const mod = e.ctrlKey || e.metaKey;
+    // 3.15.0：命令面板 —— Ctrl+K 开关；打开时其余快捷键一律不响应（方向键 / 回车由面板输入框自己处理）
+    if (mod && (e.key === 'k' || e.key === 'K')) { e.preventDefault(); cmdk.open ? closeCmdk() : openCmdk(); return; }
+    if (cmdk.open) { if (e.key === 'Escape') { e.preventDefault(); closeCmdk(); } return; }
+    if (e.key === '/' && !typing && !mod && !modalOpen()) { e.preventDefault(); openCmdk(); return; }
+    // 3.16.0：焦点在主题面板里时，字母快捷键不作用到画布；3.17.0 修复：屏幕方向菜单同样处理（旧版按 D / T / L 会作用到画布）
+    if (e.key !== 'Escape' && e.target.closest?.('#themeMenu,#orientMenu')) return;
     if (e.key === 'Escape') {
+      if (closeThemeMenu()) { $('themeToggle')?.focus(); return; } // 3.16.0
+      if (closeOrientMenu()) { $('orientToggle')?.focus(); return; }
       if (closeModal('cancel')) return;
+      if (measure.on) { if (measure.a) { clearMeasurePoints(); scheduleRender(); } else setMeasure(false); return; }
       if (S.drawingPolygon) { S.drawingPolygon = null; updatePolygonInfo(); scheduleRender(); return; }
       if (S.selectedSpawn >= 0) { selectSpawn(-1); return; }
+      if (focusOn()) { setFocusMode(false); return; } // 3.17.0
       closeDrawer(); return;
     }
     if (modalOpen()) { if (e.key === 'Enter' && !e.target.closest?.('.modal-actions button')) { e.preventDefault(); $('modal').querySelector('.primary-soft,.danger')?.click(); } return; }
-    if (mod && e.key === 'Enter') { e.preventDefault(); generate(); return; }
+    if (mod && e.key === 'Enter') { e.preventDefault(); if (e.shiftKey) generateBestOf(); else generate(); return; }
+    // 3.6.0：保存 / 导出快捷键在输入框内同样有效（旧版焦点在「地图名称」等输入框时 Ctrl+S 没反应）
+    if (mod && e.shiftKey && (e.key === 's' || e.key === 'S')) { e.preventDefault(); showSaveAs(); return; } // 3.8.0：另存为
+    if (mod && (e.key === 's' || e.key === 'S')) { e.preventDefault(); saveProject(false); return; }
+    if (mod && (e.key === 'e' || e.key === 'E')) { e.preventDefault(); if (S.lastTmx) exportPair(); return; }
     if (typing) return;
     if (mod && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); e.shiftKey ? globalRedo() : globalUndo(); return; }
     if (mod && (e.key === 'y' || e.key === 'Y')) { e.preventDefault(); globalRedo(); return; }
-    if (mod && (e.key === 's' || e.key === 'S')) { e.preventDefault(); saveProject(false); return; }
-    if (mod && (e.key === 'e' || e.key === 'E')) { e.preventDefault(); if (S.lastTmx) exportPair(); return; }
     if (mod || e.altKey) return;
+    if (e.key === ' ') {
+      // 3.6.0 修复：旧版无条件拦截空格，用 Tab 聚焦到按钮后按空格既不能「点击」按钮也不能平移。
+      // 现在键盘聚焦（:focus-visible）的按钮 / 开关 / 标签页保留原生的空格激活，其余情况仍是空格 + 拖动平移。
+      const kbControl = e.target.closest?.('button,a[href],[role="switch"],[role="tab"],summary') && e.target.matches?.(':focus-visible');
+      if (kbControl) return;
+    }
     if (e.key === ' ' && !spaceHeld) { spaceHeld = true; $('map').classList.add('space-pan'); e.preventDefault(); return; }
     const k = e.key.toLowerCase();
     if (k === 'f') fitView(true);
@@ -3189,12 +6765,20 @@ function bindKeyboard() {
     else if (k === '?' || k === 'h') showHelp();
     else if (k === 'm') showSlotTable();
     else if (k === 'i') showMapPngPreview();
+    else if (k === 'd') showMapDoctor();
+    else if (k === 't') setTerritoryLayer(!S.layers.territory);
+    else if (k === 'l') setRoutesLayer(!S.layers.routes);
+    else if (k === 'n') $('layerNearRes')?.click();
+    else if (k === 'u') setMeasure(!measure.on);
+    else if (k === 'z') setFocusMode(!focusOn()); // 3.17.0：专注模式
     else if (S.mode === 'wizard' && { v: 1, b: 1, p: 1, c: 1, r: 1 }[k]) setTool({ v: 'pan', b: 'brush', p: 'polygon', c: 'cc', r: 'resource' }[k]);
   });
   document.addEventListener('keyup', e => { if (e.key === ' ') { spaceHeld = false; $('map').classList.remove('space-pan'); } });
   // 3.2.0 修复：按住空格时切换窗口（Alt+Tab），keyup 不会触发，空格平移状态会一直卡住
   window.addEventListener('blur', () => { spaceHeld = false; $('map').classList.remove('space-pan'); });
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) scheduleRender(); });
+  /* 3.18.0：实时体检徽章在后台会每 1.2s 自我续期（runHealthBadge 的 document.hidden / S.locked 分支）。
+   * 切到后台时清掉挂起的计时器，回到前台再补算一次，避免后台常驻空转。 */
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) { scheduleRender(); queueHealthBadge(); } else clearTimeout(health.timer); });
 }
 
 /* ------------------------------------------------------------------ 启动 */
@@ -3208,14 +6792,14 @@ async function migrateLegacyProject() {
   } catch { /* 保留旧数据 */ }
 }
 async function boot() {
-  // 3.2.0：首次启动（未手动选择过主题）时跟随系统深浅色
-  let themeIdx = 0;
+  // 3.2.0：首次启动（未手动选择过主题）时跟随系统深浅色；3.16.0：读取主题 id（兼容旧版下标），并恢复「动态背景」开关
+  document.body.classList.toggle('fx-off', !fxEnabled());
+  applyTheme(readThemeChoice());
   try {
-    const saved = localStorage.getItem(THEME_KEY);
-    if (saved == null) themeIdx = window.matchMedia?.('(prefers-color-scheme: light)').matches ? 2 : 0;
-    else themeIdx = Number(saved) || 0;
-  } catch { /* ignore */ }
-  applyTheme(themeIdx);
+    window.matchMedia?.('(prefers-color-scheme: light)').addEventListener?.('change', refreshAutoTheme);
+  } catch { /* 旧 WebView 不支持 */ }
+  // 昼夜流转：从后台回来（定时器可能被挂起）立即按当前时间校正一次
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshAutoTheme(); });
   loadPrefs();
   bindAccordion();
   bindControls();
@@ -3227,6 +6811,8 @@ async function boot() {
   updateSpawnUI();
   setTool('pan', false);
   updateUndoButtons();
+  renderPresetOptions();
+  updatePrevButton();
   scheduleRender();
   const splashOff = () => { const sp = $('splash'); if (!sp || sp.classList.contains('hide')) return; sp.classList.add('hide'); setTimeout(() => sp.remove(), 600); };
   setTimeout(splashOff, 2600);
@@ -3236,7 +6822,7 @@ async function boot() {
     setStatus('本地地图生成引擎已就绪');
   } catch (e) {
     setStatus('本地引擎初始化失败：' + e.message);
-    setRuntime('本地引擎初始化失败', 'err');
+    setRuntime('引擎初始化失败 · 点此重试', 'err');
     toast('本地引擎初始化失败：' + e.message, 'error', 5000);
   }
   splashOff();
@@ -3251,5 +6837,5 @@ async function boot() {
     }
   });
 }
-if (/[?&]debug\b/.test(location.search)) window.__tmx = { S, Engine, currentSpawns, dims, getMatrix, patchTmxUnits, parseTmx, uiChoice, uiConfirm, globalUndo, globalRedo, removeSpawnIndex, spawnFairness, buildCcMap, ccMapFor, verifySpawnMapping, orderBySlot, makePlayerOne, showSlotTable, buildMapPngInfo, drawExportPng, showMapPngPreview, normalizeSlots };
+if (/[?&]debug\b/.test(location.search)) window.__tmx = { S, Engine, currentSpawns, dims, getMatrix, patchTmxUnits, parseTmx, uiChoice, uiConfirm, globalUndo, globalRedo, removeSpawnIndex, spawnFairness, buildCcMap, ccMapFor, verifySpawnMapping, orderBySlot, makePlayerOne, showSlotTable, buildMapPngInfo, drawExportPng, showMapPngPreview, normalizeSlots, analyzeMap, doctorVerdicts, buildGrid, labelGrid, territoryBfs, showMapDoctor, setTerritoryLayer, hasManualWork, backupCurrent, restorePrevious, generate, loadPresets, saveUserPreset, applyUserPreset, deleteUserPreset, renderPresetOptions, syncTmxUnits, exportPair, rushAnalysis, costField, tmxTerrainMasks, setRoutesLayer, generateBestOf, buildPoster, showPoster, saveProject, wallLayerFor, shapeState, selectShape, ShapeWorker, shapeSeed, generateShapePipeline, queueShapePreview, showSaveAs, ExportLoc, patchTmxItems, resourcePoolGids, planNearSpawnResources, pickResourcePoints, groupSpawnOrbits, autoApplyNearSpawnResources, HistoryStore, pushHistorySnapshot, showHistory, randomizeParams, surpriseGenerate, removeNearSpawnResourceAt, mutateTmx, measure, setMeasure, densityInfo, openCmdk, closeCmdk, cmdkScore, CMDS, measureProfile, applyTheme, resolveTheme, readThemeChoice, cycleSlot, THEMES, THEME_CHOICES, openThemeMenu, closeThemeMenu, setFxEnabled, rollMapName, spawnUndoAction, profileHover, encodeRecipe, decodeRecipe, applyRecipe, recipeData, copyRecipe, pasteRecipe, health, runHealthBadge, loupe, setFocusMode, focusOn, saveViewShot, captureEditorState, restoreEditorState, resetAll, themeGridMove, get routeCache() { return routeCache; } };
 boot();

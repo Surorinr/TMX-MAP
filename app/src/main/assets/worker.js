@@ -1,5 +1,6 @@
 /*
- * TMX MapForge Offline · 本地生成引擎 Worker（3.4.0，逻辑与 3.1.0 一致）
+ * TMX MapForge Offline · 本地生成引擎 Worker（3.17.0，逻辑与 3.1.0 一致；Android 与 PC 版共用；
+ *   3.9.0 的新功能「近家资源点」完全在 app.js 主线程里完成，不改动这个 Worker 或它调用的 WASM 引擎接口）
  *
  * 修复要点：
  * 1. WASM 引擎一旦 panic（RuntimeError: unreachable），Rust 侧 RefCell 借用标志不会被释放，

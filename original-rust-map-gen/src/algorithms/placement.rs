@@ -27,6 +27,18 @@ pub(crate) const MAX_COMMAND_CENTERS: usize = 50;
 /// First GID of the bundled `50pCommandCenter` tileset.
 pub(crate) const CC_FIRST_GID: i32 = 101;
 
+/// Center GID of a resource pool (res_pool) in the bundled `export_items`
+/// tileset: firstgid=1, res_pool tile id=11 -> center GID = 12.
+pub(crate) const RES_POOL_CENTER_GID: i32 = 12;
+/// Columns of the bundled `export_items` tileset, used to derive the 3x3
+/// res_pool footprint GIDs around the center.
+pub(crate) const RES_POOL_COLUMNS: i32 = 10;
+
+const RES_MARGIN_RATIO: f64 = 0.04;
+/// Minimum center-to-center spacing for random resource pulls (3x3 footprint
+/// plus a small gap).
+const RES_MIN_DISTANCE: f64 = 8.0;
+
 /// 3.3.0 fix: player slot (team, 0-based) -> TMX GID.
 ///
 /// The bundled `50pCommandCenter` tileset (5 columns x 10 rows) does NOT store
@@ -70,7 +82,260 @@ pub(crate) fn rebuild_cc_matrix(state: &mut WizardState) {
     }
 }
 
+/// Stamp the 3x3 res_pool GID footprint into `items_matrix` with its center at
+/// `(r, c)`. Cells outside the map are skipped.
+pub(crate) fn place_resource_pull(items_matrix: &mut Matrix, r: usize, c: usize) {
+    for dr in -1isize..=1 {
+        for dc in -1isize..=1 {
+            let nr = r as isize + dr;
+            let nc = c as isize + dc;
+            if nr < 0
+                || nc < 0
+                || nr >= items_matrix.rows as isize
+                || nc >= items_matrix.cols as isize
+            {
+                continue;
+            }
+            let gid = RES_POOL_CENTER_GID + (dr as i32) * RES_POOL_COLUMNS + dc as i32;
+            items_matrix.set(nr as usize, nc as usize, gid);
+        }
+    }
+}
 
+/// Remove the res_pool 3x3 footprint centered at `(r, c)`. Only cells that
+/// currently hold the expected res_pool GID are cleared, so nearby walls,
+/// decorations or other items are never accidentally erased.
+pub(crate) fn clear_pool(items_matrix: &mut Matrix, r: usize, c: usize) {
+    for dr in -1isize..=1 {
+        for dc in -1isize..=1 {
+            let nr = r as isize + dr;
+            let nc = c as isize + dc;
+            if nr < 0
+                || nc < 0
+                || nr >= items_matrix.rows as isize
+                || nc >= items_matrix.cols as isize
+            {
+                continue;
+            }
+            let nr = nr as usize;
+            let nc = nc as usize;
+            let expected_gid = RES_POOL_CENTER_GID + (dr as i32) * RES_POOL_COLUMNS + dc as i32;
+            if items_matrix.get(nr, nc) == expected_gid {
+                items_matrix.set(nr, nc, 0);
+            }
+        }
+    }
+}
+
+/// Randomly place resource pools, stamping the 3x3 res_pool footprint directly
+/// into `items_matrix`. Returns the list of chosen center positions.
+///
+/// Symmetry is honored as whole orbits when possible, but the requested count
+/// is never silently reduced: orbit grouping and then minimum spacing are
+/// relaxed in turn until the exact number is placed.
+pub(crate) fn add_resource_pulls(
+    randomized_matrix: &Matrix,
+    num_resource_pulls: usize,
+    mirroring: &str,
+    height_map: &Matrix,
+    items_matrix: &mut Matrix,
+    wall_matrix: Option<&Matrix>,
+    units_matrix: Option<&Matrix>,
+) -> Vec<(usize, usize)> {
+    let rows = height_map.rows;
+    let cols = height_map.cols;
+    let requested = num_resource_pulls;
+    let mut selected: Vec<(usize, usize)> = Vec::new();
+    if requested == 0 || rows == 0 || cols == 0 {
+        return selected;
+    }
+
+    let total = rows.saturating_mul(cols);
+    let stride = if total > 120_000 {
+        (((total as f64) / 12_000.0).sqrt().ceil() as usize).max(1)
+    } else {
+        1
+    };
+    let margin_r = ((rows as f64) * RES_MARGIN_RATIO).round() as usize;
+    let margin_c = ((cols as f64) * RES_MARGIN_RATIO).round() as usize;
+    let min_r = margin_r.min(rows.saturating_sub(1));
+    let max_r = rows.saturating_sub(1).saturating_sub(min_r);
+    let min_c = margin_c.min(cols.saturating_sub(1));
+    let max_c = cols.saturating_sub(1).saturating_sub(min_c);
+
+    let walkable = |r: usize, c: usize| -> bool {
+        if r >= rows || c >= cols || r < min_r || r > max_r || c < min_c || c > max_c {
+            return false;
+        }
+        // Center must be on land.
+        if height_map.get(r, c) <= 0 {
+            return false;
+        }
+        // 3x3 footprint must not already be occupied.
+        if has_non_zero_in_radius(items_matrix, r, c, 1) {
+            return false;
+        }
+        if let Some(walls) = wall_matrix {
+            if has_equals_one_in_radius(walls, r, c, 1) {
+                return false;
+            }
+        }
+        if let Some(units) = units_matrix {
+            if has_positive_in_radius(units, r, c, 4) {
+                return false;
+            }
+        }
+        true
+    };
+
+    let preferred = |r: usize, c: usize| -> bool {
+        if randomized_matrix.rows == 0 || randomized_matrix.cols == 0 {
+            return true;
+        }
+        let ry = ((r as f64 / rows as f64) * randomized_matrix.rows as f64).floor() as usize;
+        let cx = ((c as f64 / cols as f64) * randomized_matrix.cols as f64).floor() as usize;
+        randomized_matrix.get(
+            ry.min(randomized_matrix.rows - 1),
+            cx.min(randomized_matrix.cols - 1),
+        ) == 1
+    };
+
+    let mut base = Vec::new();
+    let mut r = min_r;
+    while r <= max_r {
+        let mut c = min_c;
+        while c <= max_c {
+            if walkable(r, c) {
+                base.push((r, c));
+            }
+            if max_c - c < stride {
+                break;
+            }
+            c += stride;
+        }
+        if max_r - r < stride {
+            break;
+        }
+        r += stride;
+    }
+    if base.len() < requested {
+        // fall back to a full scan before declaring failure
+        base.clear();
+        for rr in min_r..=max_r {
+            for cc in min_c..=max_c {
+                if walkable(rr, cc) {
+                    base.push((rr, cc));
+                }
+            }
+        }
+    }
+    if base.is_empty() {
+        return selected;
+    }
+
+    // Build symmetry orbits.
+    let mut candidates: Vec<Vec<(usize, usize)>> = Vec::new();
+    let mut seen = HashSet::new();
+    for &(r, c) in &base {
+        if seen.contains(&(r, c)) {
+            continue;
+        }
+        let mut orbit = vec![(r, c)];
+        for p in get_mirrors_for_mode(r, c, rows, cols, mirroring) {
+            if !seen.contains(&p) && !orbit.contains(&p) && walkable(p.0, p.1) {
+                orbit.push(p);
+            }
+        }
+        for &p in &orbit {
+            seen.insert(p);
+        }
+        candidates.push(orbit);
+    }
+
+    // Prefer pools on preferred land; add a random shuffle so layouts vary
+    // between runs.
+    let mut rng = rand::thread_rng();
+    candidates.shuffle(&mut rng);
+    candidates.sort_by(|a, b| {
+        let score = |o: &Vec<(usize, usize)>| {
+            o.iter().filter(|&&(r, c)| preferred(r, c)).count() as f64 / o.len() as f64
+        };
+        score(b)
+            .partial_cmp(&score(a))
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+
+    let mut used = HashSet::new();
+
+    // First pass: place whole symmetry orbits with full spacing.
+    for orbit in &candidates {
+        if selected.len() >= requested {
+            break;
+        }
+        if selected.len() + orbit.len() > requested {
+            continue;
+        }
+        if orbit
+            .iter()
+            .any(|&p| !point_fits(p, &used, &selected, RES_MIN_DISTANCE))
+        {
+            continue;
+        }
+        for &p in orbit {
+            selected.push(p);
+            used.insert(p);
+        }
+    }
+
+    // Exact-count fill: relax orbit grouping, then distance.
+    if selected.len() < requested {
+        for &p in &base {
+            if selected.len() >= requested {
+                break;
+            }
+            if point_fits(p, &used, &selected, RES_MIN_DISTANCE) {
+                selected.push(p);
+                used.insert(p);
+            }
+        }
+    }
+    if selected.len() < requested {
+        for &p in &base {
+            if selected.len() >= requested {
+                break;
+            }
+            if !used.contains(&p) {
+                selected.push(p);
+                used.insert(p);
+            }
+        }
+    }
+
+    // Stamp the 3x3 footprint of every selected center.
+    for &(r, c) in &selected {
+        place_resource_pull(items_matrix, r, c);
+    }
+    selected
+}
+
+/// Whether point `p` is unused and at least `min_distance` from every selected
+/// point.
+fn point_fits(
+    p: (usize, usize),
+    used: &HashSet<(usize, usize)>,
+    selected: &[(usize, usize)],
+    min_distance: f64,
+) -> bool {
+    if used.contains(&p) {
+        return false;
+    }
+    for &q in selected {
+        if euclidean_distance(p, q) < min_distance {
+            return false;
+        }
+    }
+    true
+}
 
 pub(crate) fn add_command_centers(
     randomized_matrix: &Matrix,

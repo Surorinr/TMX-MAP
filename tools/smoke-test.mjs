@@ -1,0 +1,94 @@
+/**
+ * TMX MapForge Offline · 跨平台静态冒烟测试（3.17.0）
+ * 检查本地资产可服务、关键 UI / 版本锚点存在、资源可读取、路径穿越被拒绝。
+ * 不依赖 Chrome / Playwright；不等价于真实浏览器或真机交互测试。
+ * 用法：node tools/smoke-test.mjs
+ */
+import { createServer } from 'node:http';
+import { existsSync } from 'node:fs';
+import { readFile } from 'node:fs/promises';
+import { extname, relative, isAbsolute, resolve, dirname, sep } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const HERE = dirname(fileURLToPath(import.meta.url));
+const ROOT = resolve(HERE, '..', 'app', 'src', 'main', 'assets');
+const MIME = {
+  '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
+  '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
+  '.json': 'application/json; charset=utf-8', '.png': 'image/png',
+  '.svg': 'image/svg+xml', '.tmx': 'application/xml', '.wasm': 'application/wasm',
+  '.ico': 'image/x-icon'
+};
+
+const server = createServer(async (req, res) => {
+  try {
+    const url = new URL(req.url, 'http://127.0.0.1');
+    let p;
+    try { p = decodeURIComponent(url.pathname).replace(/^[/\\]+/, ''); }
+    catch { res.writeHead(400); res.end('bad path'); return; }
+    if (!p || p === '.') p = 'index.html';
+    const file = resolve(ROOT, p);
+    const rel = relative(ROOT, file);
+    if (rel === '..' || rel.startsWith('..' + sep) || isAbsolute(rel)) {
+      res.writeHead(403); res.end('forbidden'); return;
+    }
+    if (!existsSync(file)) { res.writeHead(404); res.end('not found'); return; }
+    const data = await readFile(file);
+    res.writeHead(200, { 'Content-Type': MIME[extname(file).toLowerCase()] || 'application/octet-stream' });
+    res.end(data);
+  } catch (e) {
+    res.writeHead(500); res.end(String(e?.message || e));
+  }
+});
+
+await new Promise((resolveListen, reject) => {
+  server.once('error', reject);
+  server.listen(0, '127.0.0.1', resolveListen);
+});
+const base = `http://127.0.0.1:${server.address().port}`;
+let failed = 0;
+function check(name, ok) {
+  console.log(`${ok ? 'ok  ' : 'FAIL'} : ${name}`);
+  if (!ok) failed++;
+}
+try {
+  const [htmlRes, appRes, cssRes, workerRes, shapeWorkerRes, wasmRes, traversalRes] = await Promise.all([
+    fetch(`${base}/index.html`), fetch(`${base}/app.js`), fetch(`${base}/style.css`),
+    fetch(`${base}/worker.js`), fetch(`${base}/shape-worker.js`), fetch(`${base}/wasm-pkg/rust_map_gen_bg.wasm`),
+    fetch(`${base}/%2e%2e%2fAndroidManifest.xml`)
+  ]);
+  const [html, app, css, worker, shapeWorker] = await Promise.all([
+    htmlRes.text(), appRes.text(), cssRes.text(), workerRes.text(), shapeWorkerRes.text()
+  ]);
+  check('首页通过本地 HTTP 正常提供', htmlRes.status === 200 && html.includes('<html'));
+  check('前端版本为 v3.18.0', app.includes("const APP_VERSION = '3.18.0'"));
+  check('3.18.0 修复锚点存在（图层 aria 同步 / 队伍号枚举上限钳制）', app.includes('function syncLayerAria') && app.includes('Math.min(MAX_SPAWN_POINTS - 1'));
+  check('3.18.0 无障碍状态存在（图层 role="switch" / 标签页 aria-selected）', html.includes('role="switch"') && html.includes('aria-selected="true"'));
+  check('3.17.0 新功能锚点存在（配方码 / 体检徽章 / 放大镜 / 专注模式 / 视图截图 / 生成取消还原）', ['function encodeRecipe', 'function decodeRecipe', 'function runHealthBadge', 'function drawLoupe', 'function setFocusMode', 'function saveViewShot', 'function restoreEditorState', 'function themeGridMove'].every(k => app.includes(k)));
+  check('3.17.0 新控件存在', ['id="recipeCopy"', 'id="recipePaste"', 'id="healthBadge"', 'id="loupe"', 'id="focusBtn"', 'id="focusExit"', 'id="shotBtn"'].every(k => html.includes(k)));
+  check('3.17.0 近家资源距离输入框上限与代码一致（120 / 160）', /id="nearResMin"[^>]*max="120"/.test(html) && /id="nearResMax"[^>]*max="160"/.test(html));
+  check('样式包含 3.17.0 新组件且专注模式列宽只在桌面布局生效', css.includes('.health-badge') && css.includes('.loupe') && css.includes('.focus-pill') && /@media\(min-width:901px\)\{\s*body\.focus-mode main\{grid-template-columns:0 1fr\}/.test(css));
+  check('3.16.0 主题模块存在（选择面板 / 昼夜流转 / 旧版下标迁移）', app.includes('function openThemeMenu') && app.includes('THEME_CYCLE') && app.includes('LEGACY_THEME_ORDER'));
+  check('3.16.0 主题面板与动态背景图层存在', html.includes('id="themeMenu"') && html.includes('class="theme-fx"'));
+  check('样式包含 5 套动态主题且有「减少动态效果」处理', ['aurora','ember','nebula','tide','sakura'].every(t => css.includes(`body[data-theme="${t}"]`)) && css.includes('body.fx-off'));
+  check('3.15.0 新逻辑锚点存在（命令面板 / 地形剖面 / 起名 / Toast 撤销校验）', app.includes('function openCmdk') && app.includes('function measureProfile') && app.includes('function rollMapName') && app.includes('function spawnUndoAction'));
+  check('3.15.0 新控件与图标存在', html.includes('id="cmdk"') && html.includes('id="measureProfile"') && html.includes('id="nameDice"') && html.includes('icons/icon-192.png'));
+  check('样式包含 3.15.0 新增模块', css.includes('.cmdk-card') && css.includes('.measure-profile') && css.includes('.name-dice'));
+  check('地图体检控件存在', html.includes('id="mapDoctor"'));
+  check('惊喜生成控件存在', html.includes('id="surprise"'));
+  check('历史快照控件存在', html.includes('id="histOpen"'));
+  check('样式包含减少动态效果支持', css.includes('prefers-reduced-motion: reduce'));
+  check('测距按钮 / 密度提示 / 抽屉关闭条存在', html.includes('id="measureBtn"') && html.includes('id="densityHint"') && html.includes('id="drawerClose"'));
+  check('3.14.0 新逻辑锚点存在（mutateTmx / 候选导出 / 分享）', app.includes('async function mutateTmx') && app.includes('exportCandidatesZip') && app.includes('function shareAction'));
+  check('样式包含 3.14.0 新增模块', css.includes('.map-panel.no-map .minimap-wrap') && css.includes('.density-hint') && css.includes('.hist-pin'));
+  check('Worker 脚本可加载', workerRes.status === 200 && worker.length > 100);
+  check('形态 Worker 脚本可加载', shapeWorkerRes.status === 200 && shapeWorker.length > 100);
+  check('WASM 资源可加载且 MIME 正确', wasmRes.status === 200 && wasmRes.headers.get('content-type')?.includes('application/wasm'));
+  check('路径穿越请求被拒绝', traversalRes.status === 403);
+} catch (e) {
+  check(`测试执行无异常（${e?.message || e}）`, false);
+} finally {
+  await new Promise(resolveClose => server.close(resolveClose));
+}
+console.log(failed === 0 ? '\nSTATIC SMOKE TEST PASSED' : `\nSTATIC SMOKE TEST FAILED (${failed})`);
+process.exitCode = failed === 0 ? 0 : 1;

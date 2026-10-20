@@ -60,3 +60,7 @@ desktop.ini
 *.bak
 *.swp
 *~
+
+# ==== PC 版（Rust + Tauri） ====
+desktop/target/
+desktop/gen/
