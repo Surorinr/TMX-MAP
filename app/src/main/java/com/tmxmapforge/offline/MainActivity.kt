@@ -47,7 +47,11 @@ import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * TMX MapForge Offline 3.17.0
+ * TMX MapForge Offline 3.19.0
+ *
+ * 3.19.0：第十七轮审查。① onShowFileChooser 启动失败分支已回传 null 却返回 false，WebView 会再完成一次回调（3.18.0 回归），
+ *  改为返回 true；② 写入导出文件夹失败时，只有授权真正失效才遗忘文件夹（3.18.0 对任何 IO 错误都会永久释放授权）。
+ *  出生点上限 100 / FFA 模式完全在网页层实现，原生层无需改动。
  *
  * 3.17.0：原生代码无改动。新增的视图截图走已有的 beginSave / appendChunk / finishSave 保存链路与 shareSaved 分享链路。
  *
@@ -319,7 +323,11 @@ class MainActivity : ComponentActivity() {
                     filePathCallback.onReceiveValue(null)
                     fileCallback = null
                     toast("无法打开文件选择器：${e.message}")
-                    false
+                    /* 3.19.0 修复（3.18.0 回归）：已经调用过 onReceiveValue(null)，这里必须返回 true。
+                     * WebView 的约定是「返回 false = 由 WebView 自行处理并结束这次请求」，Chromium 会再回传一次空结果，
+                     * 同一个回调被完成两次（部分版本抛出 IllegalStateException「showFileChooser result was already called」）。
+                     * 官方文档要求的取消方式正是「onReceiveValue(null) 并返回 true」。 */
+                    true
                 }
             }
 
@@ -468,6 +476,7 @@ class MainActivity : ComponentActivity() {
             // “所选文件夹仍然有效”的假设提示成功，“文件夹已失效”的提示才姗姗来迟，用户看到的保存位置和文件
             // 实际落点对不上（文件已经回退存到下载目录，提示却仍是自定义文件夹名）。
             var fellBackFromTree = false
+            var folderLost = false // 3.19.0：true = 授权失效已遗忘文件夹；false 且 fellBackFromTree = 瞬时失败，文件夹设置保留
             return try {
                 s.stream.close()
                 if (target == TARGET_TREE && prefs.getString(KEY_TREE, null) != null) {
@@ -477,17 +486,23 @@ class MainActivity : ComponentActivity() {
                         /* 3.18.0 修复：旧版这里只 prefs.edit().remove(KEY_TREE)，没有释放该文件夹的持久授权。
                          * 持久授权跨重启存活，唯一释放点是 clearExportFolder()，两处行为不一致会泄漏授权，
                          * 同时用户选择的导出文件夹被永久遗忘、后续导出静默回退。按 clearExportFolder() 同款方式先释放再移除。 */
-                        prefs.getString(KEY_TREE, null)?.let { old ->
-                            runCatching { contentResolver.releasePersistableUriPermission(Uri.parse(old), Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION) }
+                        /* 3.19.0 修复（3.18.0 矫枉过正）：只有授权真的失效（被撤销 / 文件夹已删除）时才遗忘该文件夹并释放授权。
+                         * 磁盘已满、单次 IO 错误、文档提供方暂时不可用等瞬时失败，本次回退到下载目录，但保留用户的文件夹选择，
+                         * 否则一次偶发错误就要用户重新去系统选择器里一级级找回导出文件夹。 */
+                        folderLost = !treeStillUsable()
+                        if (folderLost) {
+                            prefs.getString(KEY_TREE, null)?.let { old ->
+                                runCatching { contentResolver.releasePersistableUriPermission(Uri.parse(old), Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION) }
+                            }
+                            prefs.edit().remove(KEY_TREE).apply()
+                            notifyFolder(JSONObject().put("set", false).put("lost", true).put("error", e.message ?: "无法写入所选文件夹"))
                         }
-                        prefs.edit().remove(KEY_TREE).apply()
-                        notifyFolder(folderJson().put("lost", true).put("error", e.message ?: "无法写入所选文件夹"))
                         fellBackFromTree = true
                         null
                     }
                     if (name != null) { s.file.delete(); return "ok:$name|tree" }
                 }
-                val suffix = if (fellBackFromTree) "downloads:fallback" else "downloads"
+                val suffix = if (!fellBackFromTree) "downloads" else if (folderLost) "downloads:fallback" else "downloads:retry"
                 if (Build.VERSION.SDK_INT >= 29) {
                     val name = copyToMediaStore(s.file, s.filename, s.mime)
                     s.file.delete()
@@ -667,6 +682,17 @@ class MainActivity : ComponentActivity() {
         }
         prefs.edit().putString(KEY_TREE, uri.toString()).apply()
         notifyFolder(folderJson().put("picked", true))
+    }
+
+    /** 3.19.0：导出文件夹是否仍可用——持久写授权还在，且文件夹本身仍能查询到（没有被删除 / 卸载） */
+    private fun treeStillUsable(): Boolean {
+        val t = prefs.getString(KEY_TREE, null) ?: return false
+        val tree = Uri.parse(t)
+        if (contentResolver.persistedUriPermissions.none { it.uri == tree && it.isWritePermission }) return false
+        return runCatching {
+            val doc = DocumentsContract.buildDocumentUriUsingTree(tree, DocumentsContract.getTreeDocumentId(tree))
+            contentResolver.query(doc, arrayOf(DocumentsContract.Document.COLUMN_DOCUMENT_ID), null, null, null)?.use { it.moveToFirst() } ?: false
+        }.getOrDefault(false)
     }
 
     /** 当前导出文件夹信息；授权已失效时视为未设置 */

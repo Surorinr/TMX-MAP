@@ -1,5 +1,18 @@
 /*
  * 铁锈战争地图生成器 · TMX MapForge Offline
+ * 版本 3.20.0 —— 第十八轮全局审查：修复「分步模式在完整地图之后重跑海岸线 / 高度步骤，导出、保存项目、自动保存会把未完成地图的
+ *              出生点（通常 0 个）写进上一张地图的 TMX」、项目 / 草稿 / 历史快照把上一张地图的 TMX 与未完成地图的出生点存在一起、
+ *              60 人以上地图第 51 号之后误显示「不会写入」、FFA 新生成时玩家 1 不在正上方、FFA 仍画 A/B 对位连线；
+ *              新增「公平度一键微调」（O，保持对称与近家资源）、「落点热力」图层（K）、「对称修复：补齐镜像出生点」（详见 README）。
+ * 版本 3.19.0 —— 第十七轮全局审查：修复「大地图 / 形态多步生成中途取消后，半成品地图与旧 TMX 错配（导出会抹掉旧地图的出生点）」、
+ *              「配方码混用地图参数与界面参数」、「择优候选全部失败时引擎状态标记未更新」、Android 文件选择器回调被完成两次（3.18.0 回归）、
+ *              Android 导出文件夹遇到瞬时写入错误即被永久遗忘、PC 版 JSON 兜底分支截断字节等；
+ *              出生点上限 50 → 100（51～100 号指挥中心瓦片导出时自动补进 TMX）；预设去掉 25V25，新增 30V30 / 40V40 / 50V50 与
+ *              「自由混战（FFA）」——顺时针槽位、每人一色、FFA 公平度与体检（最近对手 / 领地均衡）；
+ *              新增「对称检查」图层（Y）、「出生点巡视」+ 玩家卡片（, / .）、体检「玩家对比」表、配方码写入 ZIP 说明与项目文件、
+ *              按钮涟漪与图层开关动效（详见 README）。
+ * 版本 3.18.0 —— 第十六轮全局审查：生成海岸线 / 图片导入失败丢编辑状态、畸形 TMX 队伍号致主线程卡死、Android 文件选择器回调与
+ *              持久授权泄漏、图层与标签页 aria 状态（详见 README）。
  * 版本 3.17.0 —— 第十五轮全局审查：修复取消 / 失败的生成清空当前地图的队伍 / 撤销记录 / 近家资源标记、Toast 去重吞掉新的「撤销」、
  *              测距模式右键误删出生点、恢复默认 / 新建项目后测距模式残留、历史面板二次确认取消后整个面板消失、主题面板上下键跨组落错列、
  *              方向菜单里按字母键误触画布快捷键、关闭自动保存后排队中的保存仍写入、近家资源距离输入框上限与代码不一致；
@@ -60,10 +73,11 @@
  *   Pointer    —— 统一手势状态机：平移 / 双指缩放 / 画笔 / 多边形 / 放置 / 拖动出生点 / 长按删除
  *   Project    —— IndexedDB 项目存储（可保存大体积 TMX），兼容旧版 localStorage 草稿
  */
-const APP_VERSION = '3.18.0';
-const PROJECT_FORMAT = 3180; // 3.18.0：仅记录写入版本（读取时不校验），按 主.次.修 编码，保持单调递增
+const APP_VERSION = '3.20.0';
+const PROJECT_FORMAT = 3200; // 3.20.0：仅记录写入版本（读取时不校验），按 主.次.修 编码，保持单调递增
 const $ = id => document.getElementById(id);
-const MAX_SPAWN_POINTS = 50;
+const MAX_SPAWN_POINTS = 100; // 3.19.0：50 → 100（51～100 号槽位的指挥中心瓦片在导出时自动补进 TMX，见 extendCcTileset）
+const ENGINE_MAX_CC = 50;     // 3.19.0：WASM 引擎与内置蓝图只有 50 个指挥中心槽位；超出部分由 JS 智能布点补齐
 const MAX_MAP_DIMENSION = 2000;
 const MAX_RESOURCES = 500;
 const LARGE_MAP_AREA = 600000;
@@ -79,8 +93,31 @@ const STEP_NAMES = ['海岸线', '墙体与丘陵', '高度与海洋', '指挥�
 const STEP_TOOLS = ['pan', 'brush', 'pan', 'cc', 'resource', 'pan'];
 const MIRROR_LABELS = { none: '不对称', horizontal: 'X 轴对称', vertical: 'Y 轴对称', diagonal1: '主对角线对称', diagonal2: '副对角线对称', both: 'XY 双轴对称' };
 const SYMMETRY_MODES = new Set(Object.keys(MIRROR_LABELS));
-const PRESET_COUNTS = { '1v1': 2, '2v2': 4, '3v3': 6, '4v4': 8, '5v5': 10, '10v10': 20, '20v20': 40, '25v25': 50 };
+/* 3.19.0：去掉 25V25，新增 30V30 / 40V40 / 50V50；「自由混战（FFA）」不在此表中——它不固定人数，人数沿用「出生点数量」 */
+const PRESET_COUNTS = { '1v1': 2, '2v2': 4, '3v3': 6, '4v4': 8, '5v5': 10, '10v10': 20, '20v20': 40, '30v30': 60, '40v40': 80, '50v50': 100 };
+const FFA_DEFAULT_PLAYERS = 8;
 const TEAM_COLORS = { A: '#4b8aff', B: '#ff6b6b' };
+/* ------------------------------------------------------------------ 3.19.0：自由混战（FFA）
+ * 铁锈战争地图里的「队伍」其实只是指挥中心瓦片的 team 属性（= 玩家槽位），真正的结盟在游戏大厅里设置。
+ * 本工具此前把所有地图都当作 A / B 两队来布局和评估（槽位 A/B 交替、领地 / 资源 / 接敌按两队比较）。
+ * FFA 模式下每位玩家各自为战：teamOf() 返回每人独立的队伍号 P0…P99，于是
+ *   · 槽位：按「绕地图中心顺时针」编号（玩家 1 在正上方附近，邻座就是相邻编号），不再 A/B 交替；
+ *   · 公平度：看「每人到最近对手的距离」是否均匀，而不是两队人数 / 资源是否对等；
+ *   · 体检：领地均衡 = 最小领地 / 平均领地，接敌 = 每人到最近对手的行走距离（一次多源 Dijkstra + Voronoi 边界求出，
+ *     100 人也只需一次寻路），资源 = 到最近资源点距离的均衡度；
+ *   · 颜色：每位玩家一种颜色（黄金角色环，相邻编号色相相差约 137°，100 人也容易区分）。 */
+const isFFA = () => $('gamePreset')?.value === 'ffa';
+const ffaHue = i => (i * 137.508) % 360;
+function ffaRgb(i) {
+  const h = ffaHue(i) / 360, s = 0.72, l = i % 2 ? 0.66 : 0.56;
+  const q = l < 0.5 ? l * (1 + s) : l + s - l * s, p = 2 * l - q;
+  const f = t => { t = (t + 1) % 1; return t < 1 / 6 ? p + (q - p) * 6 * t : t < 0.5 ? q : t < 2 / 3 ? p + (q - p) * (2 / 3 - t) * 6 : p; };
+  return [Math.round(f(h + 1 / 3) * 255), Math.round(f(h) * 255), Math.round(f(h - 1 / 3) * 255)];
+}
+const ffaColor = i => { const [r, g, b] = ffaRgb(i); return `rgb(${r},${g},${b})`; };
+/** 队伍号 → 颜色：A / B 两队用固定色，FFA 的 P{n} 用每人一色 */
+function teamColor(t) { return typeof t === 'string' && t[0] === 'P' ? ffaColor(Number(t.slice(1)) || 0) : (TEAM_COLORS[t] || '#ffffff'); }
+const teamLabel = t => typeof t === 'string' && t[0] === 'P' ? '混战' : `${t} 队`;
 const PREF_KEY = 'rmtool_prefs_v2';
 const THEME_KEY = 'tmx_theme';
 const UI_KEY = 'tmx_ui_v31';
@@ -143,7 +180,7 @@ const S = {
   smartPlacement: true, autoSave: true, animate: true,
   orientMode: 'auto',      // 3.10.0：'auto' | 'portrait' | 'landscape'（Android 原生层持久化，网页只做显示与兼容备份）
   orientLegacy: false,     // 3.10.0：3.9.0 及更早版本只保存了 orient=true，首次启动时用于迁移
-  layers: { terrain: true, spawns: true, resources: true, walls: true, grid: false, territory: false, routes: false, nearRes: true },
+  layers: { terrain: true, spawns: true, resources: true, walls: true, grid: false, territory: false, routes: false, nearRes: true, symmetry: false, spots: false }, // 3.19.0：symmetry = 对称检查图层；3.20.0：spots = 落点热力
   view: { zoom: 1, x: 0, y: 0, fitted: false },
   locked: false,
   fadeStart: 0,
@@ -386,6 +423,8 @@ const Engine = {
     return this.ready;
   },
   raw(action, params, transfer) {
+    // 3.19.0：引擎只有 50 个指挥中心槽位；多于 50 人时引擎只布 50 个，其余由 JS 智能布点补齐（applySpawnPolicy）
+    if (params && Number(params.numPlayers) > ENGINE_MAX_CC) params = { ...params, numPlayers: ENGINE_MAX_CC };
     return new Promise((resolve, reject) => {
       const id = ++this.seq;
       this.pending.set(id, { resolve, reject, action });
@@ -750,11 +789,23 @@ function sideTeam(p, s = S.snapshot) {
   if (m === 'diagonal2' && rows === cols) return r + c < rows - 1 ? 'A' : 'B';
   return c < cols / 2 ? 'A' : 'B';
 }
-function teamOf(p, i) { return S.teamOverrides.get(keyOf(p)) || sideTeam(p) || (i % 2 ? 'B' : 'A'); }
+function teamOf(p, i) { if (isFFA()) return 'P' + (i | 0); return S.teamOverrides.get(keyOf(p)) || sideTeam(p) || (i % 2 ? 'B' : 'A'); }
 /* 3.3.0：「A/B 交替」时，B 队按「A[i] 的镜像点」重新配对 —— 玩家 1 与玩家 2、玩家 3 与玩家 4……互为镜像对手，
  * 旧实现按列表顺序硬拼，常出现玩家 1 的对位点在地图另一角。 */
-function orderBySlot(positions, orderMode = $('slotOrder').value) {
+/** 3.19.0：FFA 槽位——绕地图中心顺时针编号；保留原玩家 1 的位置作为起点（「设为玩家 1」后再增删出生点也不会被改回去） */
+function orderClockwise(positions, keepFirst = true) {
+  const [rows, cols] = dims(), cr = (rows - 1) / 2, cc = (cols - 1) / 2;
+  const ang = p => { const a = Math.atan2(p[1] - cc, -(p[0] - cr)); return a < 0 ? a + Math.PI * 2 : a; }; // 0 = 正上方，顺时针递增
+  const sorted = positions.map(p => ({ p, a: ang(p), d: Math.hypot(p[0] - cr, p[1] - cc) })).sort((x, y) => x.a - y.a || x.d - y.d).map(x => x.p);
+  // 3.20.0 修复：只有「编辑」（增删出生点）才保留原玩家 1；全新布局（生成 / 重新布置 / 切换模式 / 重排）从正上方开始编号。
+  // 3.19.0 一律保留原玩家 1，新生成的地图玩家 1 落在引擎第一个选点处（往往不在正上方），与「顺时针从正上方编号」的设计不符。
+  if (!keepFirst) return sorted;
+  const first = sorted.findIndex(q => keyOf(q) === keyOf(positions[0]));
+  return first > 0 ? [...sorted.slice(first), ...sorted.slice(0, first)] : sorted;
+}
+function orderBySlot(positions, orderMode = $('slotOrder').value, { fresh = false } = {}) {
   if (orderMode === 'engine' || positions.length < 2) return positions;
+  if (isFFA()) return orderClockwise(positions, !fresh); // 3.19.0；3.20.0：fresh = 全新布局，从正上方开始
   const A = [], B = [];
   positions.forEach((p, i) => (teamOf(p, i) === 'A' ? A : B).push(p));
   if (orderMode === 'grouped') return [...A, ...B];
@@ -782,6 +833,7 @@ function orderBySlot(positions, orderMode = $('slotOrder').value) {
 function normalizeSlots(list) { return $('slotOrder').value === 'engine' ? list : orderBySlot(list); }
 /* 槽位 → 期望队伍：交替模式下奇数号玩家=A、偶数号=B；A 队在前模式按前 nA 个=A */
 function slotTeamFor(i, list = currentSpawns()) {
+  if (isFFA()) return 'P' + i; // 3.19.0
   const mode = $('slotOrder').value;
   if (mode === 'alternate') return i % 2 ? 'B' : 'A';
   if (mode === 'grouped') { const nA = list.filter((q, k) => teamOf(q, k) === 'A').length; return i < nA ? 'A' : 'B'; }
@@ -1007,7 +1059,7 @@ async function smartPlaceAll(wanted, { history = true, quiet = false, allowParti
   }
   if (history) pushSpawnHistory();
   S.teamOverrides.clear();
-  positions = orderBySlot(positions);
+  positions = orderBySlot(positions, undefined, { fresh: true });
   setSpawns(positions);
   afterSpawnChange();
   if (!quiet) toast(`已智能布置 ${positions.length} 个出生点`, 'success');
@@ -1023,6 +1075,7 @@ function spawnFairness(p = currentSpawns(), snap = S.snapshot) {
   for (let i = 0; i < p.length; i++) for (let j = i + 1; j < p.length; j++) ds.push(dist2(p[i], p[j]));
   const min = Math.min(...ds), avg = ds.reduce((a, b) => a + b, 0) / ds.length;
   const edge = Math.min(...p.map(([r, c]) => Math.min(r, c, rows - 1 - r, cols - 1 - c))) / (Math.min(rows, cols) / 2);
+  if (isFFA()) return ffaFairness(p, snap, rows, cols, min, edge);
   const target = Math.max(1, Math.min(rows, cols) * 0.16);
   const spacing = Math.min(1, min / target);
   const teams = p.map((q, i) => snap === S.snapshot ? teamOf(q, i) : sideTeam(q, snap));
@@ -1036,10 +1089,28 @@ function spawnFairness(p = currentSpawns(), snap = S.snapshot) {
     const a = av('A'), b = av('B');
     if (a !== null && b !== null) resourceBalance = Math.min(1, Math.min(a, b) / Math.max(a, b, 1));
   }
-  const score = Math.round(clamp((spacing * 0.42 + Math.min(1, edge * 2) * 0.16 + Math.min(1, avg / (target * 2)) * 0.16 + resourceBalance * 0.13 + countBalance * 0.13) * 100, 0, 100));
+  const raw = clamp((spacing * 0.42 + Math.min(1, edge * 2) * 0.16 + Math.min(1, avg / (target * 2)) * 0.16 + resourceBalance * 0.13 + countBalance * 0.13) * 100, 0, 100);
+  const score = Math.round(raw);
   return {
-    score, min, avg, edge, resourceBalance, nA, nB,
+    score, raw, min, avg, edge, resourceBalance, nA, nB, // 3.20.0：raw = 未取整的分数（公平度微调用它做目标函数，避免整数平台）
     text: `最小间距 ${min.toFixed(1)} · 平均间距 ${avg.toFixed(1)}<br>边缘安全 ${Math.round(edge * 100)}% · 资源平衡 ${Math.round(resourceBalance * 100)}% · 队伍 A ${nA} / B ${nB}`
+  };
+}
+/** 3.19.0：FFA 公平度——人人互为对手，看的是「每人到最近对手的距离」是否均匀、整体是否拉得够开，以及到资源的远近是否均衡 */
+function ffaFairness(p, snap, rows, cols, min, edge) {
+  const n = p.length;
+  const nn = p.map((a, i) => { let d = Infinity; p.forEach((b, j) => { if (j !== i) d = Math.min(d, dist2(a, b)); }); return d; });
+  const nnAvg = nn.reduce((x, y) => x + y, 0) / n, nnBal = nnAvg ? Math.min(...nn) / nnAvg : 0;
+  const target = Math.max(1, Math.sqrt(rows * cols / n) * 0.62); // 均匀铺满时每人「方格」边长的 0.62 倍
+  const spacing = Math.min(1, min / target);
+  const res = snap?.resource_positions || [];
+  let resourceBalance = 1;
+  if (res.length) { const near = p.map(a => Math.min(...res.map(b => dist2(a, b)))); resourceBalance = Math.min(1, Math.max(1, Math.min(...near)) / Math.max(1, ...near)); }
+  const raw = clamp((spacing * 0.38 + Math.min(1, edge * 2) * 0.14 + nnBal * 0.28 + resourceBalance * 0.2) * 100, 0, 100);
+  const score = Math.round(raw);
+  return {
+    score, raw, min, avg: nnAvg, edge, resourceBalance, nA: n, nB: n, ffa: true,
+    text: `自由混战 · ${n} 人<br>最近对手间距：最小 ${min.toFixed(1)} · 平均 ${nnAvg.toFixed(1)}（均匀度 ${Math.round(nnBal * 100)}%）<br>边缘安全 ${Math.round(edge * 100)}% · 资源距离均衡 ${Math.round(resourceBalance * 100)}%`
   };
 }
 function animateNumber(el, to, suffix = '') {
@@ -1062,7 +1133,7 @@ function renderFairness() {
     arc.style.strokeDasharray = `${f.score} 100`;
     arc.dataset.level = f.score >= 80 ? 'good' : f.score >= 60 ? 'warn' : 'bad';
     const cls = f.score >= 80 ? 'good' : f.score >= 60 ? 'warn' : 'bad';
-    $('fairnessReport').innerHTML = `公平度 <strong class="${cls}">${f.score}/100</strong><br>${f.text}<br><span>建议：${f.score < 70 ? '点击「智能重新布置」，或手动拖动出生点拉开间距' : f.nA !== f.nB ? '两队人数不等，可调整队伍分配' : '当前布局可用，可继续手动微调'}</span>`;
+    $('fairnessReport').innerHTML = `公平度 <strong class="${cls}">${f.score}/100</strong><br>${f.text}<br><span>建议：${f.score < 70 ? '点击「智能重新布置」，或手动拖动出生点拉开间距' : !f.ffa && f.nA !== f.nB ? '两队人数不等，可调整队伍分配' : '当前布局可用，可继续手动微调'}</span>`;
   } else {
     $('fairnessSummary').textContent = '—'; $('fairnessSummary').dataset.v = 0;
     arc.style.strokeDasharray = '0 100';
@@ -1088,6 +1159,8 @@ function updateStats() {
 }
 function updateSpawnUI() {
   queueHealthBadge(); // 3.17.0：实时体检徽章（防抖 + 空闲时计算，结果按 analysisSig 缓存）
+  // 3.19.0：巡视卡片跟随出生点变化（删除 / 换图后选中失效则收起；否则防抖刷新数据）
+  if (tour.on) { clearTimeout(tour.timer); if (S.selectedSpawn < 0 || S.selectedSpawn >= currentSpawns().length) closeSpawnCard(); else tour.timer = setTimeout(() => { if (tour.on && S.selectedSpawn >= 0 && !drag) renderSpawnCard(S.selectedSpawn); }, 350); }
   updateStats();
   const p = currentSpawns();
   const [h, w] = dims();
@@ -1099,18 +1172,20 @@ function updateSpawnUI() {
   // 3.3.0：FLIP 重排动画 —— 记录旧行位置，重排后从旧位置平滑移动到新位置（而不是整列表闪烁重建）
   const oldTops = new Map();
   for (const el of list.children) if (el.dataset.key) oldTops.set(el.dataset.key, el.getBoundingClientRect().top);
-  const cc = ccMapFor();
+  const cc = ccMapFor(), extCap = ccExtendableCap(cc);
   const frag = document.createDocumentFragment();
   p.forEach((pos, i) => {
     const team = teamOf(pos, i);
     const gid = i < cc.capacity ? cc.gidForTeam(i) : 0;
+    // 3.20.0 修复：超出当前 TMX 槽位、但导出时能自动补齐瓦片集的出生点，不再标成「不会写入」
+    const pending = !gid && i < extCap;
     const row = document.createElement('div');
-    row.className = 'spawn-row' + (i === S.selectedSpawn ? ' selected' : '') + (oldTops.has(keyOf(pos)) ? ' settled' : '') + (gid ? '' : ' over-cap');
+    row.className = 'spawn-row' + (i === S.selectedSpawn ? ' selected' : '') + (oldTops.has(keyOf(pos)) ? ' settled' : '') + (gid || pending ? '' : ' over-cap');
     row.dataset.index = i;
     row.dataset.key = keyOf(pos);
     row.style.setProperty('--d', `${Math.min(i, 20) * 18}ms`);
-    row.innerHTML = `<span class="spawn-badge team-${team}">${i + 1}</span>
-      <div class="spawn-main"><b>玩家 ${i + 1}${i === 0 ? ' <em>P1</em>' : ''}</b><small>坐标 ${pos[0] + 1}, ${pos[1] + 1} · ${gid ? `team ${i} · GID ${gid}` : '超出瓦片集槽位，不会写入'}</small></div>
+    row.innerHTML = `<span class="spawn-badge team-${team}"${team[0] === 'P' ? ` style="--tc:${teamColor(team)}"` : ''}>${i + 1}</span>
+      <div class="spawn-main"><b>玩家 ${i + 1}${i === 0 ? ' <em>P1</em>' : ''}</b><small>坐标 ${pos[0] + 1}, ${pos[1] + 1} · ${gid ? `team ${i} · GID ${gid}` : pending ? `team ${i} · 导出时自动补槽位` : '超出瓦片集槽位，不会写入'}</small></div>
       <select class="spawn-team" aria-label="玩家 ${i + 1} 的队伍"><option value="A">队伍 A</option><option value="B">队伍 B</option></select>
       <button class="spawn-del" title="删除出生点" aria-label="删除玩家 ${i + 1}">✕</button>`;
     const sel = row.querySelector('.spawn-team');
@@ -1203,6 +1278,13 @@ function makePlayerOne(idx) {
     S.teamOverrides.set(ki, tj); S.teamOverrides.set(kj, ti);
     [p[i], p[j]] = [p[j], p[i]];
   };
+  if (isFFA()) {
+    // 3.19.0：FFA 没有队伍可换；把顺时针序列旋转到以该玩家为起点，其余玩家的相对顺序（邻座关系）不变
+    const rot = [...p.slice(idx), ...p.slice(0, idx)];
+    setSpawns(rot); S.selectedSpawn = 0; afterSpawnChange();
+    toast(`已将原玩家 ${idx + 1} 设为玩家 1（其余玩家按顺时针顺延）`, 'success', 3600, spawnUndoAction());
+    return;
+  }
   if ($('slotOrder').value === 'alternate' && p.length >= 2) {
     const base = idx - (idx % 2);
     if (base > 0) {
@@ -1215,18 +1297,26 @@ function makePlayerOne(idx) {
   toast(`已将原玩家 ${idx + 1} 设为玩家 1（其余玩家槽位不变）`, 'success', 3600, spawnUndoAction());
 }
 function selectSpawn(i, center = false) {
+  const pos = i >= 0 ? currentSpawns()[i] : null;
+  if (i >= 0 && !pos) i = -1; // 3.19.0：越界序号（如体检列表在出生点被删除后点击）不再在下面读取 pos[1] 时抛错
   S.selectedSpawn = i;
   document.querySelectorAll('.spawn-row').forEach(x => x.classList.toggle('selected', Number(x.dataset.index) === i));
   if (i >= 0) {
     const row = document.querySelector(`.spawn-row[data-index="${i}"]`);
     row?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-    if (center) {
-      const pos = currentSpawns()[i];
+    if (center === 'tour') {
+      // 3.19.0：出生点巡视——统一观察尺度（约 56 格见方，但不小于「适应画布」），跃迁式飞行
+      const r = $('map').getBoundingClientRect(), [rows, cols] = dims(), ins = viewInsets();
+      const fitZ = Math.min(Math.max(40, r.width - ins.left - ins.right) / cols, Math.max(40, r.height - ins.top - ins.bottom) / rows);
+      const z = clamp(Math.max(fitZ, Math.min(r.width, r.height) / 56), 0.05, 40);
+      flyViewTo(r.width / 2 - (pos[1] + 0.5) * z, r.height / 2 - (pos[0] + 0.5) * z + (r.height > 520 ? 26 : 0), z);
+    } else if (center) {
       const r = $('map').getBoundingClientRect();
       const z = Math.max(S.view.zoom, Math.min(6, S.view.zoom * 1.6));
       animateViewTo(r.width / 2 - (pos[1] + 0.5) * z, r.height / 2 - (pos[0] + 0.5) * z, z);
     }
   }
+  if (tour.on) { if (i >= 0) renderSpawnCard(i); else closeSpawnCard(); }
   scheduleRender();
 }
 
@@ -1272,7 +1362,7 @@ function applySpawnPolicy(s, action) {
       if (fa > fb) { positions = alt; optimized = fa - fb; }
     }
   }
-  if (action === 'quick_generate') { S.teamOverrides.clear(); S.snapshot = s; positions = orderBySlot(positions); }
+  if (action === 'quick_generate') { S.teamOverrides.clear(); S.snapshot = s; positions = orderBySlot(positions, undefined, { fresh: true }); }
   markSpawnPop(positions, action === 'quick_generate');
   s.cc_positions = positions.map(p => [...p]);
   S.spawnAuthority = positions.map(p => [...p]);
@@ -1376,6 +1466,8 @@ function resetEditorState() {
   S.importedDepth = false;
   S.nearResKeys = new Set(); // 3.14.0 修复：新地图 / 导入 / 恢复时必须清空，否则旧地图的坐标会误判新地图里的引擎资源点
   S.mapShape = null; // 3.8.0：当前地图的形态信息（ZIP 说明.txt 使用），新地图 / 导入时清空
+  S.mapRecipe = null; // 3.19.0：当前地图「生成时」的整套参数（配方码以它为准，见 recipeData）
+  closeSpawnCard(); // 3.19.0：换图 / 导入 / 清空时收起巡视卡片
   spawnPop.clear();
   resetHealthBadge(); // 3.17.0：新地图从头计分，不显示与旧地图比较的涨跌
   updatePolygonInfo();
@@ -1392,17 +1484,69 @@ function captureEditorState() {
     spawnAuthority: S.spawnAuthority, teamOverrides: new Map(S.teamOverrides), selectedSpawn: S.selectedSpawn,
     spawnHistory: S.spawnHistory, spawnRedo: S.spawnRedo, history: S.history, redoHistory: S.redoHistory,
     randomResourceKeys: new Set(S.randomResourceKeys), importedDepth: S.importedDepth, nearResKeys: S.nearResKeys, mapShape: S.mapShape,
-    healthScore: health.score
+    mapRecipe: S.mapRecipe, // 3.19.0
+    healthScore: health.score,
+    // 3.19.0：地图级状态（只在 restoreAfterAbort 回滚半成品地图时使用，restoreEditorState 不写回这些字段）
+    map: { source: S.source, snapshotEpoch: S.snapshotEpoch, tmxDirty: S.tmxDirty, unitsDirty: S.unitsDirty, slotVerified: S.slotVerified, step: S.step, view: { ...S.view }, engineSeq: Engine.seq }
   };
 }
 function restoreEditorState(k) {
   if (!k || !k.snapshot || S.snapshot !== k.snapshot || S.lastTmx !== k.lastTmx) return false;
-  const { snapshot, lastTmx, healthScore, ...rest } = k;
+  const { snapshot, lastTmx, healthScore, map, ...rest } = k;
   Object.assign(S, rest);
   S.spawnRev++; // 旧 Toast 上的「撤销」一律失效，避免与还原后的历史错位
   health.score = healthScore; health.sig = '';
   updatePolygonInfo(); updateUndoButtons(); updateSpawnUI(); scheduleRender();
   return true;
+}
+/* 3.19.0 修复（第十七轮审查 · 缺陷 1）：多步生成（大地图分 4 步 / 地形形态分 5 步）中途取消或失败时，前几步已经把
+ * 「半成品」快照（例如只有海岸线、没有高度和出生点）换上了画布，但 TMX 还是上一张地图的。旧版 restoreEditorState
+ * 发现快照已被替换就什么也不做，于是出现了「画布是半张新地图 + S.lastTmx 是旧地图 + 出生点为 0 + 导出按钮仍可用」
+ * 的错配：此时导出，会把旧地图的 TMX 连同「0 个出生点」一起写出去（旧地图的出生点被全部抹掉）。
+ * 现在按三种情况处理：
+ *   ① 快照没被替换 → 与 3.17.0 相同，只还原编辑状态；
+ *   ② 快照被替换、TMX 没变 → 说明只走完了前几步，整张回滚到生成前的地图（无旧地图时回到空白画布）；
+ *   ③ 快照与 TMX 都换了 → 新地图已经完整生成（失败发生在收尾阶段），保留新地图，不回滚。
+ * 引擎在这次操作中收到过新指令时（Engine.seq 变化），引擎内部状态已不再对应被还原的那张地图，
+ * 把 snapshotEpoch 置为 -1，后续的地形分步编辑会给出明确提示，而不是在错误的引擎状态上继续操作。
+ * 返回 'kept' | 'rolledback' | 'replaced' | 'none'。 */
+function restoreAfterAbort(k) {
+  if (!k) return 'none';
+  const m = k.map || {}, touched = m.engineSeq != null && Engine.seq !== m.engineSeq;
+  let how = 'kept';
+  if (S.snapshot !== k.snapshot) {
+    if (S.lastTmx !== k.lastTmx) return 'replaced';
+    stopAnimation();
+    S.snapshot = k.snapshot;
+    how = 'rolledback';
+  }
+  if (!S.snapshot) {
+    // 生成前本来就是空白画布：清掉半成品，回到空状态
+    resetEditorState();
+    S.source = null; S.tmxDirty = false; S.unitsDirty = false; S.slotVerified = null; S.step = m.step ?? 0;
+    S.view = { zoom: 1, x: 0, y: 0, fitted: false };
+    $('stats').textContent = '';
+    $('emptyState').classList.remove('hide');
+    $('mapPanel').classList.add('no-map');
+    setExportEnabled(!!S.lastTmx); updateSteps(-1); updateSpawnUI(); updateDirtyNote(); scheduleRender();
+    return how;
+  }
+  restoreEditorState(k);
+  if (how === 'rolledback' || touched) {
+    S.source = m.source ?? S.source;
+    S.snapshotEpoch = touched ? -1 : (m.snapshotEpoch ?? S.snapshotEpoch);
+    S.tmxDirty = !!m.tmxDirty; S.unitsDirty = !!m.unitsDirty; S.slotVerified = m.slotVerified ?? null;
+  }
+  if (how === 'rolledback') {
+    S.step = m.step ?? S.step;
+    if (m.view) S.view = { ...m.view };
+    S.fadeStart = performance.now();
+    $('emptyState').classList.add('hide');
+    $('mapPanel').classList.remove('no-map');
+    updateSteps(S.snapshot.meta?.completed_step ?? -1);
+  }
+  setExportEnabled(!!S.lastTmx); updateDirtyNote(); updateSpawnUI(); scheduleRender();
+  return how;
 }
 /* ------------------------------------------------------------------ 生成保护与「找回上一张地图」（3.6.0 新增）
  * 旧版点「生成地图」（或 Ctrl+Enter / 手机悬浮按钮）会立刻覆盖当前地图：精心摆好的出生点、画好的墙体、多边形全部消失，
@@ -1492,6 +1636,7 @@ async function generateNow() {
           await run('quick_generate', { ...p, numPlayers: 0, blueprintXml: bp }, '正在重新生成完整地图…');
         }
       }
+      S.mapRecipe = recipeFrom(p, S.mapShape); // 3.19.0：记下这张地图「生成时」的整套参数，配方码以它为准
       const sec = ((performance.now() - t0) / 1000).toFixed(1);
       setStatus(`地图生成完成（${sec}s）`);
       if (shapeInfo) setStatus(`「${shapeInfo.label}」地图生成完成（${sec}s · 种子 ${shapeInfo.seed}${shapeSummary(shapeInfo.stats) ? ' · ' + shapeSummary(shapeInfo.stats) : ''}）`);
@@ -1501,8 +1646,11 @@ async function generateNow() {
       pulseMap();
       pushHistorySnapshot('自动生成').catch(() => {}); // 3.11.0：每次生成自动入历史（失败仅记日志，不打断流程）
     } catch (e) {
-      restoreEditorState(kept); // 3.17.0：地图未被替换时还原队伍 / 撤销记录 / 近家资源标记 / 多边形 / 形态信息
-      if (e.cancelled) { setStatus('已取消生成'); if (shapeActive()) toast('已取消生成，当前画布保持不变', 'info'); }
+      // 3.17.0：地图未被替换时还原队伍 / 撤销记录 / 近家资源标记 / 多边形 / 形态信息；
+      // 3.19.0：多步生成只完成了前几步时，整张回滚到生成前的地图（见 restoreAfterAbort）
+      const how = restoreAfterAbort(kept);
+      if (how === 'rolledback') toast(kept.snapshot ? '生成未完成，已丢弃中间结果，画布恢复为生成前的地图' : '生成未完成，已丢弃中间结果', 'info', 4200);
+      if (e.cancelled) { setStatus('已取消生成'); if (shapeActive() && how !== 'rolledback') toast('已取消生成，当前画布保持不变', 'info'); }
       else if (!/^操作失败/.test($('status').textContent)) { setStatus('生成失败：' + e.message); toast('生成失败：' + e.message, 'error', 4200); }
     } finally { busy(false); }
   });
@@ -1528,14 +1676,14 @@ async function action(a, fromGlobal = false) {
           setStep(1);
           return out;
         } catch (e) {
-          restoreEditorState(kept);
+          restoreAfterAbort(kept); // 3.19.0：同时恢复步骤与引擎可用性标记
           if (!e.cancelled && !(e instanceof EngineError)) toast('形态生成失败：' + e.message, 'error');
           return undefined;
         }
         finally { busy(false); }
       }
       try { return await run(a, p, '正在生成海岸线…'); }
-      catch (e) { restoreEditorState(kept); throw e; }
+      catch (e) { restoreAfterAbort(kept); throw e; }
     }
     if (a === 'run_height_ocean') {
       const seedRaw = $('seed').value.trim();
@@ -1963,13 +2111,14 @@ function drawNearResRange(ctx, now) {
 }
 function spawnRadius() { return clamp(S.view.zoom * 1.8, 6, 13); }
 function drawSpawns(ctx, now) {
-  const p = currentSpawns(); if (!p.length) return false;
+  let p = currentSpawns(); if (!p.length) return false;
   const R0 = spawnRadius();
   let animating = false;
+  const tw = spawnTweenPositions(p); if (tw) { p = tw; animating = true; } // 3.20.0：公平度微调的移动补间
   ctx.save();
   // 3.3.0：选中出生点时画出它的对位玩家（交替模式下 1↔2、3↔4…）连线，直观检查镜像对手是否正确
   const sel = S.selectedSpawn;
-  if (sel >= 0 && sel < p.length && $('slotOrder').value === 'alternate') {
+  if (sel >= 0 && sel < p.length && $('slotOrder').value === 'alternate' && !isFFA()) { // 3.20.0：FFA 没有「对位玩家」
     const mate = sel ^ 1;
     if (mate < p.length) {
       const [x1, y1] = toScreen(...p[sel]), [x2, y2] = toScreen(...p[mate]);
@@ -2002,16 +2151,16 @@ function drawSpawns(ctx, now) {
     const g = ctx.createRadialGradient(x - R * 0.35, y - R * 0.4, 1, x, y, R);
     g.addColorStop(0, '#fff3b8'); g.addColorStop(1, '#f2b829');
     ctx.fillStyle = g; ctx.fill();
-    ctx.lineWidth = 2.2; ctx.strokeStyle = TEAM_COLORS[team] || '#2a1f00'; ctx.stroke();
+    ctx.lineWidth = 2.2; ctx.strokeStyle = teamColor(team); ctx.stroke();
     if (R >= 6) { ctx.fillStyle = '#3a2600'; ctx.fillText(String(i + 1), x, y + 0.5); }
   });
   // 选中点标签：玩家号 / team / 队伍
   if (sel >= 0 && sel < p.length) {
     const rt = S.layers.routes ? routeCache?.routes?.find(r => r.i === sel) : null;
-    const [x, y] = toScreen(...p[sel]), label = `玩家 ${sel + 1} · team ${sel} · ${teamOf(p[sel], sel)} 队${rt ? ` · 接敌 ${Math.round(rt.d)} 格` : ''}`;
+    const [x, y] = toScreen(...p[sel]), label = `玩家 ${sel + 1} · team ${sel} · ${teamLabel(teamOf(p[sel], sel))}${rt ? ` · 接敌 ${Math.round(rt.d)} 格` : ''}`;
     ctx.font = '600 11px system-ui,sans-serif';
     const w = ctx.measureText(label).width + 14, h = 20, bx = x - w / 2, by = y - R0 - h - 8;
-    ctx.fillStyle = 'rgba(10,16,28,.86)'; ctx.strokeStyle = TEAM_COLORS[teamOf(p[sel], sel)]; ctx.lineWidth = 1.2;
+    ctx.fillStyle = 'rgba(10,16,28,.86)'; ctx.strokeStyle = teamColor(teamOf(p[sel], sel)); ctx.lineWidth = 1.2;
     ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(bx, by, w, h, 6); else ctx.rect(bx, by, w, h); ctx.fill(); ctx.stroke();
     ctx.fillStyle = '#fff'; ctx.textBaseline = 'middle'; ctx.fillText(label, x, by + h / 2 + 0.5);
   }
@@ -2128,6 +2277,9 @@ function renderMap() {
     let terrAnim = false;
     if (S.layers.territory) terrAnim = drawTerritory(ctx, rows, cols, fadeK);   // 3.6.0 领地图层
     if (S.layers.routes) drawRoutes(ctx, now);                                  // 3.7.0 接敌路线
+    let symAnim = false;
+    if (S.layers.symmetry) symAnim = drawSymmetry(ctx, rows, cols, fadeK);       // 3.19.0 对称检查
+    const spotsPulse = S.layers.spots && drawSpots(ctx, rows, cols, now, fadeK);  // 3.20.0 落点热力（准星呼吸走下面 50ms 的节流循环，不占满帧率）
     drawGrid(ctx, rows, cols);
     drawPolygons(ctx);
     const nearRingShown = drawNearResRange(ctx, now);
@@ -2140,10 +2292,10 @@ function renderMap() {
     drawMeasure(ctx);
     drawProfileCursor(ctx); // 3.15.0：地形剖面光标
     drawLoupe(); // 3.17.0：触屏放大镜（复制本帧画面，必须在所有图层画完之后）
-    if (fadeK < 1 || popping || terrAnim || resAnimating) scheduleRender(); else if (fadeK >= 1) S.fadeStart = 0;
+    if (fadeK < 1 || popping || terrAnim || resAnimating || symAnim) scheduleRender(); else if (fadeK >= 1) S.fadeStart = 0;
     // 3.2.0：选中光环的循环重绘在页面不可见（App 切到后台）时暂停，避免持续耗电
     const routesAnim = S.layers.routes && S.animate && routeCache?.routes?.length;
-    if (((S.selectedSpawn >= 0 && S.layers.spawns) || routesAnim || nearRingShown) && !document.hidden) { clearTimeout(pulseLoop); pulseLoop = setTimeout(scheduleRender, routesAnim && S.selectedSpawn < 0 ? 66 : 50); }
+    if (((S.selectedSpawn >= 0 && S.layers.spawns) || routesAnim || nearRingShown || spotsPulse) && !document.hidden) { clearTimeout(pulseLoop); pulseLoop = setTimeout(scheduleRender, routesAnim && S.selectedSpawn < 0 ? 66 : 50); }
   }
   renderMinimap();
 }
@@ -2205,7 +2357,7 @@ function renderMinimap() {
   if (S.layers.resources) { ctx.fillStyle = '#55e6a5'; for (const [r, c] of S.snapshot?.resource_positions || []) ctx.fillRect(ox + c * s - 1.5, oy + r * s - 1.5, 3, 3); }
   if (S.layers.spawns) currentSpawns().forEach((q, i) => {
     ctx.beginPath(); ctx.arc(ox + (q[1] + 0.5) * s, oy + (q[0] + 0.5) * s, i === S.selectedSpawn ? 4.5 : 3.2, 0, Math.PI * 2);
-    ctx.fillStyle = '#ffd45c'; ctx.fill(); ctx.lineWidth = 1.2; ctx.strokeStyle = TEAM_COLORS[teamOf(q, i)]; ctx.stroke();
+    ctx.fillStyle = '#ffd45c'; ctx.fill(); ctx.lineWidth = 1.2; ctx.strokeStyle = teamColor(teamOf(q, i)); ctx.stroke();
   });
   const mr = $('map'), rw = mr.clientWidth || 300, rh = mr.clientHeight || 300;
   const vx = ox + (-S.view.x / S.view.zoom) * s, vy = oy + (-S.view.y / S.view.zoom) * s;
@@ -3023,8 +3175,49 @@ async function readUnitsLayer(xml) {
   const r = await readLayerByName(xml, 'units'); if (!r) return null;
   return { units: r.cells, rows: r.rows, cols: r.cols, da: r.da, tagEnd: r.tagEnd, dataEnd: r.dataEnd };
 }
+/* 3.19.0：出生点上限 50 → 100。内置蓝图（以及引擎生成的 TMX）只带一个 50 格的「50pCommandCenter」瓦片集，team 0～49。
+ * 出生点超过现有槽位时，在所有瓦片集之后追加该瓦片集的副本：firstgid 取当前最大 GID 之后的空位，名称加 _ext 后缀，
+ * 贴图（embedded_png）原样复用，每个瓦片的 team 属性整体加上偏移量（第一份副本即 team 50～99）。
+ * 新瓦片集只追加在末尾、firstgid 最大，不会改变任何已有瓦片的 GID，旧地图数据完全不受影响；
+ * 槽位映射 buildCcMap 本来就合并所有瓦片集里带 unit=commandCenter + team 的瓦片，因此映射表 / 读回校验 / 导入都自动识别。
+ * 主瓦片集是外部 .tsx 或缺少 team 属性时无法安全复制，返回原文（调用方仍按原容量截断并提示）。 */
+function extendCcTileset(xml, need) {
+  const head = tmxHeadXml(xml), cc = buildCcMap(head);
+  need = Math.min(need, MAX_SPAWN_POINTS);
+  if (cc.capacity >= need || cc.source !== 'props' || !cc.primary || cc.primary.external) return { xml, added: 0 };
+  // 逐个扫描 <tileset>：自闭合（外部 .tsx）的没有正文；有正文的取到对应的 </tileset>。
+  // 注意：引擎写出的 TMX 属性顺序不固定（如 <property value="0" name="team" />），所以下面一律按属性名解析，不依赖顺序。
+  const re = /<tileset\b([^>]*?)(\/?)>/g;
+  let block = null, lastEnd = -1, m;
+  while ((m = re.exec(head))) {
+    let end = re.lastIndex;
+    if (!m[2]) { const close = head.indexOf('</tileset>', re.lastIndex); if (close < 0) break; end = close + 10; re.lastIndex = end; }
+    lastEnd = end;
+    if (Number(xmlAttrs(m[1]).firstgid) === cc.primary.firstgid && !m[2]) block = head.slice(m.index, end);
+  }
+  if (!block || lastEnd < 0) return { xml, added: 0 };
+  const base = cc.capacity, span = Math.max(1, cc.primary.tilecount || MAX_SPAWN_POINTS);
+  let nextGid = parseTilesets(head).reduce((mx, t) => Math.max(mx, t.firstgid + Math.max(1, t.tilecount)), 1);
+  const setAttr = (tag, name, val) => tag.replace(new RegExp(`(\\s${name}=")[^"]*(")`), `$1${val}$2`);
+  let extra = '', added = 0;
+  for (let off = base, k = 1; off < need; off += span, k++) {
+    const copy = block
+      .replace(/<tileset\b[^>]*>/, t => setAttr(setAttr(t, 'firstgid', nextGid), 'name', `${xmlAttrs(t.slice(8, -1)).name || 'CommandCenter'}_ext${k}`))
+      .replace(/<property\b[^>]*?\/?>/g, t => { const at = xmlAttrs(t.replace(/^<property|\/?>$/g, '')); return at.name === 'team' && /^\d+$/.test(at.value || '') ? setAttr(t, 'value', Number(at.value) + off) : t; });
+    extra += '\n  ' + copy;
+    nextGid += span; added += span;
+  }
+  return { xml: xml.slice(0, lastEnd) + extra + xml.slice(lastEnd), added };
+}
+/** 3.20.0：当前 TMX 的指挥中心槽位最多能被 extendCcTileset 扩展到多少（主瓦片集为内嵌且带 team 属性时可扩到上限） */
+function ccExtendableCap(cc = ccMapFor()) {
+  const ok = cc.source === 'default' || (cc.source === 'props' && cc.primary && !cc.primary.external);
+  return ok ? MAX_SPAWN_POINTS : cc.capacity;
+}
 async function patchTmxUnits(tmx, positions) {
-  const xml = new TextDecoder().decode(tmx);
+  let xml = new TextDecoder().decode(tmx);
+  let extended = 0;
+  if (positions.length > ENGINE_MAX_CC || positions.length > ccMapFor(tmx).capacity) { const ex = extendCcTileset(xml, positions.length); xml = ex.xml; extended = ex.added; } // 3.19.0
   const L = await readUnitsLayer(xml);
   if (!L) return { tmx, changed: false, missing: !findUnitsLayer(xml) };
   const { units, rows, cols, da, tagEnd, dataEnd } = L;
@@ -3039,6 +3232,7 @@ async function patchTmxUnits(tmx, positions) {
     if (units[i] !== target) { units[i] = target; changed = true; }
   }
   const truncated = positions.length > cap ? cap : 0;
+  if (extended) changed = true; // 3.19.0：补了瓦片集，即使 Units 图层碰巧未变也要写回
   if (!changed) return { tmx, changed: false, truncated, source: cc.source };
   const bytes = new Uint8Array(units.buffer, units.byteOffset, units.byteLength);
   let body;
@@ -3051,7 +3245,7 @@ async function patchTmxUnits(tmx, positions) {
     else if (da.compression === 'zlib') packed = await streamTransform(bytes, 'deflate', true);
     body = bytesToBase64(packed);
   }
-  return { tmx: new TextEncoder().encode(xml.slice(0, tagEnd + 1) + body + xml.slice(dataEnd)), changed: true, truncated, source: cc.source };
+  return { tmx: new TextEncoder().encode(xml.slice(0, tagEnd + 1) + body + xml.slice(dataEnd)), changed: true, truncated, source: cc.source, extended };
 }
 /** 3.9.0：近家资源点修补 Items 图层（与 patchTmxUnits 同构：读层 → 改数组 → 按原编码/压缩写回）。
  * addPoints 是新增资源点的中心坐标；每个点按 resourcePoolGids 算出的 3×3 块写入 GID。
@@ -3131,13 +3325,23 @@ function syncTmxUnits() {
   unitsSyncChain = job.catch(() => {});
   return job;
 }
+/* 3.20.0 修复（第十八轮审查 · 缺陷 1）：分步模式下，在一张完整地图之后重新执行「海岸线」或「高度与海洋」步骤，
+ * 画布上就变成一张「未完成」的新地图（引擎 meta.completed_step < 5，实测：海岸线 → 0、高度 → 2；画笔 / 资源等
+ * 编辑不会降低它），而 S.lastTmx 仍是上一张完整地图。旧版此时：
+ *   ① 写回出生点（导出 / 保存项目 / 自动保存 / 安卓切后台都会触发）会把画布上「未完成地图」的出生点（通常 0 个）
+ *      写进上一张地图的 TMX——上一张地图的出生点被全部抹掉；
+ *   ② 导出对话框说「地形被编辑过」，唯一选项是「导出旧版 TMX」，于是导出一张出生点被清空的旧地图，小地图 PNG 却画的是新地图。
+ * 现在：未完成的地图一律不往 TMX 写出生点（保留 dirty 标记，完成地图时引擎会生成新 TMX）；导出时给出准确说明与两条出路。 */
+function mapUnfinished(s = S.snapshot) { return !!s && S.source === 'engine' && (s.meta?.completed_step ?? 5) < 5; }
 async function syncTmxUnitsNow() {
   if (!S.lastTmx || !S.unitsDirty) return;
+  if (mapUnfinished()) return; // 3.20.0：TMX 属于上一张完整地图，不能写入未完成地图的出生点
   const src = S.lastTmx, spawns = currentSpawns(), sig = spawns.map(keyOf).join(';');
   const r = await patchTmxUnits(src, spawns);
   if (S.lastTmx !== src) return; // 期间 TMX 已被新地图替换：旧结果作废，新地图保持 dirty，由下一次写回处理
   S.lastTmx = r.tmx;
   S.unitsDirty = currentSpawns().map(keyOf).join(';') !== sig;
+  if (r.extended) updateSpawnUI(); // 3.20.0 修复：瓦片集扩展后槽位 / GID 变了，列表要按新映射重绘（否则 51 号之后仍显示旧提示）
   // 旧实现在缺少 Units 图层时静默丢弃出生点修改，现在明确提示
   if (r.missing && spawns.length) toast('该 TMX 没有 Units 图层，出生点修改无法写入导出文件（地形照常导出）', 'warn', 5200);
   if (r.truncated) toast(`该 TMX 的指挥中心瓦片集只有 ${r.truncated} 个槽位，超出的出生点未写入`, 'warn', 5200);
@@ -3528,6 +3732,8 @@ async function saveFile(bytes, name, mime, target = ExportLoc.target()) {
       const name = payload.slice(0, bar), where = payload.slice(bar + 1);
       if (where === 'tree') return { ok: true, name, where: ExportLoc.label('tree') };
       if (where === 'downloads:fallback') { ExportLoc.folder = { set: false }; ExportLoc.setPref('downloads'); return { ok: true, name, where: '下载目录（所选文件夹已无法访问，已自动回退）' }; }
+      // 3.19.0：写入所选文件夹时发生瞬时错误（如空间不足），本次回退到下载目录，但文件夹设置保留，下次仍写入该文件夹
+      if (where === 'downloads:retry') return { ok: true, name, where: '下载目录（本次写入所选文件夹失败，已临时回退；文件夹设置保留）' };
       return { ok: true, name, where: '下载目录' };
     }
     if (res === 'pending') return { ok: true, pending: true, name };
@@ -3565,8 +3771,27 @@ function exportBaseName() {
   const custom = sanitizeName($('mapName').value);
   return custom || `[p${currentSpawns().length}]铁锈地图_${stamp()}`;
 }
+/** 3.20.0：一键补完分步生成剩下的步骤（高度 → 出生点 → 资源 → 完成），用于「导出未完成的地图」 */
+async function finishRemainingSteps() {
+  const p = params();
+  try {
+    if ((S.snapshot.meta?.completed_step ?? -1) < 2) await run('run_height_ocean', { heightLevels: p.heightLevels, oceanLevels: p.oceanLevels, wallMagnetism: 0 }, '正在补完：高度与海洋…', { keepBusy: true, stage: '1/3' });
+    if (!(S.snapshot.resource_positions || []).length && p.numResources > 0) await run('place_resource_random', { mirroring: p.mirroring, numResources: p.numResources }, '正在补完：资源点…', { keepBusy: true, stage: '2/3' });
+    await runFinalize(); // 内含「没有出生点时自动智能布置」
+  } catch (e) { if (!(e instanceof EngineError)) toast('补完地图失败：' + e.message, 'error'); return false; }
+  return !mapUnfinished();
+}
 async function prepareTmxForExport() {
   if (!S.lastTmx) { toast('请先生成或导入地图', 'warn'); return null; }
+  if (mapUnfinished()) {
+    const done = S.snapshot.meta?.completed_step ?? -1, alive = S.snapshotEpoch === S.engineEpoch;
+    const buttons = [{ key: 'cancel', label: '取消' }, { key: 'reload', label: '载入上一张完整地图' }];
+    if (alive) buttons.push({ key: 'finish', label: '补完剩余步骤并导出', primary: true });
+    const c = await uiChoice('地图尚未完成', `画布上的地图是分步生成到一半的（已完成到「${STEP_NAMES[Math.max(0, done)]}」），还没有对应的 TMX。<br>现有的 TMX 属于<b>上一张完整地图</b>，与画布不同，直接导出会得到另一张地图。${alive ? '<br>可以一键补完剩余步骤（高度、出生点、资源点按当前参数自动生成），或载入上一张完整地图后再导出。' : '<br>引擎状态已失效，无法继续补完这张地图；可以载入上一张完整地图后再导出。'}`, buttons);
+    if (!c || c === 'cancel') return null;
+    if (c === 'finish') { if (!(await finishRemainingSteps())) return null; }
+    else { await loadTmxBytes(S.lastTmx.slice(), exportBaseName() + '.tmx'); if (!S.lastTmx) return null; toast('已载入上一张完整地图', 'info'); }
+  }
   if (S.tmxDirty && S.source === 'engine') {
     const alive = S.snapshotEpoch === S.engineEpoch && getMatrix('height_map');
     const buttons = [{ key: 'cancel', label: '取消' }, { key: 'old', label: '导出旧版 TMX' }];
@@ -3625,13 +3850,13 @@ async function exportZipFn(opts = {}) {
       if (!png) { toast('小地图图片生成失败，未导出', 'error'); return; }
       const s = S.snapshot;
       const cc = ccMapFor(tmx), sp = currentSpawns();
-      const table = sp.slice(0, cc.capacity).map((q, i) => `  玩家 ${String(i + 1).padStart(2)}  team ${String(i).padStart(2)}  GID ${cc.gidForTeam(i)}  坐标(行,列) ${q[0] + 1},${q[1] + 1}  队伍 ${teamOf(q, i)}`).join('\r\n');
+      const table = sp.slice(0, cc.capacity).map((q, i) => `  玩家 ${String(i + 1).padStart(2)}  team ${String(i).padStart(2)}  GID ${cc.gidForTeam(i)}  坐标(行,列) ${q[0] + 1},${q[1] + 1}  ${teamLabel(teamOf(q, i))}`).join('\r\n');
       let docText = '';
       try { // 3.6.0：说明.txt 附带地图体检摘要
         const a = analyzeMap();
         if (a && a.n >= 1) docText = `\r\n地图体检（健康度 ${a.score}/100）：\r\n` + doctorVerdicts(a).map(v => `  [${{ ok: '通过', warn: '提醒', bad: '问题', info: '提示' }[v.level]}] ${v.title} —— ${v.detail}`).join('\r\n') + '\r\n';
       } catch (e) { console.warn('体检摘要失败', e); }
-      const info = new TextEncoder().encode(`铁锈战争地图生成器离线版 v${APP_VERSION}\r\n地图：${s?.meta?.width || 0} × ${s?.meta?.height || 0}\r\n出生点：${sp.length}\r\n资源点：${s?.resource_positions?.length || 0}\r\n对称：${MIRROR_LABELS[s?.meta?.mirroring] || '不对称'}\r\n${S.mapShape ? `地形形态：${S.mapShape.label}（种子 ${S.mapShape.seed}，陆地 ${S.mapShape.land}%）\r\n` : ''}小地图：${S.lastPngInfo ? `${S.lastPngInfo.width}×${S.lastPngInfo.height} · ${(S.lastPngInfo.size / 1024).toFixed(1)}KB · ${PNG_STYLES[S.lastPngInfo.style]}` : '—'}\r\n槽位映射：${CC_SOURCE_LABEL[cc.source]}${S.slotVerified ? '（已读回校验）' : ''}\r\n导出时间：${new Date().toLocaleString()}\r\n\r\n出生点槽位表（玩家 N = team N-1）：\r\n${table}\r\n${docText}`);
+      const info = new TextEncoder().encode(`铁锈战争地图生成器离线版 v${APP_VERSION}\r\n地图：${s?.meta?.width || 0} × ${s?.meta?.height || 0}\r\n出生点：${sp.length}\r\n资源点：${s?.resource_positions?.length || 0}\r\n对称：${MIRROR_LABELS[s?.meta?.mirroring] || '不对称'}\r\n${S.mapShape ? `地形形态：${S.mapShape.label}（种子 ${S.mapShape.seed}，陆地 ${S.mapShape.land}%）\r\n` : ''}小地图：${S.lastPngInfo ? `${S.lastPngInfo.width}×${S.lastPngInfo.height} · ${(S.lastPngInfo.size / 1024).toFixed(1)}KB · ${PNG_STYLES[S.lastPngInfo.style]}` : '—'}\r\n槽位映射：${CC_SOURCE_LABEL[cc.source]}${S.slotVerified ? '（已读回校验）' : ''}\r\n${mapRecipeCode() ? `配方码：${mapRecipeCode()}（在 App 中「使用配方码」可按同一套参数重新生成）\r\n` : ''}导出时间：${new Date().toLocaleString()}\r\n\r\n出生点槽位表（玩家 N = team N-1）：\r\n${table}\r\n${docText}`);
       busy(true, '正在打包 ZIP…', '计算校验', 60, { cancellable: false });
       await nextFrame();
       const zip = zipStore([{ name: `${base}.tmx`, data: tmx }, { name: `${base}_map.png`, data: png }, { name: '说明.txt', data: info }]);
@@ -3696,7 +3921,7 @@ function drawPngSpawn(ctx, x, y, R, team, label) {
   const g = ctx.createRadialGradient(x - R * 0.35, y - R * 0.4, 0.5, x, y, R);
   g.addColorStop(0, '#fff3b8'); g.addColorStop(1, '#f2b829');
   ctx.fillStyle = g; ctx.fill();
-  ctx.lineWidth = Math.max(1.2, R * 0.26); ctx.strokeStyle = TEAM_COLORS[team] || '#2a1f00'; ctx.stroke();
+  ctx.lineWidth = Math.max(1.2, R * 0.26); ctx.strokeStyle = teamColor(team); ctx.stroke();
   if (label) {
     ctx.fillStyle = '#3a2600';
     ctx.font = `800 ${Math.round(R * (label.length > 1 ? 0.98 : 1.18))}px system-ui,"Microsoft YaHei",sans-serif`;
@@ -3955,6 +4180,50 @@ function rushAnalysis(g, seeds, teams) {
   }
   return res;
 }
+/* 3.19.0：FFA 接敌——每位玩家到「最近一个对手」的行走距离。
+ * 逐人各跑一次 Dijkstra 在 100 人时要 100 次；这里只跑一次多源 Dijkstra 并记录每格归属（Voronoi 划分），
+ * 再扫描所有「相邻但归属不同」的格对 (x, y)：dist[x] + 步长 + dist[y] 的最小值就是该玩家到最近对手的最短路长度
+ * （最短路必然穿过两人领地的分界，且穿过点两侧各自是到本方源点的最短路）。路径 = x 回溯到本方 + y 回溯到对手。 */
+function rushAnalysisFFA(g, seeds) {
+  const { rows, cols, mask } = g, n = rows * cols, dist = new Int32Array(n).fill(PATH_INF), owner = new Int16Array(n).fill(-1);
+  const B = 15, buckets = Array.from({ length: B }, () => []);
+  let pending = 0;
+  seeds.forEach((k, i) => { if (k >= 0 && mask[k] && owner[k] < 0) { dist[k] = 0; owner[k] = i; buckets[0].push(k); pending++; } });
+  for (let d = 0; pending > 0; d++) {
+    const bk = buckets[d % B];
+    while (bk.length) {
+      const k = bk.pop(); pending--;
+      if (dist[k] !== d) continue;
+      const y = (k / cols) | 0, x = k - y * cols;
+      for (let j = 0; j < 8; j++) {
+        const nx = x + NB_X[j], ny = y + NB_Y[j];
+        if (nx < 0 || ny < 0 || nx >= cols || ny >= rows) continue;
+        const nk = ny * cols + nx;
+        if (!mask[nk] || (j >= 4 && (!mask[y * cols + nx] || !mask[ny * cols + x]))) continue;
+        const nd = d + NB_W[j];
+        if (nd < dist[nk]) { dist[nk] = nd; owner[nk] = owner[k]; buckets[nd % B].push(nk); pending++; }
+      }
+    }
+  }
+  const best = seeds.map(() => ({ v: PATH_INF, x: -1, y: -1, e: -1 }));
+  for (let k = 0; k < n; k++) {
+    const o = owner[k]; if (o < 0) continue;
+    const y = (k / cols) | 0, x = k - y * cols;
+    for (let j = 0; j < 8; j++) {
+      const nx = x + NB_X[j], ny = y + NB_Y[j];
+      if (nx < 0 || ny < 0 || nx >= cols || ny >= rows) continue;
+      const nk = ny * cols + nx, o2 = owner[nk];
+      if (o2 < 0 || o2 === o || (j >= 4 && (!mask[y * cols + nx] || !mask[ny * cols + x]))) continue;
+      const v = dist[k] + NB_W[j] + dist[nk];
+      if (v < best[o].v) best[o] = { v, x: k, y: nk, e: o2 };
+    }
+  }
+  return best.map(b => {
+    if (b.v === PATH_INF) return { d: Infinity, path: null, enemy: -1 };
+    const path = [...tracePath(g, dist, b.x).reverse(), ...tracePath(g, dist, b.y)];
+    return { d: b.v / 10 * g.scale, path, enemy: b.e };
+  });
+}
 let docCache = null;
 function analyzeMap(s = S.snapshot, spawns = currentSpawns()) {
   if (!s) return null;
@@ -3964,6 +4233,7 @@ function analyzeMap(s = S.snapshot, spawns = currentSpawns()) {
   if (!g1) return null;
   const [rows, cols] = dimsOf(s);
   const teams = spawns.map((q, i) => teamOf(q, i));
+  const ffa = isFFA(); // 3.19.0
   /* ① 连通性 */
   const lab = labelGrid(g1);
   const spawnComp = spawns.map(q => { const k = snapToGrid(g1, q[0], q[1]); return k < 0 ? 0 : lab.comp[k]; });
@@ -3979,7 +4249,7 @@ function analyzeMap(s = S.snapshot, spawns = currentSpawns()) {
   const isolatedPct = passableTotal ? isolatedCells / passableTotal : 0;
   const realGroups = groups.filter(g => g.comp > 0);
   const allConnected = spawns.length >= 2 && stuck.length === 0 && realGroups.length === 1;
-  const teamsApart = spawns.length >= 2 && realGroups.length > 1 && realGroups.every(g => new Set(g.spawns.map(i => teams[i])).size === 1) &&
+  const teamsApart = !ffa && spawns.length >= 2 && realGroups.length > 1 && realGroups.every(g => new Set(g.spawns.map(i => teams[i])).size === 1) &&
     new Set(teams).size > 1 && stuck.length === 0;
   /* ② 领地 + ③ 资源 */
   const g2 = g1.scale === Math.max(1, Math.ceil(Math.max(rows, cols) / DOC_TERR_DIM)) ? g1 : buildGrid(s, DOC_TERR_DIM);
@@ -4002,18 +4272,18 @@ function analyzeMap(s = S.snapshot, spawns = currentSpawns()) {
     const k = snapToGrid(g2, r, c);
     const o = k < 0 ? -1 : owner[k];
     if (o < 0) { unreachableRes++; continue; }
-    perSpawn[o]++; resTeam[teams[o]]++;
+    perSpawn[o]++; if (!ffa) resTeam[teams[o]]++;
     const dd = dist[k] * g2.scale;
     if (dd < resDist[o].min) resDist[o].min = dd;
     if (dd > resDist[o].max) resDist[o].max = dd;
   }
   /* ④ 接敌（Rush）距离（3.7.0）：每个出生点到最近敌方出生点的行走距离（8 邻接，斜走 ×1.4，不斜穿墙角） */
-  const rushList = hasBothTeams(teams, spawns) ? rushAnalysis(g2, seeds, teams) : [];
+  const rushList = ffa ? (spawns.length >= 2 ? rushAnalysisFFA(g2, seeds) : []) : hasBothTeams(teams, spawns) ? rushAnalysis(g2, seeds, teams) : [];
   const teamRush = T => { const v = rushList.filter((r, i) => teams[i] === T && Number.isFinite(r.d)).map(r => r.d); return v.length ? v.reduce((x, y) => x + y, 0) / v.length : null; };
-  const rushA = teamRush('A'), rushB = teamRush('B');
+  const rushA = ffa ? null : teamRush('A'), rushB = ffa ? null : teamRush('B');
   let closest = -1; rushList.forEach((r, i) => { if (Number.isFinite(r.d) && (closest < 0 || r.d < rushList[closest].d)) closest = i; });
   const front = [];
-  for (const T of ['A', 'B']) {
+  for (const T of ffa ? [] : ['A', 'B']) {
     const idx = rushList.map((r, i) => i).filter(i => teams[i] === T && Number.isFinite(rushList[i].d));
     if (idx.length < 3) continue;
     const ds = idx.map(i => rushList[i].d).sort((x, y) => x - y), med = ds[Math.floor(ds.length / 2)];
@@ -4021,13 +4291,29 @@ function analyzeMap(s = S.snapshot, spawns = currentSpawns()) {
   }
   // 每个出生点到「任意」最近资源点的直线距离（不受领地归属影响），用来识别明显偏远的出生点
   const nearestRes = spawns.map(q => resPos.length ? Math.min(...resPos.map(p => Math.hypot(p[0] - q[0], p[1] - q[1]))) : Infinity);
-  const hasBoth = spawns.length >= 2 && new Set(teams).size > 1;
+  const hasBoth = !ffa && spawns.length >= 2 && new Set(teams).size > 1;
+  /* 3.19.0：FFA 指标——领地均衡 = 最小 / 平均；接敌均衡 = 最小 / 平均；前线 = 不到中位数 55% 的玩家 */
+  let ffaStats = null;
+  if (ffa && spawns.length >= 2) {
+    const mean = v => v.length ? v.reduce((x, y) => x + y, 0) / v.length : 0;
+    const tAvg = mean(counts), tMin = Math.min(...counts);
+    const rv = rushList.map(r => r.d).filter(Number.isFinite), rAvg = mean(rv), rMin = rv.length ? Math.min(...rv) : 0;
+    const sortedR = [...rv].sort((x, y) => x - y), med = sortedR[Math.floor(sortedR.length / 2)] || 0;
+    if (rv.length >= 3) rushList.forEach((r, i) => { if (Number.isFinite(r.d) && r.d < med * 0.55) front.push(i); });
+    const nr = nearestRes.filter(Number.isFinite);
+    ffaStats = {
+      terrMin: owned ? tMin / owned : 0, terrAvg: owned ? tAvg / owned : 0, terrBal: tAvg ? clamp(tMin / tAvg, 0, 1) : 1,
+      rushAvg: rAvg, rushMin: rMin, rushBal: rAvg ? clamp(rMin / rAvg, 0, 1) : 1,
+      resBal: nr.length ? clamp(Math.max(1, Math.min(...nr)) / Math.max(1, ...nr), 0, 1) : 1
+    };
+  }
   /* 评分与结论 */
   const connScore = spawns.length < 2 ? 1 : allConnected ? 1 : teamsApart ? 0.4 : 0.2;
-  const terrScore = hasBoth && owned ? balanceRatio(share.A, share.B) : 1;
-  const resScore = resPos.length && hasBoth ? balanceRatio(resTeam.A, resTeam.B) * (1 - unreachableRes / resPos.length) : (resPos.length ? 1 - unreachableRes / resPos.length : 1);
+  const terrScore = ffaStats ? ffaStats.terrBal : hasBoth && owned ? balanceRatio(share.A, share.B) : 1;
+  const resAvail = resPos.length ? 1 - unreachableRes / resPos.length : 1;
+  const resScore = ffaStats ? (resPos.length ? ffaStats.resBal * resAvail : 1) : resPos.length && hasBoth ? balanceRatio(resTeam.A, resTeam.B) * resAvail : resAvail;
   const isoScore = 1 - clamp(isolatedPct * 2, 0, 1);
-  const rushRatio = rushA != null && rushB != null ? balanceRatio(rushA, rushB) : 1;
+  const rushRatio = ffaStats ? ffaStats.rushBal : rushA != null && rushB != null ? balanceRatio(rushA, rushB) : 1;
   // 3.7.0：健康度加入接敌距离平衡（连通 30 + 领地 25 + 接敌 15 + 资源 15 + 孤岛 15）
   const score = Math.round(100 * (0.30 * connScore + 0.25 * terrScore + 0.15 * rushRatio + 0.15 * resScore + 0.15 * isoScore));
   const result = {
@@ -4037,7 +4323,7 @@ function analyzeMap(s = S.snapshot, spawns = currentSpawns()) {
     terr: { grid: g2, owner, dist, counts, share, owned, unreachedPct: passable2 ? unreached2 / passable2 : 0, ratio: terrScore },
     res: { total: resPos.length, perSpawn, resDist, nearest: nearestRes, team: resTeam, unreachable: unreachableRes, ratio: balanceRatio(resTeam.A, resTeam.B) },
     comp: { land: g1.landCells / g1.total, wall: g1.wallCells / g1.total, water: 1 - g1.landCells / g1.total },
-    hasBoth
+    hasBoth, ffa, ffaStats
   };
   if (s === S.snapshot) docCache = { sig, result };
   return result;
@@ -4063,7 +4349,16 @@ function doctorVerdicts(a) {
       const lv = levelOfRatio(a.terr.ratio), A = a.terr.share.A / Math.max(1, a.terr.owned), B = a.terr.share.B / Math.max(1, a.terr.owned);
       out.push({ level: lv, title: `领地 A ${pct(A)} ／ B ${pct(B)}`, detail: lv === 'ok' ? '按行走距离划分，双方可控制的地盘基本对等。' : `双方地盘相差较大（平衡度 ${Math.round(a.terr.ratio * 100)}%）。可开启「领地」图层查看分界，再调整出生点位置。` });
     }
-    const R = a.rush;
+    const R = a.rush, F = a.ffaStats;
+    if (F) { // 3.19.0：FFA 体检结论
+      const lt = levelOfRatio(F.terrBal + 0.15); // 多人混战领地天然有差异，阈值比两队对抗宽 15%
+      out.push({ level: lt, title: `领地均衡 ${Math.round(F.terrBal * 100)}%（最小 ${pct(F.terrMin)} ／ 平均 ${pct(F.terrAvg)}）`, detail: lt === 'ok' ? '自由混战：每位玩家按行走距离可控制的地盘大致相当。' : '有玩家的地盘明显小于平均水平，开局发展空间受限。打开「领地」图层（每人一色）查看，或拖动出生点调整。', spawn: lt === 'ok' ? undefined : a.terr.counts.indexOf(Math.min(...a.terr.counts)) });
+      if (R && R.closest >= 0) {
+        const lv = levelOfRatio(F.rushBal + 0.15), c = R.closest, e = R.list[c].enemy;
+        out.push({ level: lv, title: `最近对手：平均 ${Math.round(F.rushAvg)} 格 ／ 最近 ${Math.round(F.rushMin)} 格`, detail: `${lv === 'ok' ? '每位玩家离最近对手的距离比较均匀。' : '有玩家离邻座明显更近，开局就会被夹击。'}最近的一对：${pl(c)} ↔ ${e >= 0 ? pl(e) : '对手'}。按 L 显示每人到最近对手的路线。`, spawn: c });
+        if (R.front.length) out.push({ level: 'warn', title: `${R.front.length} 个出生点贴得太近`, detail: `${names(R.front)} 号出生点到最近对手的距离不到中位数的 55%。`, spawn: R.front[0] });
+      }
+    }
     if (a.hasBoth && R && R.closest >= 0 && R.avgA != null && R.avgB != null) {
       const lv = levelOfRatio(R.ratio), c = R.closest, e = R.list[c].enemy;
       out.push({ level: lv, title: `接敌距离 A 平均 ${Math.round(R.avgA)} ／ B 平均 ${Math.round(R.avgB)} 格`, detail: `${lv === 'ok' ? '双方到最近敌人的行走距离相当。' : `双方到最近敌人的行走距离差距较大（平衡度 ${Math.round(R.ratio * 100)}%），距离近的一方更容易被速攻。`}最近接敌：${pl(c)} ↔ ${e >= 0 ? pl(e) : '敌方'}，约 ${Math.round(R.list[c].d)} 格。按 L 显示路线。`, spawn: c });
@@ -4093,6 +4388,16 @@ function doctorVerdicts(a) {
     if (short.length) out.push({ level: 'warn', title: `${short.length} 个出生点的近家资源不足 ${perSpawn} 个`, detail: `${names(short)} 号出生点周边 ${min}～${max} 格内的资源点数量不到设置值，多见于出生点贴边、周边可用陆地有限的情况。可点击「补齐近家资源」重新尝试，或调整近家资源的距离范围。`, spawn: short[0] });
     else out.push({ level: 'ok', title: '近家资源点已达标', detail: `每个出生点周边 ${min}～${max} 格内都至少有 ${perSpawn} 个可用资源点。` });
   }
+  // 3.19.0：对称检查——对称地图上出现明显的单边差异（多为手工改动只改了一边）
+  try {
+    const sy = S.snapshot ? analyzeSymmetry() : null;
+    if (sy?.mode && !sy.clean) {
+      const spawnIssue = sy.spawnsOff.length && $('symmetryStrength').value !== 'soft';
+      if (sy.counts.land + sy.counts.wall >= Math.max(9, sy.rows * sy.cols * 0.0005) || spawnIssue || sy.resOff.length) {
+        out.push({ level: 'warn', title: `对称性：发现单边差异（${MIRROR_LABELS[sy.mode]}）`, detail: `${symmetrySummary(sy).replace(/^对称检查（[^）]*）：/, '')}。按 Y 打开「对称」图层查看具体位置${spawnIssue ? '；出生点可在命令面板执行「对称修复」一键补齐镜像' : ''}。`, spawn: spawnIssue ? sy.spawnsOff[0] : undefined });
+      }
+    }
+  } catch (e) { console.warn('对称检查失败', e); }
   if (a.conn.isolatedPct > 0.05) out.push({ level: a.conn.isolatedPct > 0.2 ? 'warn' : 'info', title: `${pct(a.conn.isolatedPct)} 的陆地是孤岛`, detail: '这部分陆地与所有出生点都不相连，只能通过空运 / 海运到达。' });
   if (!out.some(v => v.level === 'bad' || v.level === 'warn') && a.n >= 2) out.push({ level: 'ok', title: '没有发现明显问题', detail: '连通性、领地与资源分配都在合理范围内。' });
   return out;
@@ -4101,10 +4406,10 @@ const DOC_ICON = { ok: '✓', warn: '!', bad: '✕', info: 'i' };
 /** 3.7.0：每位玩家的接敌距离柱状图（点击柱子定位到该玩家） */
 function rushBarsHtml(a) {
   const L = a.rush?.list || [];
-  if (!a.hasBoth || a.rush.closest < 0 || L.length > 50) return '';
+  if ((!a.hasBoth && !a.ffa) || a.rush.closest < 0 || L.length > MAX_SPAWN_POINTS) return '';
   const max = Math.max(1, ...L.map(r => Number.isFinite(r.d) ? r.d : 0));
-  const bars = L.map((r, i) => { const ok = Number.isFinite(r.d); return `<i class="team-${a.teams[i]}${ok ? '' : ' none'}${a.rush.front.includes(i) ? ' front' : ''}" style="--h:${ok ? Math.max(5, r.d / max * 100) : 100}%;--d:${Math.min(i, 30) * 16}ms" data-spawn="${i}" title="玩家 ${i + 1}：${ok ? `${Math.round(r.d)} 格` : '无法到达敌人'}"></i>`; }).join('');
-  return `<div class="doc-rush"><div class="doc-rush-head"><b>接敌距离</b><small>每位玩家走到最近敌人的距离 · 最长 ${Math.round(max)} 格 · 点击柱子定位</small></div><div class="doc-rush-bars">${bars}</div></div>`;
+  const bars = L.map((r, i) => { const ok = Number.isFinite(r.d); return `<i class="team-${a.teams[i]}${ok ? '' : ' none'}${a.rush.front.includes(i) ? ' front' : ''}" style="--h:${ok ? Math.max(5, r.d / max * 100) : 100}%;--d:${Math.min(i, 30) * 16}ms${a.ffa ? `;--tc:${teamColor(a.teams[i])}` : ''}" data-spawn="${i}" title="玩家 ${i + 1}：${ok ? `${Math.round(r.d)} 格` : '无法到达敌人'}"></i>`; }).join('');
+  return `<div class="doc-rush"><div class="doc-rush-head"><b>接敌距离</b><small>每位玩家走到最近${a.ffa ? '对手' : '敌人'}的距离 · 最长 ${Math.round(max)} 格 · 点击柱子定位</small></div><div class="doc-rush-bars">${bars}</div></div>`;
 }
 function doctorHtml(a, verdicts) {
   const lv = a.score >= 80 ? 'good' : a.score >= 60 ? 'warn' : 'bad';
@@ -4118,6 +4423,7 @@ function doctorHtml(a, verdicts) {
         <small>${a.conn.estimated ? '暂无悬崖数据（多边形分层编辑中）：按陆地估算，完成地图后可精确体检' : a.conn.source === 'tmx' ? '按陆地 + TMX 悬崖瓦片精确计算' : '按陆地 + 画笔墙体计算，缺口可通行'}${a.conn.scale > 1 ? ` · 网格 1:${a.conn.scale}` : ''}</small></div>
     </div>
     ${rushBarsHtml(a)}
+    ${playersHtml(a)}
     ${a.hasBoth ? `<div class="doc-split" aria-label="领地分布"><span class="lab a">A 队 ${pct(A)}</span><div class="doc-bar"><i class="a" id="docBarA" style="width:50%"></i><i class="b" id="docBarB" style="width:50%"></i></div><span class="lab b">${pct(B)} B 队</span></div>` : ''}
     <ul class="doc-list">${items}</ul>
     <div class="doc-tiles"><div><b>${pct(a.comp.land)}</b><small>陆地</small></div><div><b>${pct(a.comp.water)}</b><small>水域</small></div><div><b>${pct(a.comp.wall)}</b><small>墙体</small></div><div><b>${pct(a.conn.isolatedPct)}</b><small>孤岛</small></div></div>`;
@@ -4147,7 +4453,10 @@ async function showMapDoctor() {
       const ea = $('docBarA'), eb = $('docBarB');
       if (ea && eb) { ea.style.width = `${A * 100}%`; eb.style.width = `${B * 100}%`; }
     }
-    $('modalBody').querySelectorAll('[data-spawn]').forEach(li => { li.onclick = () => { closeModal('cancel'); selectSpawn(Number(li.dataset.spawn), true); }; });
+    $('modalBody').querySelectorAll('[data-spawn]').forEach(li => {
+      // 3.19.0：「玩家对比」表的行打开巡视卡片（飞过去并显示该玩家数据）；其余条目保持原来的定位行为
+      li.onclick = () => { closeModal('cancel'); const i = Number(li.dataset.spawn); if (li.classList.contains('pr')) { tour.on = true; selectSpawn(i, 'tour'); } else selectSpawn(i, true); };
+    });
   }));
   const k = await p;
   if (k === 'report') {
@@ -4159,22 +4468,15 @@ async function showMapDoctor() {
       `出生点：${a.n}；资源点：${a.res.total}`,
       `健康度：${a.score}/100`,
       `陆地：${pct(a.comp.land)}；水域：${pct(a.comp.water)}；墙体：${pct(a.comp.wall)}；孤岛：${pct(a.conn.isolatedPct)}`,
+      ...(mapRecipeCode() ? [`配方码：${mapRecipeCode()}`] : []),
       '', '检查结果：',
       ...verdicts.map((v, i) => `${i + 1}. [${sev[v.level] || v.level}] ${v.title}\n   ${v.detail}`),
+      ...playerReportLines(a),
       '', '说明：体检分数是地图布局辅助指标，不代表所有游戏版本、模组或实战策略下的绝对平衡。'
     ].join('\n');
-    try {
-      if (navigator.clipboard?.writeText && window.isSecureContext) await navigator.clipboard.writeText(report);
-      else {
-        const ta = document.createElement('textarea'); ta.value = report; ta.setAttribute('readonly', '');
-        ta.style.cssText = 'position:fixed;left:-9999px;top:0;opacity:0'; document.body.appendChild(ta); ta.select();
-        const ok = document.execCommand('copy'); ta.remove(); if (!ok) throw new Error('当前 WebView 不允许复制');
-      }
-      toast('体检报告已复制，可粘贴到备忘录或反馈问题', 'success', 3600);
-    } catch (e) {
-      console.warn('复制体检报告失败', e);
-      toast('复制失败：请检查系统剪贴板权限后重试', 'warn', 3600);
-    }
+    // 3.19.0：复用 copyText()（旧版在这里重复实现了一遍「异步剪贴板 → execCommand」的回退逻辑）
+    if (await copyText(report)) toast('体检报告已复制，可粘贴到备忘录或反馈问题', 'success', 3600);
+    else toast('复制失败：请检查系统剪贴板权限后重试', 'warn', 3600);
   }
   if (k === 'terr') setTerritoryLayer(!S.layers.territory);
   if (k === 'routes') setRoutesLayer(!S.layers.routes);
@@ -4206,7 +4508,7 @@ function buildTerritoryNow() {
       for (let i = 0; i < owner.length; i++) {
         const o = owner[i], k = i * 4;
         if (o < 0) { if (g.mask[i]) { d[k] = 255; d[k + 1] = 189; d[k + 2] = 90; d[k + 3] = 92; } continue; }
-        const c = col[a.teams[o]] || col.A;
+        const c = a.ffa ? ffaRgb(o) : (col[a.teams[o]] || col.A); // 3.19.0：FFA 每人一色
         const x = i % W, y = (i / W) | 0;
         const edge = (x < W - 1 && owner[i + 1] >= 0 && owner[i + 1] !== o) || (y < H - 1 && owner[i + W] >= 0 && owner[i + W] !== o);
         d[k] = c[0]; d[k + 1] = c[1]; d[k + 2] = c[2]; d[k + 3] = edge ? 240 : (o % 2 ? 84 : 108);
@@ -4349,7 +4651,7 @@ function drawRoutes(ctx, now) {
   for (const r of rs) {
     const focus = sel >= 0 ? r.i === sel : !r.dup;
     if (!focus && (sel < 0 || r.dup)) continue;
-    const col = TEAM_COLORS[r.team] || '#fff';
+    const col = teamColor(r.team);
     ctx.globalAlpha = sel >= 0 && !focus ? 0.22 : 1;
     line(r); ctx.strokeStyle = 'rgba(0,0,0,.45)'; ctx.lineWidth = w + 3; ctx.setLineDash([]); ctx.stroke();
     line(r); ctx.strokeStyle = col; ctx.lineWidth = w; ctx.setLineDash([w * 3.2, w * 2.2]); ctx.lineDashOffset = off; ctx.stroke();
@@ -4360,7 +4662,7 @@ function drawRoutes(ctx, now) {
     const [rr, cc] = lab.pts[Math.floor(lab.pts.length / 2)], [x, y] = toScreen(rr, cc), t = `${Math.round(lab.d)} 格`;
     ctx.font = '700 11px system-ui,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     const tw = ctx.measureText(t).width + 12;
-    ctx.fillStyle = 'rgba(10,16,28,.88)'; ctx.strokeStyle = TEAM_COLORS[lab.team]; ctx.lineWidth = 1.2;
+    ctx.fillStyle = 'rgba(10,16,28,.88)'; ctx.strokeStyle = teamColor(lab.team); ctx.lineWidth = 1.2;
     ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(x - tw / 2, y - 10, tw, 20, 10); else ctx.rect(x - tw / 2, y - 10, tw, 20); ctx.fill(); ctx.stroke();
     ctx.fillStyle = '#fff'; ctx.fillText(t, x, y + 0.5);
   }
@@ -4427,6 +4729,7 @@ async function generateBestOf() {
     stopAnimation();
     const bp = await blueprint();
     clearBusyThumbs();
+    const seqBefore = Engine.seq; // 3.19.0
     const useShape = shapeActive(), seed0 = useShape ? shapeSeed() : 0;
     for (let i = 0; i < n; i++) {
       busy(true, `正在择优生成 ${i + 1}/${n}…`, useShape ? `「${shapeMeta(shapeState.id).label}」形态 · 每张候选地图都会自动体检评分` : '每张候选地图都会自动体检评分', Math.round(i / n * 100));
@@ -4440,12 +4743,15 @@ async function generateBestOf() {
       }
       await nextFrame();
       const c = buildCandidate(r, i);
-      if (c) { cands.push(c); addBusyThumb(c); }
+      if (c) { c.params = p; cands.push(c); addBusyThumb(c); } // 3.19.0：记下生成参数，采用后配方码以它为准
     }
+    /* 3.19.0 修复（第十七轮审查 · 缺陷 5）：旧版只在「至少有一张候选」时才把当前地图标记为引擎状态失效。
+     * 若候选全部失败（如形态候选在导入引擎之后的步骤出错、且未触发引擎重启），引擎里其实已经是半张候选地图，
+     * 当前地图却仍被当作「可分步编辑」，之后的画笔 / 资源等操作会作用在错误的引擎状态上。现在只要发出过引擎指令就标记。 */
+    if (S.source === 'engine' && Engine.seq !== seqBefore) S.snapshotEpoch = -1; // 引擎状态已被候选覆盖：当前地图不能再做地形分步编辑
     if (cands.length) {
       busy(true, cancelled ? '已取消，整理已生成的方案…' : '正在排序候选方案…', '', 100, { cancellable: false });
       await sleep(420);
-      if (S.source === 'engine') S.snapshotEpoch = -1; // 引擎状态已被候选覆盖：当前地图不能再做地形分步编辑
     }
     busy(false);
   });
@@ -4555,6 +4861,7 @@ async function adoptCandidate(c, editable) {
     setSnapshot(c.snap, { fit: nr !== or || nc !== oc || !S.view.fitted, fade: true });
     attachCliffMask(c.snap, c.tmx);
     if (c.shapeSeed != null) afterShapeGenerated(c.shapeSeed, c.shapeStats);
+    S.mapRecipe = c.params ? recipeFrom(c.params, S.mapShape) : null; // 3.19.0
     updateDirtyNote(); queueAutoSave(); pulseMap();
     pushHistorySnapshot('择优采用').catch(() => {}); // 3.11.0：择优采用也入历史
     setStatus(`已采用择优方案（综合 ${c.score} · 体检 ${c.health} · 公平度 ${c.fair}）`);
@@ -4986,7 +5293,7 @@ async function importShapeToEngine(p, r, m, opts = {}) {
 }
 function afterShapeGenerated(seed, stats) {
   shapeState.lastSeed = seed; shapeState.lastStats = stats;
-  S.mapShape = { id: shapeState.id, label: shapeMeta(shapeState.id)?.label || shapeState.id, seed, land: shapeState.land };
+  S.mapShape = { id: shapeState.id, label: shapeMeta(shapeState.id)?.label || shapeState.id, seed, land: shapeState.land, rough: shapeState.rough }; // 3.19.0：补记山地粗糙度（配方码需要）
   if (String($('shapeSeed').value).trim() === '') shapeState.previewSeed = randSeed();
   updateShapeSeedHint();
   queueShapePreview(600);
@@ -5079,7 +5386,7 @@ async function importImage(file) {
       setStep(1);
     } catch (e) {
       // 失败 / 取消：地图未被替换，还原被清空的编辑器状态与宽高输入
-      if (kept) { restoreEditorState(kept); $('width').value = prevW; $('height').value = prevH; updateMirrorHint(); queuePrefs(); }
+      if (kept) { restoreAfterAbort(kept); $('width').value = prevW; $('height').value = prevH; updateMirrorHint(); queuePrefs(); }
       if (!e.cancelled) { setStatus('图片导入失败：' + e.message); toast('图片导入失败：' + e.message, 'error'); }
     }
     finally { busy(false); $('imageFile').value = ''; }
@@ -5116,6 +5423,14 @@ const ProjectStore = {
   del(k) { return this.tx('readwrite', st => st.delete(k)); }
 };
 function projectPayload() {
+  const p = projectPayloadRaw();
+  /* 3.20.0 修复：分步生成到一半时，TMX 是上一张完整地图，而出生点 / 队伍 / 近家资源 / 配方码属于画布上的未完成地图。
+   * 旧版把两者存在一起，恢复项目 / 草稿 / 历史快照时，会把未完成地图的出生点（通常 0 个）套到上一张地图上。
+   * 现在只保存 TMX（恢复后就是上一张完整地图，出生点取自 TMX 本身），并标记 unfinished。 */
+  if (mapUnfinished() && p.tmx) { delete p.spawnPositions; delete p.teamOverrides; delete p.nearResKeys; p.recipe = null; p.unfinished = true; }
+  return p;
+}
+function projectPayloadRaw() {
   return {
     version: PROJECT_FORMAT, app: APP_VERSION, savedAt: Date.now(),
     params: params(), mapName: $('mapName').value, preset: $('gamePreset').value,
@@ -5124,9 +5439,12 @@ function projectPayload() {
     teamOverrides: [...S.teamOverrides], tmx: S.lastTmx && S.lastTmx.length < 64e6 ? S.lastTmx : null,
     autoSaveEnabled: S.autoSave, mode: S.mode,
     nearResKeys: [...S.nearResKeys], // 3.14.0：恢复后仍能逐点删除近家资源点
-    shape: { id: shapeState.id, land: shapeState.land, rough: shapeState.rough, seed: shapeState.lastSeed }
+    shape: { id: shapeState.id, land: shapeState.land, rough: shapeState.rough, seed: shapeState.lastSeed },
+    recipe: mapRecipeCode() // 3.19.0：当前地图生成时的配方码（恢复后「复制配方码」仍对应这张地图）
   };
 }
+/** 3.19.0：当前地图「生成时」的配方码；分步编辑 / 导入的地图没有完整生成参数，返回 null */
+function mapRecipeCode() { try { return S.snapshot && S.mapRecipe ? encodeRecipe(S.mapRecipe) : null; } catch { return null; } }
 async function saveProject(silent = false) {
   try {
     if (S.unitsDirty && S.lastTmx) await syncTmxUnits();
@@ -5147,8 +5465,9 @@ function applyProjectParams(p) {
   const pr = p.params || {};
   set('width', pr.width); set('height', pr.height); set('heightLevels', pr.heightLevels); set('oceanLevels', pr.oceanLevels);
   set('players', pr.numPlayers); set('resources', pr.numResources); set('tileset', pr.tileset); set('mirror', pr.mirroring);
-  set('gamePreset', p.preset); set('symmetryStrength', p.symmetryStrength || 'balanced'); set('slotOrder', p.slotOrder || 'alternate');
+  setPresetValue(p.preset); set('symmetryStrength', p.symmetryStrength || 'balanced'); set('slotOrder', p.slotOrder || 'alternate');
   set('mapName', p.mapName || '');
+  onTeamModeChange({ quiet: true }); // 3.19.0
   renderGrid(p.grid);
   if (p.shape && (p.shape.id === 'classic' || shapeMeta(p.shape.id))) {
     shapeState.id = p.shape.id;
@@ -5171,6 +5490,7 @@ async function restoreProject(p, label = '项目') {
       const have = new Set((S.snapshot.resource_positions || []).map(keyOf));
       S.nearResKeys = new Set(p.nearResKeys.filter(k => typeof k === 'string' && have.has(k)));
     }
+    if (typeof p.recipe === 'string') { const d = decodeRecipe(p.recipe); if (d.data) S.mapRecipe = d.data; } // 3.19.0
     if (Array.isArray(p.spawnPositions)) {
       S.teamOverrides = new Map(p.teamOverrides || []);
       const valid = p.spawnPositions.filter(q => Array.isArray(q) && validCell({ row: q[0], col: q[1] }));
@@ -5429,9 +5749,11 @@ function randomizeParams() {
     $('oceanLevels').value = Math.floor(Math.random() * 5);       // 0..4
     $('mirror').value = ['none', 'horizontal', 'vertical', 'diagonal1', 'diagonal2', 'both'][Math.floor(Math.random() * 6)];
   }
-  const keys = Object.keys(PRESET_COUNTS), preset = keys[Math.floor(Math.random() * keys.length)];
-  const players = PRESET_COUNTS[preset];
-  $('players').value = players; $('gamePreset').value = preset;
+  // 3.19.0：惊喜生成的地图最大 400×400，只抽 20 人以内的预设，另有 20% 概率抽到 4～8 人的自由混战
+  const keys = Object.keys(PRESET_COUNTS).filter(k => PRESET_COUNTS[k] <= 20);
+  const ffa = Math.random() < 0.2, preset = ffa ? 'ffa' : keys[Math.floor(Math.random() * keys.length)];
+  const players = ffa ? 4 + Math.floor(Math.random() * 5) : PRESET_COUNTS[preset];
+  $('players').value = players; $('gamePreset').value = preset; onTeamModeChange({ quiet: true });
   $('resources').value = clamp(Math.round(players * (0.8 + Math.random() * 1.6)), 0, MAX_RESOURCES);
   syncShapeUI(); saveShapePrefs(); updateMirrorHint(); syncPresetFromPlayers();
   for (const id of ['width', 'height', 'tileset', 'players', 'resources', 'mirror', 'heightLevels', 'oceanLevels']) flashInput(id);
@@ -5470,7 +5792,7 @@ async function resetAll({ keepParams = false } = {}) {
     $('width').value = DEFAULTS.width; $('height').value = DEFAULTS.height; $('tileset').value = DEFAULTS.tileset;
     $('heightLevels').value = DEFAULTS.heightLevels; $('oceanLevels').value = DEFAULTS.oceanLevels;
     $('players').value = DEFAULTS.players; $('resources').value = DEFAULTS.resources; $('mirror').value = DEFAULTS.mirror;
-    $('gamePreset').value = DEFAULTS.preset; $('symmetryStrength').value = DEFAULTS.symmetryStrength; $('slotOrder').value = DEFAULTS.slotOrder;
+    $('gamePreset').value = DEFAULTS.preset; $('symmetryStrength').value = DEFAULTS.symmetryStrength; $('slotOrder').value = DEFAULTS.slotOrder; onTeamModeChange({ quiet: true });
     $('mapName').value = ''; $('seed').value = ''; $('wallMagnetism').value = 0; $('magnetText').textContent = '0';
     renderGrid();
     savePrefs();
@@ -5518,7 +5840,8 @@ function applyUserPreset(name) {
     if (q.seed != null) $('shapeSeed').value = q.seed;
     syncShapeUI(); saveShapePrefs(); queueShapePreview(0);
   }
-  syncPresetFromPlayers(); updateMirrorHint(); queuePrefs();
+  if (q.preset) { setPresetValue(q.preset); onTeamModeChange({ quiet: true }); } else syncPresetFromPlayers(); // 3.19.0：方案里的 FFA 等预设原样恢复
+  updateMirrorHint(); queuePrefs();
   toast(`已应用方案「${name}」`, 'success');
 }
 async function saveUserPreset() {
@@ -5565,7 +5888,7 @@ function loadPrefs() {
   if (!s) { renderGrid(); return; }
   const set = (id, v) => { const el = $(id); if (el && v != null) el.value = v; };
   set('width', s.w); set('height', s.h); set('heightLevels', s.hl); set('oceanLevels', s.ol); set('players', s.pl); set('resources', s.rs);
-  set('tileset', s.ts); set('mirror', s.mirror); set('gamePreset', s.preset); set('symmetryStrength', s.sym); set('slotOrder', s.slot); set('mapName', s.name);
+  set('tileset', s.ts); set('mirror', s.mirror); setPresetValue(s.preset); set('symmetryStrength', s.sym); set('slotOrder', s.slot); set('mapName', s.name);
   if (typeof s.smart === 'boolean') S.smartPlacement = s.smart;
   if (typeof s.autoSave === 'boolean') S.autoSave = s.autoSave;
   if (typeof s.animate === 'boolean') S.animate = s.animate;
@@ -5579,6 +5902,7 @@ function loadPrefs() {
   renderGrid(Array.isArray(s.grid) && s.grid.length === 5 ? s.grid : undefined);
 }
 function syncPresetFromPlayers() {
+  if (isFFA()) return; // 3.19.0：FFA 不固定人数，改人数时保持 FFA
   const n = intOf('players', 0, MAX_SPAWN_POINTS, 10);
   const hit = Object.entries(PRESET_COUNTS).find(([, v]) => v === n);
   $('gamePreset').value = hit ? hit[0] : 'free';
@@ -5586,7 +5910,35 @@ function syncPresetFromPlayers() {
 function applyPreset() {
   const n = PRESET_COUNTS[$('gamePreset').value];
   if (n) { $('players').value = n; flashInput('players'); }
-  updateMirrorHint(); queuePrefs();
+  else if (isFFA() && intOf('players', 0, MAX_SPAWN_POINTS, 10) < 3) { $('players').value = FFA_DEFAULT_PLAYERS; flashInput('players'); } // FFA 至少 3 人才有意义
+  updateMirrorHint(); updateDensityHint(); queuePrefs();
+  onTeamModeChange();
+  // 3.19.0：大人数预设提示地图尺寸（30V30 以上在 160×160 上会挤成一团），提示条上可一键套用
+  const w = intOf('width', 40, MAX_MAP_DIMENSION, 160), h = intOf('height', 40, MAX_MAP_DIMENSION, 160), d = densityInfo(w, h, intOf('players', 1, MAX_SPAWN_POINTS, 10));
+  if ((n || 0) >= 60 && (d.level === 'bad' || d.level === 'warn')) {
+    toast(`${n} 人在 ${w}×${h} 上${d.label}，推荐 ${d.rw}×${d.rh}`, 'info', 6000, { action: { label: '套用推荐尺寸', fn: () => { $('width').value = d.rw; $('height').value = d.rh; flashInput('width'); flashInput('height'); updateMirrorHint(); updateDensityHint(); queuePrefs(); queueShapePreview(0); } } });
+  }
+}
+/** 3.19.0：读取保存的预设值时使用——旧版本保存的「25v25」等已移除的选项落到「自由配置」，不让下拉框变成空白 */
+function setPresetValue(v) {
+  const sel = $('gamePreset'); if (!sel || v == null) return;
+  sel.value = [...sel.options].some(o => o.value === v) ? v : 'free';
+}
+/** 3.19.0：在「两队对抗」与「自由混战」之间切换时：重排槽位（FFA 顺时针 / 两队按规则）、刷新颜色与分析 */
+let lastTeamMode = null;
+function onTeamModeChange({ quiet = false } = {}) {
+  const ffa = isFFA();
+  document.body.classList.toggle('ffa', ffa);
+  $('slotOrder')?.closest('label')?.classList.toggle('dim', ffa);
+  if (quiet || lastTeamMode === null || lastTeamMode === ffa) { if (lastTeamMode !== ffa) { docCache = null; terrCache = null; } lastTeamMode = ffa; updateSpawnUI(); scheduleRender(); return; }
+  lastTeamMode = ffa;
+  docCache = null; terrCache = null;
+  if (S.snapshot && currentSpawns().length >= 2 && !S.locked && $('slotOrder').value !== 'engine') {
+    pushSpawnHistory();
+    setSpawns($('slotOrder').value === 'engine' ? currentSpawns() : orderBySlot(currentSpawns(), undefined, { fresh: true }));
+    afterSpawnChange();
+    toast(ffa ? '已切换为自由混战：玩家槽位改为绕地图中心顺时针编号，每人一种颜色' : '已切换为两队对抗：玩家槽位按 A / B 规则重排', 'info', 4200, spawnUndoAction());
+  } else { updateSpawnUI(); scheduleRender(); }
 }
 function flashInput(id) { const el = $(id); el.classList.remove('flash-input'); void el.offsetWidth; el.classList.add('flash-input'); }
 
@@ -5902,6 +6254,10 @@ function showHelp() {
       <div><kbd>U</kbd></div><div>测距：点两个点（或拖动画线）量直线 / 步行距离，出生点自动吸附；量完显示沿线地形剖面</div>
       <div><kbd>N</kbd></div><div>显示 / 隐藏近家资源范围</div>
       <div><kbd>Z</kbd></div><div>专注模式：收起侧栏和顶栏，画布铺满（<kbd>Z</kbd> / <kbd>Esc</kbd> 退出）</div>
+      <div><kbd>Y</kbd></div><div>对称检查：标出与镜像位置成片不一致的地形（红 = 陆地 / 水域，橙 = 墙体 / 悬崖；引擎平滑留下的 1～2 格边缘误差会被忽略）以及没有镜像对应点的出生点 / 资源点</div>
+      <div><kbd>O</kbd></div><div>公平度一键微调：在当前布局附近移动出生点提高公平度，对称地图仍保持对称，近家资源不受影响（可撤销）</div>
+      <div><kbd>K</kbd></div><div>落点热力：暖色 = 宽敞、冷色 = 拥挤，准星为最佳落点，可一键放置</div>
+      <div><kbd>,</kbd> / <kbd>.</kbd></div><div>出生点巡视：飞到上一个 / 下一个出生点，并显示该玩家的领地、资源与接敌数据</div>
       <div><kbd>Ctrl</kbd>+<kbd>V</kbd></div><div>在画布区粘贴配方码（TMX1-…）：直接打开「使用配方码」</div>
       <div><kbd>[</kbd> / <kbd>]</kbd></div><div>画笔变小 / 变大</div>
       <div><kbd>H</kbd> / <kbd>?</kbd></div><div>打开本帮助</div>
@@ -5934,6 +6290,7 @@ window.__onAndroidBack = () => {
   if ($('sidebar').classList.contains('open')) { closeDrawer(); return true; }
   if (S.drawingPolygon) { S.drawingPolygon = null; updatePolygonInfo(); scheduleRender(); return true; }
   if (S.selectedSpawn >= 0) { selectSpawn(-1); return true; }
+  if (closeSpawnCard()) return true; // 3.19.0
   if (focusOn()) { setFocusMode(false); return true; } // 3.17.0
   return false;
 };
@@ -5990,6 +6347,12 @@ const CMDS = [
   { id: 'territory', g: '分析', t: '显示 / 隐藏领地图层', k: 'T', kw: 'ld territory lingdi', map: 1, run: () => setTerritoryLayer(!S.layers.territory) },
   { id: 'routes', g: '分析', t: '显示 / 隐藏接敌路线', k: 'L', kw: 'jd rush route jiedi luxian', map: 1, run: () => setRoutesLayer(!S.layers.routes) },
   { id: 'nearlayer', g: '分析', t: '显示 / 隐藏近家资源范围', k: 'N', kw: 'jj near jinjia fanwei', map: 1, run: clickId('layerNearRes') },
+  { id: 'symmetry', g: '分析', t: '对称检查（标出不对称的地形 / 出生点 / 资源）', k: 'Y', kw: 'dc symmetry duicheng jiancha jingxiang mirror', map: 1, run: () => setSymmetryLayer(!S.layers.symmetry) },
+  { id: 'tune', g: '出生点', t: '公平度一键微调（保持对称与近家资源）', k: 'O', kw: 'gpd wt tune youhua weitiao fairness gongping', map: 1, run: () => tuneFairness() },
+  { id: 'spots', g: '分析', t: '落点热力：哪里放下一个出生点最宽敞', k: 'K', kw: 'ld rl spots luodian reli heatmap tuijian', map: 1, run: () => setSpotLayer(!S.layers.spots) },
+  { id: 'symrepair', g: '出生点', t: '对称修复：补齐缺失的镜像出生点', kw: 'dcxf symmetry repair buqi jingxiang xiufu', map: 1, run: () => repairSpawnSymmetry() },
+  { id: 'tournext', g: '出生点', t: '出生点巡视：下一个', k: '.', kw: 'xs tour xunshi xiayige next player wanjia kapian', map: 1, run: () => tourSpawn(1) },
+  { id: 'tourprev', g: '出生点', t: '出生点巡视：上一个', k: ',', kw: 'xs tour xunshi shangyige prev player wanjia kapian', map: 1, run: () => tourSpawn(-1) },
   { id: 'slots', g: '出生点', t: '出生点槽位映射表', k: 'M', kw: 'cw slot caowei yingshe', map: 1, run: () => showSlotTable() },
   { id: 'spawnauto', g: '出生点', t: '智能重新布置出生点', kw: 'zn auto spawn zhineng buzhi chushengdian', map: 1, run: clickId('spawnAuto') },
   { id: 'reorder', g: '出生点', t: '按队伍重排玩家槽位', kw: 'cp reorder chongpai duiwu', map: 1, run: clickId('spawnReorder') },
@@ -6193,23 +6556,32 @@ async function copyPngToClipboard(bytes) {
  * 字段表只能在末尾追加（RECIPE_* 列表的顺序就是编码值），保证旧码永远可解。 */
 const RECIPE_SHAPES = ['classic', 'island', 'peninsula', 'archipelago', 'river', 'mountain_lake', 'continent', 'desert', 'snowland', 'volcano', 'labyrinth', 'two_sides'];
 const RECIPE_MIRRORS = ['none', 'horizontal', 'vertical', 'diagonal1', 'diagonal2', 'both'];
-const RECIPE_PRESETS = ['1v1', '2v2', '3v3', '4v4', '5v5', '10v10', '20v20', '25v25', 'free'];
+const RECIPE_PRESETS = ['1v1', '2v2', '3v3', '4v4', '5v5', '10v10', '20v20', '25v25', 'free', '30v30', '40v40', '50v50', 'ffa']; // 只能在末尾追加；25v25 保留用于解码旧码（套用时落到「自由配置」）
 const RECIPE_SYM = ['strict', 'balanced', 'soft'];
 const RECIPE_SLOT = ['alternate', 'grouped', 'engine'];
 const RECIPE_ROUGH = ['0', '0.3', '0.8'];
 const RECIPE_LEN = 29; // 27 字节参数 + 2 字节 CRC
 const RECIPE_RE = /TMX1-([A-Za-z0-9_-]{39})/;
 const toB64Url = bytes => bytesToBase64(bytes).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-/** 当前地图（有形态地图时取地图实际使用的形态与种子）+ 当前参数 */
-function recipeData() {
-  const p = params(), ms = S.snapshot && S.mapShape ? S.mapShape : null;
+/** 3.19.0：由「一组生成参数 + 形态信息」组成配方数据。ms = 地图实际使用的形态（S.mapShape），为空时取界面上的形态设置 */
+function recipeFrom(p, ms = null) {
   const shape = ms ? ms.id : (shapeActive() ? shapeState.id : 'classic');
   return {
-    w: p.width, h: p.height, ts: p.tileset, mirror: p.mirroring, hl: p.heightLevels, ol: p.oceanLevels, pl: p.numPlayers, rs: p.numResources, grid: p.grid,
-    shape, land: ms ? ms.land : shapeState.land, rough: shapeState.rough,
+    w: p.width, h: p.height, ts: p.tileset, mirror: p.mirroring, hl: p.heightLevels, ol: p.oceanLevels, pl: p.numPlayers, rs: p.numResources,
+    grid: (p.grid || DEFAULT_GRID).map(r => [...r]),
+    shape, land: ms ? ms.land : shapeState.land, rough: ms?.rough ?? shapeState.rough,
     seed: shape === 'classic' ? 0 : ((ms ? ms.seed : shapeSeed()) >>> 0),
     preset: $('gamePreset').value, sym: $('symmetryStrength').value, slot: $('slotOrder').value, near: { ...S.nearRes }
   };
+}
+/* 3.19.0 修复（第十七轮审查 · 缺陷 2）：旧版有地图时只把「形态 / 种子 / 陆地比例」取自地图，宽高、对称、粗糙度、人数等
+ * 仍取自界面。生成后改了任意一项（如把 160 改成 200 但还没重新生成）再复制配方码，得到的是「旧种子 + 新尺寸」的组合——
+ * 既不是当前地图，也不是界面参数；形态地图的轮廓随尺寸变化，对方套用后得到的是另一张图，与「地形完全一致」的承诺相违背。
+ * 现在每次成功生成 / 择优采用时把整套参数记入 S.mapRecipe，有地图时配方码一律以它为准；
+ * 分步编辑 / 导入的地图没有完整的生成参数，仍按旧规则（形态取地图、其余取界面）。 */
+function recipeData() {
+  if (S.snapshot && S.mapRecipe) return { ...S.mapRecipe, grid: S.mapRecipe.grid.map(r => [...r]), near: { ...S.mapRecipe.near } };
+  return recipeFrom(params(), S.snapshot && S.mapShape ? S.mapShape : null);
 }
 function encodeRecipe(d = recipeData()) {
   const b = new Uint8Array(RECIPE_LEN), v = new DataView(b.buffer);
@@ -6262,7 +6634,7 @@ function applyRecipe(d) {
   const set = (id, val) => { const el = $(id); if (el && val != null && String(el.value) !== String(val)) { el.value = val; flashInput(id); } };
   set('width', d.w); set('height', d.h); set('tileset', d.ts); set('mirror', d.mirror); set('heightLevels', d.hl); set('oceanLevels', d.ol);
   set('players', d.pl); set('resources', d.rs);
-  if (d.preset) set('gamePreset', d.preset);
+  if (d.preset) { setPresetValue(d.preset); onTeamModeChange({ quiet: true }); }
   set('symmetryStrength', d.sym); set('slotOrder', d.slot);
   renderGrid(d.grid);
   S.nearRes = { enabled: d.near.enabled, perSpawn: d.near.perSpawn, min: d.near.min, max: Math.max(d.near.min, d.near.max) };
@@ -6289,10 +6661,12 @@ async function copyText(text) {
 }
 async function copyRecipe() {
   const d = recipeData(), code = encodeRecipe(d);
+  // 3.19.0：配方码按当前地图的生成参数编码；界面参数改过但还没重新生成时说明一下，避免用户以为复制的是界面参数
+  let uiDiff = false; try { uiDiff = !!(S.snapshot && S.mapRecipe) && encodeRecipe(recipeFrom(params(), null)) !== code; } catch { /* ignore */ }
   const ok = await copyText(code);
   const btn = $('recipeCopy');
   if (btn) { btn.classList.remove('copied'); void btn.offsetWidth; btn.classList.add('copied'); clearTimeout(btn._t); btn._t = setTimeout(() => btn.classList.remove('copied'), 1600); }
-  if (ok) { toast(`配方码已复制：${recipeSummary(d)}`, 'success', 4200); return code; }
+  if (ok) { toast(`配方码已复制：${recipeSummary(d)}${uiDiff ? '（按当前地图的生成参数；界面上改过的参数尚未生成，未计入）' : ''}`, 'success', uiDiff ? 5600 : 4200); return code; }
   await uiChoice('配方码', `<p class="help-p">当前环境不允许写入剪贴板，请长按 / 全选下面的配方码手动复制：</p><input class="prompt-input recipe-code" type="text" readonly value="${escapeHtml(code)}" onfocus="this.select()"><p class="help-p">${escapeHtml(recipeSummary(d))}</p>`, [{ key: 'ok', label: '知道了', primary: true }]);
   return code;
 }
@@ -6448,10 +6822,15 @@ async function saveViewShot() {
   ctx.drawImage(src, 0, 0);
   const [rows, cols] = dims();
   const mark = `${sanitizeName($('mapName').value) || '未命名地图'} · ${cols}×${rows} · 出生点 ${currentSpawns().length} · TMX MapForge v${APP_VERSION}`;
-  ctx.font = `600 ${Math.round(12 * dpr)}px system-ui, -apple-system, "Segoe UI", sans-serif`;
-  const tw = ctx.measureText(mark).width, pad = 8 * dpr, h = 24 * dpr, x = cv.width - tw - pad * 2 - 10 * dpr, y = cv.height - h - 10 * dpr;
+  // 3.19.0：窄屏（手机竖屏）上水印可能比画布还宽，左边被裁掉；按可用宽度缩小字号，仍放不下再截断
+  let fs = 12 * dpr;
+  ctx.font = `600 ${Math.round(fs)}px system-ui, -apple-system, "Segoe UI", sans-serif`;
+  const maxW = cv.width - 36 * dpr;
+  if (ctx.measureText(mark).width > maxW) { fs = Math.max(8 * dpr, fs * maxW / ctx.measureText(mark).width); ctx.font = `600 ${Math.round(fs)}px system-ui, -apple-system, "Segoe UI", sans-serif`; }
+  const markText = fitText(ctx, mark, maxW);
+  const tw = ctx.measureText(markText).width, pad = 8 * dpr, h = 24 * dpr, x = cv.width - tw - pad * 2 - 10 * dpr, y = cv.height - h - 10 * dpr;
   ctx.fillStyle = 'rgba(0,0,0,.55)'; roundRectPath(ctx, x, y, tw + pad * 2, h, 8 * dpr); ctx.fill();
-  ctx.fillStyle = 'rgba(255,255,255,.92)'; ctx.textBaseline = 'middle'; ctx.fillText(mark, x + pad, y + h / 2);
+  ctx.fillStyle = 'rgba(255,255,255,.92)'; ctx.textBaseline = 'middle'; ctx.fillText(markText, x + pad, y + h / 2);
   const panel = $('mapPanel'); panel.classList.remove('shot-flash'); void panel.offsetWidth; panel.classList.add('shot-flash');
   setTimeout(() => panel.classList.remove('shot-flash'), 600);
   const blob = await canvasToPng(cv);
@@ -6465,6 +6844,533 @@ async function saveViewShot() {
       else toast(r.pending ? '等待存储权限授予后自动保存' : `视图截图已保存：${r.name || name}（${cv.width}×${cv.height}）`, 'success', 3600, r.pending ? {} : shareAction());
     } catch (e) { toast('保存截图失败：' + e.message, 'error'); }
   });
+}
+
+/* ================================================================== 3.19.0 新功能 */
+const reduceMotion = () => !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+
+/* ------------------------------------------------------------------ ① 对称检查图层（Y）
+ * 做图时最常见的「不公平」来源不是算法，而是手工改动：画笔补了一段墙、拖了一个出生点、补了几个资源点，只改了一边。
+ * 对称地图上肉眼很难发现这种单边差异。本图层逐格把地形与它的镜像位置比较，把不一致处按严重程度着色：
+ *   红 = 一边是陆地、一边是水域；橙 = 一边有墙体 / 悬崖、另一边没有。高度层级不参与比较（引擎的高度本来就是噪声生成、并不对称），并用形态学开运算滤掉 1～2 格宽的边缘误差。
+ * 同时画出对称轴，并把「找不到镜像对应点」的出生点 / 资源点圈出来（容差 2 格）。镜像模式取地图自身的
+ * meta.mirroring（引擎生成的地图来自参数，导入的地图来自 detectSymmetry 自动识别）；不对称的地图不做检查。
+ * 结果按 analysisSig()（快照 + 悬崖 + 出生点 + 资源点）缓存：地形 / 出生点 / 资源每次变化都会重新计算。
+ * 2000×2000 的地图单次约 0.1 秒，图层用 ≤1024 像素的降采样画布绘制（块内取最严重的等级）。 */
+const SYM_TOL = 2;
+const SYM_COLORS = { 3: [255, 77, 94, 210], 2: [255, 159, 67, 190] };
+let symCache = null, symTimer = 0, symFade = 0;
+function symmetryModeOf(s = S.snapshot) {
+  const m = s?.meta?.mirroring, [rows, cols] = dimsOf(s);
+  if (!SYMMETRY_MODES.has(m) || m === 'none') return null;
+  if ((m === 'diagonal1' || m === 'diagonal2') && rows !== cols) return null;
+  return m;
+}
+/** 该镜像模式下的全部变换（index → 镜像 index） */
+function symTransforms(mode, rows, cols) {
+  const H = k => { const r = (k / cols) | 0, c = k - r * cols; return (rows - 1 - r) * cols + c; };
+  const V = k => { const r = (k / cols) | 0, c = k - r * cols; return r * cols + (cols - 1 - c); };
+  const R = k => rows * cols - 1 - k;
+  const D1 = k => { const r = (k / cols) | 0, c = k - r * cols; return c * cols + r; };
+  const D2 = k => { const r = (k / cols) | 0, c = k - r * cols; return (cols - 1 - c) * cols + (rows - 1 - r); };
+  return { horizontal: [H], vertical: [V], both: [H, V, R], diagonal1: [D1], diagonal2: [D2] }[mode] || [];
+}
+function analyzeSymmetry(s = S.snapshot) {
+  const mode = symmetryModeOf(s);
+  if (!s || !mode) return { mode: null };
+  const sig = analysisSig(s) + '|' + mode;
+  if (symCache && symCache.sig === sig) return symCache.result;
+  const h = terrainMatrix(s); if (!h?.data) return { mode: null };
+  const [rows, cols] = dimsOf(s), n = rows * cols, hd = h.data;
+  const wm = getMatrix('wall_matrix', s), cm = getMatrix('cliff_mask', s);
+  const wd = wm?.data && (s?.meta?.hill_drawing_mode || 'brush') !== 'polygon' && wm.shape?.[0] === rows && wm.shape?.[1] === cols ? wm.data : null;
+  const cd = cm?.data && cm.shape?.[0] === rows && cm.shape?.[1] === cols ? cm.data : null;
+  const blocked = k => (wd && wd[k] === 1) || (cd && cd[k]) ? 1 : 0;
+  /* 实测：引擎的「对称」只作用于海岸线模板与出生点 / 资源，高度层级是噪声生成的（约 1/3 的格子与镜像不同），
+   * 海岸线经过平滑后也有约 1～2% 的格子在边缘差一格。逐格比较会把每张地图都标满，所以：
+   *   · 不比较高度层级，只比较「陆地 / 水域」和「墙体 / 悬崖」；
+   *   · 对差异做形态学开运算（3×3 先腐蚀再膨胀）：1～2 格宽的细带（引擎平滑的边缘误差）被消掉，
+   *     成片的单边差异（手工补墙、改地形、导入后修改）保留下来并恢复原来的形状。 */
+  const raw = new Uint8Array(n), tf = symTransforms(mode, rows, cols);
+  for (let k = 0; k < n; k++) {
+    let v = 0;
+    const land = hd[k] > 0, wall = blocked(k);
+    for (const t of tf) {
+      const j = t(k);
+      if (j === k) continue;
+      if ((hd[j] > 0) !== land) { v = 3; break; }
+      if (blocked(j) !== wall) v = 2;
+    }
+    raw[k] = v;
+  }
+  const core = new Uint8Array(n);
+  for (let r = 1; r < rows - 1; r++) for (let c = 1; c < cols - 1; c++) {
+    const k = r * cols + c; if (!raw[k]) continue;
+    let all = true;
+    for (let dr = -1; dr <= 1 && all; dr++) for (let dc = -1; dc <= 1; dc++) if (!raw[k + dr * cols + dc]) { all = false; break; }
+    if (all) core[k] = 1;
+  }
+  const sev = new Uint8Array(n), cnt = [0, 0, 0, 0];
+  for (let r = 1; r < rows - 1; r++) for (let c = 1; c < cols - 1; c++) {
+    if (!core[r * cols + c]) continue;
+    for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) { const j = (r + dr) * cols + c + dc; if (!sev[j]) { sev[j] = raw[j]; cnt[raw[j]]++; } }
+  }
+  let first = sev.findIndex(v => v === 3);
+  if (first < 0) first = sev.findIndex(v => v > 0);
+  // 出生点 / 资源点：每个镜像位置附近（容差 SYM_TOL 格）都应有对应点
+  const unmatched = (list, tol) => {
+    const out = [];
+    list.forEach((p, i) => {
+      const imgs = mirrorPoint(p, mode, rows, cols);
+      if (imgs.some(q => !list.some(o => Math.hypot(o[0] - q[0], o[1] - q[1]) <= tol))) out.push(i);
+    });
+    return out;
+  };
+  const spawns = currentSpawns(), res = s.resource_positions || [];
+  const spawnsOff = unmatched(spawns, SYM_TOL), resOff = unmatched(res, SYM_TOL).map(i => res[i]);
+  // 降采样画布（块内取最严重的等级）
+  const scale = Math.max(1, Math.ceil(Math.max(rows, cols) / 1024)), W = Math.ceil(cols / scale), Hh = Math.ceil(rows / scale);
+  let canvas = null;
+  if (cnt[2] + cnt[3] > 0) {
+    const blk = scale > 1 ? new Uint8Array(W * Hh) : sev;
+    if (scale > 1) for (let k = 0; k < n; k++) if (sev[k]) { const r = (k / cols) | 0, c = k - r * cols, b = ((r / scale) | 0) * W + ((c / scale) | 0); if (sev[k] > blk[b]) blk[b] = sev[k]; }
+    canvas = document.createElement('canvas'); canvas.width = W; canvas.height = Hh;
+    const ctx = canvas.getContext('2d'), img = ctx.createImageData(W, Hh), d = img.data;
+    for (let b = 0; b < blk.length; b++) { const col = SYM_COLORS[blk[b]]; if (!col) continue; d.set(col, b * 4); }
+    ctx.putImageData(img, 0, 0);
+  }
+  const land = hd.reduce((a, v) => a + (v > 0 ? 1 : 0), 0) || 1;
+  const result = {
+    mode, rows, cols, scale, canvas, counts: { land: cnt[3], wall: cnt[2] },
+    pct: { land: cnt[3] / n, wall: cnt[2] / land },
+    spawnsOff, resOff, first: first >= 0 ? [(first / cols) | 0, first % cols] : null,
+    clean: !cnt[3] && !cnt[2] && !spawnsOff.length && !resOff.length
+  };
+  if (s === S.snapshot) symCache = { sig, result };
+  return result;
+}
+function symmetrySummary(r) {
+  if (!r?.mode) return '当前地图不是对称地图，无需对称检查';
+  if (r.clean) return `对称检查（${MIRROR_LABELS[r.mode]}）：地形、出生点与资源点完全对称 ✓`;
+  const parts = [];
+  if (r.counts.land) parts.push(`陆地 / 水域不一致 ${r.counts.land} 格`);
+  if (r.counts.wall) parts.push(`墙体 / 悬崖不一致 ${r.counts.wall} 格`);
+  if (r.spawnsOff.length) parts.push(`${r.spawnsOff.length} 个出生点无镜像`);
+  if (r.resOff.length) parts.push(`${r.resOff.length} 个资源点无镜像`);
+  return `对称检查（${MIRROR_LABELS[r.mode]}）：${parts.join(' · ')}`;
+}
+function setSymmetryLayer(on, { quiet = false } = {}) {
+  S.layers.symmetry = !!on;
+  $('layerSymmetry')?.classList.toggle('active', S.layers.symmetry);
+  syncLayerAria('layerSymmetry');
+  $('mapPanel')?.classList.toggle('sym-on', S.layers.symmetry);
+  if (on) {
+    symFade = performance.now();
+    if (!S.snapshot) { if (!quiet) toast('生成地图后即可检查对称性', 'info'); }
+    else if (!quiet) {
+      let r = null; try { r = analyzeSymmetry(); } catch (e) { console.warn('对称检查失败', e); }
+      const msg = symmetrySummary(r);
+      setStatus(msg);
+      const where = r?.spawnsOff?.length ? (() => { const q = currentSpawns()[r.spawnsOff[0]]; return q ? [q[0], q[1]] : null; })() : (r?.first || (r?.resOff?.[0] ? [...r.resOff[0]] : null));
+      toast(msg, r?.mode ? (r.clean ? 'success' : 'warn') : 'info', 4600,
+        r?.mode && r.spawnsOff?.length ? { action: { label: '补齐镜像', fn: () => repairSpawnSymmetry() } } // 3.20.0
+          : r?.mode && !r.clean && where ? { action: { label: '定位', fn: () => flyToCell(where[0], where[1]) } } : {});
+    }
+  }
+  scheduleRender();
+}
+function drawSymmetry(ctx, rows, cols, fadeK) {
+  if (!S.layers.symmetry || !S.snapshot) return false;
+  const sig = analysisSig() + '|' + symmetryModeOf();
+  if (!symCache || symCache.snap !== snapId(S.snapshot)) { try { analyzeSymmetry(); } catch (e) { console.warn(e); } if (symCache) symCache.snap = snapId(S.snapshot); }
+  else if (symCache.sig !== sig) { clearTimeout(symTimer); symTimer = setTimeout(() => { try { analyzeSymmetry(); if (symCache) symCache.snap = snapId(S.snapshot); } catch (e) { console.warn(e); } scheduleRender(); }, 120); }
+  const r = symCache?.result; if (!r?.mode) return false;
+  const k = clamp((performance.now() - symFade) / 420, 0, 1), z = S.view.zoom, x0 = S.view.x, y0 = S.view.y;
+  ctx.save(); ctx.globalAlpha = (0.3 + 0.7 * k) * fadeK;
+  if (r.canvas) {
+    ctx.beginPath(); ctx.rect(x0, y0, cols * z, rows * z); ctx.clip();
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(r.canvas, x0, y0, r.canvas.width * r.scale * z, r.canvas.height * r.scale * z);
+  }
+  // 对称轴（虚线 + 柔光）
+  const W = cols * z, H = rows * z, axes = [];
+  if (r.mode === 'horizontal' || r.mode === 'both') axes.push([x0, y0 + H / 2, x0 + W, y0 + H / 2]);
+  if (r.mode === 'vertical' || r.mode === 'both') axes.push([x0 + W / 2, y0, x0 + W / 2, y0 + H]);
+  if (r.mode === 'diagonal1') axes.push([x0, y0, x0 + W, y0 + H]);
+  if (r.mode === 'diagonal2') axes.push([x0 + W, y0, x0, y0 + H]);
+  ctx.setLineDash([10, 7]); ctx.lineDashOffset = -k * 34;
+  for (const [ax, ay, bx, by] of axes) {
+    ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(ax + (bx - ax) * k, ay + (by - ay) * k);
+    ctx.lineWidth = 5; ctx.strokeStyle = 'rgba(0,0,0,.35)'; ctx.stroke();
+    ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(184,140,255,.95)'; ctx.stroke();
+  }
+  ctx.setLineDash([]);
+  // 无镜像对应点的出生点 / 资源点：品红虚线圈
+  const ring = (rr, cc, rad) => { const [sx, sy] = toScreen(rr, cc); ctx.beginPath(); ctx.arc(sx, sy, rad, 0, Math.PI * 2); ctx.stroke(); };
+  ctx.lineWidth = 2.5; ctx.strokeStyle = '#ff5bd1'; ctx.setLineDash([5, 4]);
+  const sp = currentSpawns();
+  r.spawnsOff.forEach(i => { const q = sp[i]; if (q) ring(q[0], q[1], Math.max(12, spawnRadius() + 9)); });
+  r.resOff.forEach(q => ring(q[0], q[1], Math.max(9, 2.6 * z)));
+  ctx.restore();
+  return k < 1;
+}
+/** 平滑飞到某一格（用于「定位」） */
+function flyToCell(r, c, zoom) {
+  const rect = $('map').getBoundingClientRect(), [rows, cols] = dims();
+  if (!rows || !cols) return;
+  const z = zoom || clamp(Math.min(rect.width, rect.height) / 48, S.view.zoom, 40);
+  flyViewTo(rect.width / 2 - (c + 0.5) * z, rect.height / 2 - (r + 0.5) * z, z);
+}
+/** 3.19.0：「跃迁式」相机：距离较远时先略微拉远、再推近到目标（类似地图应用的飞行定位），近距离时退化为普通缓动 */
+function flyViewTo(x, y, zoom, dur = 520) {
+  if (reduceMotion()) { cancelAnimationFrame(viewAnim); S.view.zoom = zoom; S.view.x = x; S.view.y = y; S.view.fitted = false; scheduleRender(); return; }
+  cancelAnimationFrame(viewAnim);
+  const rect = $('map').getBoundingClientRect(), cx = rect.width / 2, cy = rect.height / 2;
+  const from = { ...S.view }, t0 = performance.now();
+  // 以「屏幕中心对应的地图坐标」插值，再按当前缩放换算回平移量，避免缩放与平移叠加时画面先甩出去再回来
+  const u0 = (cx - from.x) / from.zoom, v0 = (cy - from.y) / from.zoom, u1 = (cx - x) / zoom, v1 = (cy - y) / zoom;
+  const travel = Math.hypot(u1 - u0, v1 - v0) * Math.min(from.zoom, zoom) / Math.max(1, Math.min(rect.width, rect.height));
+  const hop = clamp(travel * 0.35, 0, 0.45); // 远距离时中途最多拉远 45%
+  S.view.fitted = false;
+  const tick = now => {
+    const t = Math.min(1, (now - t0) / dur), e = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+    const zl = Math.exp(Math.log(from.zoom) + (Math.log(zoom) - Math.log(from.zoom)) * e) * (1 - hop * Math.sin(Math.PI * t));
+    const u = u0 + (u1 - u0) * e, v = v0 + (v1 - v0) * e;
+    S.view.zoom = zl; S.view.x = cx - u * zl; S.view.y = cy - v * zl;
+    renderMap();
+    if (t < 1) viewAnim = requestAnimationFrame(tick);
+  };
+  viewAnim = requestAnimationFrame(tick);
+}
+
+/* ------------------------------------------------------------------ ② 出生点巡视（, / . 键 · 画布右侧按钮 · 命令面板）
+ * 检查一张 10～50 人的地图时，要一个个点出生点、缩放、看周边，再去体检里对照数据。巡视模式下按「.」飞到下一个、
+ * 「,」回到上一个：相机以跃迁动画飞过去并放大到合适的观察尺度，顶部弹出「玩家卡片」，显示该玩家的队伍、领地占比、
+ * 领地内资源、最近资源距离与接敌距离（与体检同一份数据），明显偏离的项会标黄提醒。卡片上也有 ‹ › 按钮。 */
+const tour = { on: false };
+function tourSpawn(dir = 1) {
+  const sp = currentSpawns();
+  if (!S.snapshot || !sp.length) { toast(S.snapshot ? '当前地图没有出生点' : '请先生成或导入地图', 'warn'); return; }
+  const cur = S.selectedSpawn;
+  const i = cur < 0 || cur >= sp.length ? (dir > 0 ? 0 : sp.length - 1) : (cur + dir + sp.length) % sp.length;
+  tour.on = true;
+  $('tourBtn')?.classList.add('touring'); $('mapPanel')?.classList.add('touring');
+  selectSpawn(i, 'tour');
+}
+function closeSpawnCard() {
+  $('tourBtn')?.classList.remove('touring'); $('mapPanel')?.classList.remove('touring');
+  const el = $('spawnCard'); if (!el || el.hidden) { tour.on = false; return false; }
+  tour.on = false;
+  el.classList.remove('show'); clearTimeout(el._t);
+  el._t = setTimeout(() => { if (!tour.on) el.hidden = true; }, 220);
+  return true;
+}
+/** 每位玩家的对比数据（体检卡片与巡视卡片共用） */
+function playerRows(a) {
+  if (!a || a.n < 1) return [];
+  const owned = Math.max(1, a.terr.owned), n = a.n;
+  const near = a.res.nearest.filter(Number.isFinite).sort((x, y) => x - y), nearMed = near[Math.floor(near.length / 2)] || 0;
+  const minDim = Math.min(a.rows, a.cols);
+  return Array.from({ length: n }, (_, i) => {
+    const rush = a.rush?.list?.[i]?.d, terr = a.terr.counts[i] / owned, nr = a.res.nearest[i];
+    return {
+      i, team: a.teams[i], terr, res: a.res.perSpawn[i] || 0, near: nr, rush: Number.isFinite(rush) ? rush : null,
+      flags: {
+        terr: n >= 2 && a.terr.owned > 0 && terr < 0.75 / n, // 与体检结论同一口径：低于平均值的 75% 即提示
+        near: n >= 3 && Number.isFinite(nr) && nr > Math.max(nearMed * 2, minDim * 0.22),
+        rush: !!a.rush?.front?.includes(i),
+        stuck: !!a.conn?.stuck?.includes(i)
+      }
+    };
+  });
+}
+const fmtCells = v => v == null || !Number.isFinite(v) ? '—' : `${Math.round(v)} 格`;
+function playerReportLines(a) {
+  const rows = playerRows(a); if (rows.length < 2) return [];
+  return ['', '玩家对比：', ...rows.map(r => `  玩家 ${String(r.i + 1).padStart(2)}（${teamLabel(r.team)}）领地 ${pct(r.terr)} · 领地内资源 ${r.res} · 最近资源 ${fmtCells(r.near)} · 接敌 ${fmtCells(r.rush)}${Object.values(r.flags).some(Boolean) ? '  ⚠' : ''}`)];
+}
+function playersHtml(a) {
+  const rows = playerRows(a); if (rows.length < 2) return '';
+  const maxT = Math.max(...rows.map(r => r.terr), 1e-6), maxR = Math.max(...rows.map(r => r.res), 1), maxN = Math.max(...rows.map(r => Number.isFinite(r.near) ? r.near : 0), 1), maxK = Math.max(...rows.map(r => r.rush || 0), 1);
+  const bar = (v, max, flag, txt) => `<span class="pc${flag ? ' flag' : ''}"><i style="--w:${Math.max(4, Math.round((v || 0) / max * 100))}%"></i><em>${txt}</em></span>`;
+  const body = rows.map((r, k) => `<button type="button" class="pr team-${r.team}" data-spawn="${r.i}" style="--d:${Math.min(k, 24) * 28}ms" title="点击飞到玩家 ${r.i + 1}">
+      <span class="pn"${r.team[0] === 'P' ? ` style="--tc:${teamColor(r.team)}"` : ''}><b>${r.i + 1}</b><small>${r.team[0] === 'P' ? 'FFA' : r.team}</small></span>
+      ${bar(r.terr, maxT, r.flags.terr || r.flags.stuck, pct(r.terr))}${bar(r.res, maxR, false, String(r.res))}${bar(Number.isFinite(r.near) ? r.near : 0, maxN, r.flags.near, fmtCells(r.near))}${bar(r.rush || 0, maxK, r.flags.rush, fmtCells(r.rush))}
+    </button>`).join('');
+  const flagged = rows.filter(r => Object.values(r.flags).some(Boolean)).length;
+  return `<details class="doc-players"${rows.length <= 12 ? ' open' : ''}><summary><b>玩家对比</b><small>${rows.length} 位玩家${flagged ? ` · <em>${flagged} 位有偏差</em>` : ' · 无明显偏差'} · 点击一行飞到该玩家</small></summary>
+    <div class="pt"><div class="ph"><span>玩家</span><span>领地</span><span>领地资源</span><span>最近资源</span><span>接敌</span></div>${body}</div></details>`;
+}
+function renderSpawnCard(i) {
+  const el = $('spawnCard'); if (!el) return;
+  const sp = currentSpawns(), q = sp[i];
+  if (!tour.on || !q) { closeSpawnCard(); return; }
+  let a = null; try { a = analyzeMap(); } catch (e) { console.warn('巡视卡片体检失败', e); }
+  const r = a ? playerRows(a)[i] : null, team = r?.team || teamOf(q, i);
+  const stat = (lab, v, flag, tip) => `<span class="sc-stat${flag ? ' flag' : ''}"${tip ? ` title="${tip}"` : ''}><b>${v}</b><small>${lab}</small></span>`;
+  el.dataset.team = team[0] === 'P' ? 'P' : team;
+  el.style.setProperty('--tc', teamColor(team));
+  el.innerHTML = `<button type="button" class="sc-nav" data-dir="-1" aria-label="上一个出生点（,）"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg></button>
+    <div class="sc-main"><div class="sc-head"><span class="sc-dot"></span><b>玩家 ${i + 1}</b><small>/ ${sp.length} · ${team[0] === 'P' ? '自由混战' : team + ' 队'} · (${q[0] + 1}, ${q[1] + 1})</small></div>
+    <div class="sc-stats">${r ? stat('领地', pct(r.terr), r.flags.terr, '按行走距离划分的地盘占比') + stat('领地资源', r.res, false, '归属该玩家的资源点数量') + stat('最近资源', fmtCells(r.near), r.flags.near, '到最近资源点的直线距离') + stat('接敌', fmtCells(r.rush), r.flags.rush, '走到最近敌人的距离') : '<span class="sc-stat"><small>体检数据不可用</small></span>'}</div></div>
+    <button type="button" class="sc-nav" data-dir="1" aria-label="下一个出生点（.）"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button>
+    <button type="button" class="sc-close" aria-label="关闭玩家卡片">✕</button>`;
+  el.querySelectorAll('.sc-nav').forEach(b => { b.onclick = () => tourSpawn(Number(b.dataset.dir)); });
+  el.querySelector('.sc-close').onclick = () => { closeSpawnCard(); selectSpawn(-1); };
+  if (el.hidden) { el.hidden = false; requestAnimationFrame(() => el.classList.add('show')); }
+  else { el.classList.remove('swap'); void el.offsetWidth; el.classList.add('swap'); }
+  clearTimeout(el._t);
+}
+
+/* ------------------------------------------------------------------ ③ 按钮涟漪反馈
+ * 主按钮 / 悬浮按钮 / 图层开关 / 画布工具按下时，从手指位置扩散一圈涟漪，触屏上能明确感到「按到了」。
+ * 涟漪画在按钮内一个独立的裁剪层里（不改变按钮自身的 overflow，避免裁掉按钮上的角标 / 光晕），系统减少动态效果时不显示。 */
+const RIPPLE_SEL = 'button.primary,button.primary-soft,.tune-btn,.fab,.chip,.tool-palette button,.map-controls button,.mode-tabs button,.sc-nav';
+function bindRipples() {
+  document.addEventListener('pointerdown', e => {
+    if (e.button > 0 || reduceMotion()) return;
+    const b = e.target.closest?.(RIPPLE_SEL); if (!b || b.disabled) return;
+    if (getComputedStyle(b).position === 'static') b.style.position = 'relative';
+    let box = b.querySelector(':scope > .ripple-box');
+    if (!box) { box = document.createElement('span'); box.className = 'ripple-box'; box.setAttribute('aria-hidden', 'true'); b.appendChild(box); }
+    const r = b.getBoundingClientRect(), d = Math.hypot(r.width, r.height) * 2;
+    const dot = document.createElement('i');
+    dot.style.cssText = `width:${d}px;height:${d}px;left:${e.clientX - r.left - d / 2}px;top:${e.clientY - r.top - d / 2}px`;
+    box.appendChild(dot);
+    dot.addEventListener('animationend', () => dot.remove(), { once: true });
+    setTimeout(() => dot.remove(), 900);
+  }, { passive: true });
+  // 图层开关切换时的「弹跳」反馈
+  document.addEventListener('click', e => {
+    const c = e.target.closest?.('.layer-row .chip'); if (!c || reduceMotion()) return;
+    c.classList.remove('toggled'); void c.offsetWidth; c.classList.add('toggled');
+  });
+}
+
+/* ================================================================== 3.20.0 新功能 */
+
+/* ------------------------------------------------------------------ ① 公平度一键微调（O · 公平度卡片「一键微调」· 命令面板）
+ * 「智能重新布置」是推倒重来；而手工摆好的布局往往只差一点：某两个点挨得近、某个点贴边。微调在当前布局附近做局部搜索：
+ *   · 把出生点按「谁是谁的镜像」分组（复用近家资源的 groupSpawnOrbits）：每组只移动第一个点，其余成员按各自的翻转方式
+ *     （水平 / 垂直 / 双轴 / 两条对角线）同步移动，所以对称地图微调后仍然严格对称；落单的点独立移动；
+ *   · 爬山法：每轮对每组尝试若干个随机偏移（半径从地图短边的 8% 逐轮收缩到 2 格），只接受让公平度（未取整的 raw 值，
+ *     两队 / FFA 各用自己的口径）变高的移动；
+ *   · 硬约束：新位置必须通过 spawnCellValid（陆地、墙线 / 悬崖 / 物品距离），与其他出生点保持最小间距，
+ *     且「近家资源」范围内的资源点数量不少于移动前（不破坏 3.9.0 的近家资源保证）；
+ *   · 出生点编号不变（只改坐标），整个操作是一步，可撤销；移动过程用 520ms 补间动画展示。 */
+let spawnTween = null;
+function spawnTweenPositions(p) {
+  const t = spawnTween; if (!t) return null;
+  const k = (performance.now() - t.t0) / t.dur;
+  if (k >= 1 || t.from.length !== p.length) { spawnTween = null; return null; }
+  const e = 1 - Math.pow(1 - k, 3);
+  return p.map((q, i) => [t.from[i][0] + (q[0] - t.from[i][0]) * e, t.from[i][1] + (q[1] - t.from[i][1]) * e]);
+}
+function startSpawnTween(from) { if (!reduceMotion()) { spawnTween = { from: from.map(p => [...p]), t0: performance.now(), dur: 520 }; scheduleRender(); } }
+function nearResCount(p, res) {
+  const { min, max } = S.nearRes || NEAR_RES_DEFAULTS;
+  let n = 0; for (const q of res) { const d = dist2(p, q); if (d >= min - 0.5 && d <= max + 0.5) n++; }
+  return n;
+}
+/** 按地图自身的对称模式把出生点分成镜像组（容差 2.5 格）。每组 [{ idx, flip }]，flip 为相对首个成员的翻转方式（RESOURCE_FLIPS 的键）。
+ * 不用 groupSpawnOrbits 的原因：它要求坐标严格相等，手工拖动 / 取整造成的 1 格偏差会让镜像组散开，微调后对称被破坏。
+ * 这里容差配对，而移动时按翻转公式精确计算成员位置——微调后的布局反而是「严格」对称的。 */
+const MODE_FLIPS = { horizontal: ['h', 'v'], vertical: ['h', 'v'], both: ['h', 'v', 'b'], diagonal1: ['d1'], diagonal2: ['d2'] };
+function mirrorGroups(list, rows, cols) {
+  const mode = effectiveSpawnMode(S.snapshot?.meta?.mirroring || $('mirror').value);
+  const keys = MODE_FLIPS[mode] || [], used = new Array(list.length).fill(false), groups = [];
+  // 只保留该模式真正对应的翻转：用「把首点翻过去后是否等于 mirrorPoint 给出的镜像」来确认，避免 h / v 命名约定不一致
+  const imgs0 = p => mirrorPoint(p, mode, rows, cols).map(keyOf);
+  for (let i = 0; i < list.length; i++) {
+    if (used[i]) continue;
+    used[i] = true;
+    const g = [{ idx: i, flip: null }], want = new Set(imgs0(list[i]));
+    for (const k of keys) {
+      const q = RESOURCE_FLIPS[k](list[i][0], list[i][1], rows, cols);
+      if (!want.has(keyOf(q)) || (q[0] === list[i][0] && q[1] === list[i][1])) continue;
+      let bj = -1, bd = 2.5;
+      for (let j = 0; j < list.length; j++) if (!used[j]) { const d = dist2(list[j], q); if (d <= bd) { bd = d; bj = j; } }
+      if (bj >= 0) { used[bj] = true; g.push({ idx: bj, flip: k }); }
+    }
+    groups.push(g);
+  }
+  return groups;
+}
+/* 搜索半径：起始为短边的 25%，某一轮有成功的移动就保持半径（还在「赶路」），没有才收缩 ×0.72。
+ * 实测（6 张挤压过的 220×220 XY 对称 FFA 地图，各取 4 次中最好）：起始 15% 且每轮收缩时 81/84/68/74/88/76；
+ * 现方案 81/95/97/95/94/76。15% 的方案在第 3 张图上一步都走不动——中心周围 15% 半径内全是水域，所有候选都不合法。 */
+function optimizeSpawnLayout(start, { rounds = 10, tries = 14, seed = 1, r0 = 0.25, adaptive = true } = {}) {
+  const s = S.snapshot, [rows, cols] = dimsOf(s), minDim = Math.min(rows, cols);
+  const groups = mirrorGroups(start, rows, cols), rng = seededRng(seed);
+  // 评估次数预算 2400：≤30 人时每轮每组 14 次不受影响；100 人时自动降到每组约 4～5 次，单次耗时约 1 秒（未设预算时约 3.4 秒，界面卡顿）
+  tries = clamp(Math.floor(2400 / Math.max(1, groups.length * rounds)), 4, tries);
+  const res = s.resource_positions || [], guardNear = !!(S.nearRes?.enabled && res.length);
+  const sep = Math.max(4, minDim * 0.03), target = Math.max(4, Math.sqrt(rows * cols / start.length) * 0.62);
+  // 目标函数 = 公平度（未取整）+ 「每个人到最近邻居的间距」的平滑项。只看公平度时，分数由最近的那一对决定，
+  // 移动其他点不改变分数，爬山会卡在平台上；平滑项让「把所有人都拉开一点」也算进步。最终是否采用仍以公平度本身为准。
+  const obj = list => {
+    const f = spawnFairness(list, s).raw ?? 0;
+    let soft = 0;
+    for (let i = 0; i < list.length; i++) { let d = Infinity; for (let j = 0; j < list.length; j++) if (j !== i) d = Math.min(d, dist2(list[i], list[j])); soft += Math.min(1, d / target); }
+    return f + 6 * soft / list.length;
+  };
+  let cur = start.map(p => [...p]), best = obj(cur), radius = Math.max(3, Math.round(minDim * r0));
+  const movedIdx = new Set();
+  let improved = false;
+  for (let round = 0; round < rounds; round++) {
+    for (const g of groups) {
+      const rep = cur[g[0].idx];
+      for (let k = 0; k < tries; k++) {
+        const a = rng() * Math.PI * 2, d = radius * (0.25 + 0.75 * rng());
+        const q = [Math.round(rep[0] + Math.sin(a) * d), Math.round(rep[1] + Math.cos(a) * d)];
+        const pts = g.map(m => m.flip ? RESOURCE_FLIPS[m.flip](q[0], q[1], rows, cols) : q);
+        if (!pts.every(p => spawnCellValid(s, p[0], p[1]))) continue;
+        const cand = cur.slice();
+        g.forEach((m, j) => { cand[m.idx] = pts[j]; });
+        let ok = true;
+        for (const m of g) { for (let i = 0; i < cand.length && ok; i++) if (i !== m.idx && dist2(cand[i], cand[m.idx]) < sep) ok = false; if (!ok) break; }
+        if (!ok) continue;
+        if (guardNear) for (const m of g) { const need = Math.min(S.nearRes.perSpawn, nearResCount(start[m.idx], res)); if (nearResCount(cand[m.idx], res) < need) { ok = false; break; } }
+        if (!ok) continue;
+        const v = obj(cand);
+        if (v > best + 1e-6) { best = v; cur = cand; g.forEach(m => movedIdx.add(m.idx)); improved = true; }
+      }
+    }
+    if (!adaptive || !improved) radius = Math.max(2, Math.round(radius * 0.72));
+    improved = false;
+  }
+  return { list: cur, raw: spawnFairness(cur, s).raw, moves: movedIdx.size, groups: groups.length };
+}
+async function tuneFairness() {
+  if (!S.snapshot) { toast('请先生成或导入地图', 'warn'); return; }
+  const start = currentSpawns();
+  if (start.length < 2) { toast('至少需要 2 个出生点', 'warn'); return; }
+  if (!guard()) return;
+  const f0 = spawnFairness(start);
+  busy(true, '正在微调出生点位置…', '', null, { cancellable: false });
+  await sleep(30); // 让忙碌提示先画出来
+  // 多起点：爬山结果对随机种子很敏感（实测同一布局单次 75～93 不等），取多次中最好的一次。
+  // 起点数按人数自适应：≤30 人 4 次（每次约 10～40ms），≤60 人 2 次，100 人 1 次（约 0.7 秒）。
+  const starts = start.length <= 30 ? 4 : start.length <= 60 ? 2 : 1, seed0 = hashSeed(start.length, Date.now() & 0xffff, f0.score);
+  let r = null;
+  try {
+    for (let k = 0; k < starts; k++) {
+      const x = optimizeSpawnLayout(start, { seed: seed0 + k * 7919 });
+      if (!r || x.raw > r.raw) r = x;
+      await sleep(0); // 每次之间让出主线程，忙碌提示保持流畅
+    }
+  } finally { busy(false); }
+  const f1 = spawnFairness(r.list);
+  if (!r.moves || f1.raw <= f0.raw + 0.05) { toast(`当前布局已接近最优（公平度 ${f0.score}），没有找到更好的位置`, 'info', 3600); return; }
+  pushSpawnHistory();
+  startSpawnTween(start);
+  setSpawns(r.list);
+  afterSpawnChange();
+  pulseGauge();
+  toast(`公平度 ${f0.score} → ${f1.score}：微调了 ${r.moves} 个出生点（对称关系与近家资源保持不变）`, 'success', 5200, spawnUndoAction());
+}
+function pulseGauge() { const g = $('fairnessGauge') || $('gaugeArc')?.closest('svg'); if (!g || reduceMotion()) return; g.classList.remove('gauge-pop'); void g.getBoundingClientRect(); g.classList.add('gauge-pop'); }
+
+/* ------------------------------------------------------------------ ② 落点热力图层（K）
+ * 手动加出生点时，最难的是判断「哪里离所有人都远、又是合法地形」。本图层在 ≤160×160 的采样网格上，对每个合法格计算
+ * 「它（连同对称模式下的镜像点）到最近已有出生点的距离」，按目标间距归一后上色（冷色 = 太挤，暖色 = 宽敞），
+ * 非法地形不着色；得分最高处画一个呼吸的准星，并给出「在此放置」按钮（按当前对称设置自动补镜像）。 */
+let spotCache = null;
+function analyzeSpots(s = S.snapshot) {
+  if (!s) return null;
+  const sig = analysisSig(s) + '|' + $('mirror').value + '|' + $('symmetryStrength').value;
+  if (spotCache?.sig === sig) return spotCache.r;
+  const [rows, cols] = dimsOf(s), sp = currentSpawns(), mode = effectiveSpawnMode(s.meta?.mirroring || $('mirror').value);
+  const scale = Math.max(1, Math.ceil(Math.max(rows, cols) / 160)), W = Math.ceil(cols / scale), H = Math.ceil(rows / scale);
+  const n = Math.max(1, sp.length + 1), target = Math.max(4, Math.sqrt(rows * cols / n) * 0.7);
+  const val = new Float32Array(W * H).fill(-1);
+  let best = -1, bestCell = null;
+  for (let by = 0; by < H; by++) for (let bx = 0; bx < W; bx++) {
+    const r = Math.min(rows - 1, by * scale + (scale >> 1)), c = Math.min(cols - 1, bx * scale + (scale >> 1));
+    if (!spawnCellValid(s, r, c)) continue;
+    const pts = [[r, c], ...mirrorPoint([r, c], mode, rows, cols)];
+    if (pts.length > 1 && !pts.every(p => spawnCellValid(s, p[0], p[1]))) continue;
+    let d = Infinity;
+    for (const p of pts) for (const q of sp) d = Math.min(d, dist2(p, q));
+    for (let i = 0; i < pts.length; i++) for (let j = i + 1; j < pts.length; j++) d = Math.min(d, dist2(pts[i], pts[j]));
+    if (!Number.isFinite(d)) d = Math.min(r, c, rows - 1 - r, cols - 1 - c) * 2; // 一个出生点都没有时：偏好远离边缘
+    const edge = Math.min(r, c, rows - 1 - r, cols - 1 - c) / Math.max(1, Math.min(rows, cols) * 0.14);
+    const ef = 0.6 + 0.4 * clamp(edge, 0, 1);
+    val[by * W + bx] = clamp(d / target, 0, 1.4) * ef; // 着色用（超过 1.4 倍目标间距都算「很宽敞」）
+    const rank = (d / target) * ef;                   // 选最佳落点用未截断的值：截断会让大片格子并列，扫描顺序决定结果（偏向左上角）
+    if (rank > best) { best = rank; bestCell = [r, c]; }
+  }
+  const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const ctx = cv.getContext('2d'), img = ctx.createImageData(W, H), d = img.data;
+  const ramp = t => t < 0.5 ? [40 + 60 * t, 110 + 240 * t, 255 - 120 * t] : [100 + 310 * (t - 0.5), 230 - 30 * (t - 0.5), 195 - 330 * (t - 0.5)];
+  for (let k = 0; k < val.length; k++) {
+    if (val[k] < 0) continue;
+    const t = clamp(val[k] / 1.2, 0, 1), [r, g, b] = ramp(t);
+    d[k * 4] = r; d[k * 4 + 1] = g; d[k * 4 + 2] = Math.max(0, b); d[k * 4 + 3] = 60 + 120 * t;
+  }
+  ctx.putImageData(img, 0, 0);
+  const r = { canvas: cv, scale, best: bestCell, score: best, mode };
+  spotCache = { sig, r };
+  return r;
+}
+function setSpotLayer(on, { quiet = false } = {}) {
+  S.layers.spots = !!on;
+  $('layerSpots')?.classList.toggle('active', S.layers.spots);
+  syncLayerAria('layerSpots');
+  $('mapPanel')?.classList.toggle('spots-on', S.layers.spots);
+  if (on && S.snapshot && !quiet) {
+    let r = null; try { r = analyzeSpots(); } catch (e) { console.warn('落点分析失败', e); }
+    if (!r?.best) toast('当前地形上已没有可放置出生点的合法位置', 'warn');
+    else toast(`暖色 = 宽敞、冷色 = 拥挤；准星是当前最佳落点（${r.best[0] + 1}, ${r.best[1] + 1}）`, 'info', 5200,
+      { action: { label: '在此放置', fn: () => { const b = analyzeSpots()?.best; if (b) placeSpawnAt({ row: b[0], col: b[1] }); } } });
+  }
+  scheduleRender();
+}
+function drawSpots(ctx, rows, cols, now, fadeK) {
+  if (!S.layers.spots || !S.snapshot) return false;
+  let r = null; try { r = analyzeSpots(); } catch { return false; }
+  if (!r) return false;
+  const z = S.view.zoom;
+  ctx.save(); ctx.globalAlpha = 0.85 * fadeK; ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(r.canvas, S.view.x, S.view.y, r.canvas.width * r.scale * z, r.canvas.height * r.scale * z);
+  ctx.restore();
+  if (!r.best) return false;
+  const [x, y] = toScreen(r.best[0], r.best[1]), still = reduceMotion();
+  const ph = still ? 0.5 : (now % 1400) / 1400, R = Math.max(10, spawnRadius() + 6);
+  ctx.save();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.shadowColor = 'rgba(0,0,0,.6)'; ctx.shadowBlur = 6;
+  ctx.beginPath(); ctx.arc(x, y, R, 0, Math.PI * 2); ctx.stroke();
+  for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { ctx.beginPath(); ctx.moveTo(x + dx * (R - 4), y + dy * (R - 4)); ctx.lineTo(x + dx * (R + 6), y + dy * (R + 6)); ctx.stroke(); }
+  ctx.globalAlpha = 1 - ph; ctx.lineWidth = 2.5; ctx.strokeStyle = '#ffd45c';
+  ctx.beginPath(); ctx.arc(x, y, R + ph * 16, 0, Math.PI * 2); ctx.stroke();
+  ctx.restore();
+  return !still;
+}
+
+/* ------------------------------------------------------------------ ③ 对称修复：补齐出生点镜像
+ * 对称检查标出「没有镜像对应点」的出生点后，可以一键在镜像位置补上缺失的出生点（位置必须合法、与已有出生点保持间距，
+ * 不超过 100 个上限），再按当前规则整理槽位。地形差异需要重新生成，这里不改地形。 */
+function repairSpawnSymmetry() {
+  if (!S.snapshot || !guard()) return;
+  const sy = analyzeSymmetry();
+  if (!sy?.mode) { toast('当前地图不是对称地图', 'info'); return; }
+  if (!sy.spawnsOff.length) { toast('出生点已全部对称，无需修复', 'success'); return; }
+  const [rows, cols] = dims(), list = currentSpawns(), sep = Math.max(4, Math.min(rows, cols) * 0.03);
+  let added = 0, skipped = 0;
+  for (const i of sy.spawnsOff) {
+    for (const q of mirrorPoint(list[i], sy.mode, rows, cols)) {
+      if (list.some(o => Math.hypot(o[0] - q[0], o[1] - q[1]) <= SYM_TOL)) continue;
+      if (list.length >= MAX_SPAWN_POINTS || !spawnCellValid(S.snapshot, q[0], q[1]) || list.some(o => dist2(o, q) < sep)) { skipped++; continue; }
+      list.push([q[0], q[1]]); added++;
+    }
+  }
+  if (!added) { toast(`镜像位置都无法放置（地形不合法或太挤），共 ${skipped} 处`, 'warn', 4200); return; }
+  pushSpawnHistory();
+  const next = normalizeSlots(list);
+  next.forEach(p => { if (!currentSpawns().some(o => keyOf(o) === keyOf(p))) spawnPop.set(keyOf(p), performance.now()); });
+  setSpawns(next); afterSpawnChange();
+  $('players').value = next.length;
+  toast(`已补齐 ${added} 个镜像出生点${skipped ? `，${skipped} 处位置不合法未补` : ''}（现共 ${next.length} 个）`, 'success', 4800, spawnUndoAction());
 }
 
 /* ------------------------------------------------------------------ 控件绑定 */
@@ -6620,7 +7526,7 @@ function bindControls() {
     if (!guard()) return;
     const p = currentSpawns(); if (p.length < 2) { toast('出生点不足'); return; }
     const mode = $('slotOrder').value === 'engine' ? 'alternate' : $('slotOrder').value;
-    const next = orderBySlot(p, mode);
+    const next = orderBySlot(p, mode, { fresh: true });
     if (next.every((q, i) => keyOf(q) === keyOf(p[i]))) { toast('槽位顺序已符合当前规则，无需重排'); return; }
     pushSpawnHistory(); setSpawns(next); S.selectedSpawn = -1; afterSpawnChange();
     toast(mode === 'grouped' ? '已按「A 队在前」重排玩家槽位' : '已按「A/B 交替 + 镜像对位」重排玩家槽位', 'success', 3600, spawnUndoAction());
@@ -6654,6 +7560,11 @@ function bindControls() {
   const layerBtn = (name, id) => $(id).onclick = () => { S.layers[name] = !S.layers[name]; $(id).classList.toggle('active', S.layers[name]); syncLayerAria(id); scheduleRender(); };
   layerBtn('terrain', 'layerTerrain'); layerBtn('spawns', 'layerSpawns'); layerBtn('resources', 'layerResources'); layerBtn('walls', 'layerWalls'); layerBtn('grid', 'layerGrid'); layerBtn('nearRes', 'layerNearRes');
   $('layerTerritory').onclick = () => setTerritoryLayer(!S.layers.territory);
+  $('layerSymmetry').onclick = () => setSymmetryLayer(!S.layers.symmetry); // 3.19.0
+  $('layerSpots').onclick = () => setSpotLayer(!S.layers.spots);             // 3.20.0
+  $('spawnTune').onclick = () => tuneFairness();                              // 3.20.0
+  $('tourBtn').onclick = e => tourSpawn(e.shiftKey ? -1 : 1);                // 3.19.0：Shift+点击 = 上一个
+  bindRipples(); // 3.19.0
   $('projectNew').onclick = () => newProject();
   $('projectSave').onclick = () => saveProject(false);
   $('projectLoad').onclick = () => loadProject();
@@ -6735,6 +7646,7 @@ function bindKeyboard() {
       if (measure.on) { if (measure.a) { clearMeasurePoints(); scheduleRender(); } else setMeasure(false); return; }
       if (S.drawingPolygon) { S.drawingPolygon = null; updatePolygonInfo(); scheduleRender(); return; }
       if (S.selectedSpawn >= 0) { selectSpawn(-1); return; }
+      if (closeSpawnCard()) return; // 3.19.0
       if (focusOn()) { setFocusMode(false); return; } // 3.17.0
       closeDrawer(); return;
     }
@@ -6771,6 +7683,11 @@ function bindKeyboard() {
     else if (k === 'n') $('layerNearRes')?.click();
     else if (k === 'u') setMeasure(!measure.on);
     else if (k === 'z') setFocusMode(!focusOn()); // 3.17.0：专注模式
+    else if (k === 'y') setSymmetryLayer(!S.layers.symmetry); // 3.19.0：对称检查
+    else if (k === 'o') tuneFairness();                        // 3.20.0：公平度一键微调
+    else if (k === 'k') setSpotLayer(!S.layers.spots);        // 3.20.0：落点热力
+    else if (k === '.' || k === '>') tourSpawn(1);            // 3.19.0：出生点巡视
+    else if (k === ',' || k === '<') tourSpawn(-1);
     else if (S.mode === 'wizard' && { v: 1, b: 1, p: 1, c: 1, r: 1 }[k]) setTool({ v: 'pan', b: 'brush', p: 'polygon', c: 'cc', r: 'resource' }[k]);
   });
   document.addEventListener('keyup', e => { if (e.key === ' ') { spaceHeld = false; $('map').classList.remove('space-pan'); } });
@@ -6801,6 +7718,7 @@ async function boot() {
   // 昼夜流转：从后台回来（定时器可能被挂起）立即按当前时间校正一次
   document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshAutoTheme(); });
   loadPrefs();
+  onTeamModeChange({ quiet: true }); // 3.19.0：按保存的预设恢复「两队 / 自由混战」状态（不重排、不提示）
   bindAccordion();
   bindControls();
   bindCanvas();
@@ -6837,5 +7755,5 @@ async function boot() {
     }
   });
 }
-if (/[?&]debug\b/.test(location.search)) window.__tmx = { S, Engine, currentSpawns, dims, getMatrix, patchTmxUnits, parseTmx, uiChoice, uiConfirm, globalUndo, globalRedo, removeSpawnIndex, spawnFairness, buildCcMap, ccMapFor, verifySpawnMapping, orderBySlot, makePlayerOne, showSlotTable, buildMapPngInfo, drawExportPng, showMapPngPreview, normalizeSlots, analyzeMap, doctorVerdicts, buildGrid, labelGrid, territoryBfs, showMapDoctor, setTerritoryLayer, hasManualWork, backupCurrent, restorePrevious, generate, loadPresets, saveUserPreset, applyUserPreset, deleteUserPreset, renderPresetOptions, syncTmxUnits, exportPair, rushAnalysis, costField, tmxTerrainMasks, setRoutesLayer, generateBestOf, buildPoster, showPoster, saveProject, wallLayerFor, shapeState, selectShape, ShapeWorker, shapeSeed, generateShapePipeline, queueShapePreview, showSaveAs, ExportLoc, patchTmxItems, resourcePoolGids, planNearSpawnResources, pickResourcePoints, groupSpawnOrbits, autoApplyNearSpawnResources, HistoryStore, pushHistorySnapshot, showHistory, randomizeParams, surpriseGenerate, removeNearSpawnResourceAt, mutateTmx, measure, setMeasure, densityInfo, openCmdk, closeCmdk, cmdkScore, CMDS, measureProfile, applyTheme, resolveTheme, readThemeChoice, cycleSlot, THEMES, THEME_CHOICES, openThemeMenu, closeThemeMenu, setFxEnabled, rollMapName, spawnUndoAction, profileHover, encodeRecipe, decodeRecipe, applyRecipe, recipeData, copyRecipe, pasteRecipe, health, runHealthBadge, loupe, setFocusMode, focusOn, saveViewShot, captureEditorState, restoreEditorState, resetAll, themeGridMove, get routeCache() { return routeCache; } };
+if (/[?&]debug\b/.test(location.search)) window.__tmx = { S, Engine, currentSpawns, dims, getMatrix, patchTmxUnits, parseTmx, uiChoice, uiConfirm, globalUndo, globalRedo, removeSpawnIndex, spawnFairness, buildCcMap, ccMapFor, verifySpawnMapping, orderBySlot, makePlayerOne, showSlotTable, buildMapPngInfo, drawExportPng, showMapPngPreview, normalizeSlots, analyzeMap, doctorVerdicts, buildGrid, labelGrid, territoryBfs, showMapDoctor, setTerritoryLayer, hasManualWork, backupCurrent, restorePrevious, generate, loadPresets, saveUserPreset, applyUserPreset, deleteUserPreset, renderPresetOptions, syncTmxUnits, exportPair, rushAnalysis, costField, tmxTerrainMasks, setRoutesLayer, generateBestOf, buildPoster, showPoster, saveProject, wallLayerFor, shapeState, selectShape, ShapeWorker, shapeSeed, generateShapePipeline, queueShapePreview, showSaveAs, ExportLoc, patchTmxItems, resourcePoolGids, planNearSpawnResources, pickResourcePoints, groupSpawnOrbits, autoApplyNearSpawnResources, HistoryStore, pushHistorySnapshot, showHistory, randomizeParams, surpriseGenerate, removeNearSpawnResourceAt, mutateTmx, measure, setMeasure, densityInfo, openCmdk, closeCmdk, cmdkScore, CMDS, measureProfile, applyTheme, resolveTheme, readThemeChoice, cycleSlot, THEMES, THEME_CHOICES, openThemeMenu, closeThemeMenu, setFxEnabled, rollMapName, spawnUndoAction, profileHover, encodeRecipe, decodeRecipe, applyRecipe, recipeData, copyRecipe, pasteRecipe, health, runHealthBadge, loupe, setFocusMode, focusOn, saveViewShot, captureEditorState, restoreEditorState, restoreAfterAbort, resetAll, analyzeSymmetry, setSymmetryLayer, tourSpawn, closeSpawnCard, tour, playerRows, isFFA, tuneFairness, optimizeSpawnLayout, analyzeSpots, setSpotLayer, repairSpawnSymmetry, mapUnfinished, finishRemainingSteps, ccExtendableCap, onTeamModeChange, extendCcTileset, rushAnalysisFFA, recipeFrom, mapRecipeCode, flyViewTo, setPresetValue, ENGINE_MAX_CC, MAX_SPAWN_POINTS, projectPayload, restoreProject, loadTmxBytes, themeGridMove, get routeCache() { return routeCache; } };
 boot();

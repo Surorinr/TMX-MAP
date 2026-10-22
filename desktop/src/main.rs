@@ -262,7 +262,8 @@ fn save_file(request: Request<'_>, state: State<'_, AppState>) -> Result<SaveRes
                 .as_array()
                 .ok_or("导出数据格式错误")?
                 .iter()
-                .map(|x| x.as_u64().map(|n| n as u8).ok_or("导出数据格式错误"))
+                // 3.19.0：旧版 `n as u8` 会把 256 以上的值静默截断成错误字节，写出损坏的文件；现在越界即报错
+                .map(|x| x.as_u64().filter(|n| *n <= 255).map(|n| n as u8).ok_or("导出数据格式错误"))
                 .collect::<Result<Vec<u8>, _>>()?;
             owned.as_slice()
         }

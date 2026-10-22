@@ -232,10 +232,204 @@ async def sec11(b, base):
     check('3.17.0 手机测试无页面错误', not pg.errors, str(pg.errors[:3]))
     await pg.context.close()
 
+async def sec12(b, base):
+    # —— 12. 3.19.0：第十七轮审查修复 + 100 人 / 新预设 / 自由混战 + 对称检查 / 巡视 / 玩家对比 ——
+    pg = await new_page(b, base); await pg.click('#animToggle')
+    T = "window.__tmx"
+    # 12a 多步生成（大地图 4 步）中途取消：整张回滚到生成前的地图，导出的 TMX 不被「0 个出生点」覆盖
+    await gen(pg, w=120, players=4, mirror='vertical', res=8)
+    before = await pg.evaluate(f"[{T}.S.snapshot.meta.width, {T}.S.lastTmx.length, {T}.currentSpawns().map(p=>p.join(',')).join(';')]")
+    await pg.evaluate("(()=>{const s=(id,v)=>{const e=document.getElementById(id);e.value=v;e.dispatchEvent(new Event('change',{bubbles:true}))};s('width',800);s('height',800)})()")
+    await pg.evaluate("document.getElementById('generate').click()")
+    await pg.wait_for_timeout(300)
+    if await pg.evaluate("!document.getElementById('modal').hidden && document.getElementById('modal').classList.contains('show')"):
+        await pg.click('#modal .modal-actions button:last-child')
+    await pg.wait_for_function("document.getElementById('busyStage').textContent==='2/4'", timeout=90000)
+    await pg.evaluate("document.getElementById('busyCancel').click()")
+    await settle(pg)
+    after = await pg.evaluate(f"[{T}.S.snapshot.meta.width, {T}.S.lastTmx.length, {T}.currentSpawns().map(p=>p.join(',')).join(';'), {T}.S.snapshotEpoch === {T}.S.engineEpoch, document.getElementById('export').disabled]")
+    check('大地图分步生成第 2 步取消：画布与出生点回滚到生成前的地图（修复：半成品 + 旧 TMX 错配）', after[0] == before[0] and after[1] == before[1] and after[2] == before[2], f'{before} → {after}')
+    check('回滚后旧地图不再被当作引擎可分步编辑（引擎状态已变）、导出仍可用', after[3] is False and after[4] is False, str(after))
+    await pg.evaluate(f"{T}.syncTmxUnits()"); await pg.wait_for_timeout(400)
+    rb = await pg.evaluate(f"(async()=>{{const t=await {T}.parseTmx({T}.S.lastTmx);return t.positions.length}})()")
+    check('回滚后导出的 TMX 仍有原来的 4 个出生点', rb == 4, str(rb))
+    sc = await pg.evaluate(f"(()=>{{const r={T}.analyzeSymmetry();return [r.mode, r.counts.land + r.counts.wall, r.spawnsOff.length]}})()")
+    check('对称检查无误报：引擎生成的 Y 轴对称地图不标出任何成片差异（平滑造成的细边被开运算滤掉）', sc == ['vertical', 0, 0], str(sc))
+    # 12b 配方码以「地图生成时的参数」为准：生成后改宽度，配方码不变
+    rc1 = await pg.evaluate(f"{T}.encodeRecipe({T}.recipeData())")
+    await pg.evaluate("(()=>{const e=document.getElementById('width');e.value=200;e.dispatchEvent(new Event('change',{bubbles:true}))})()")
+    rc2 = await pg.evaluate(f"[{T}.encodeRecipe({T}.recipeData()), {T}.decodeRecipe({T}.encodeRecipe({T}.recipeData())).data.w]")
+    check('生成后改界面宽度：配方码仍是这张地图的（修复：混用地图 / 界面参数）', rc1 == rc2[0] and rc2[1] == 120, f'{rc2[1]}')
+    pj = await pg.evaluate(f"(()=>{{const c={T}.mapRecipeCode();return !!c && c===\"{rc1}\"}})()")
+    check('项目载荷中带有当前地图的配方码', pj)
+    # 12c 新预设与出生点上限
+    opts = await pg.evaluate("[...document.getElementById('gamePreset').options].map(o=>o.value)")
+    check('预设：去掉 25V25，新增 30V30 / 40V40 / 50V50 / 自由混战', '25v25' not in opts and all(v in opts for v in ['30v30','40v40','50v50','ffa']), str(opts))
+    await pg.select_option('#gamePreset', '50v50'); await pg.wait_for_timeout(200)
+    check('选 50V50 → 出生点数量 100', await pg.evaluate("document.getElementById('players').value") == '100')
+    old = await pg.evaluate(f"(()=>{{const d={T}.recipeData();d.preset='25v25';d.pl=50;const c={T}.encodeRecipe(d);{T}.applyRecipe({T}.decodeRecipe(c).data);return [document.getElementById('gamePreset').value, document.getElementById('players').value]}})()")
+    check('旧配方码里的 25V25 套用后落到「自由配置」、人数 50（下拉框不空白）', old == ['free', '50'], str(old))
+    # 12d 100 人地图：引擎布 50 个，JS 补齐；导出时自动补 51～100 号指挥中心瓦片，读回校验通过
+    await gen(pg, w=700, players=100, mirror='vertical', res=60)
+    n100 = await pg.evaluate(f"{T}.currentSpawns().length")
+    check('100 人地图：出生点放满 100 个（超出引擎 50 槽位的部分由 JS 补齐）', n100 == 100, str(n100))
+    await pg.evaluate(f"{T}.syncTmxUnits()"); await pg.wait_for_function(f"!{T}.S.unitsDirty", timeout=60000); await pg.wait_for_timeout(600)
+    v = await pg.evaluate(f"(async()=>{{const t=await {T}.parseTmx({T}.S.lastTmx);const cc={T}.ccMapFor({T}.S.lastTmx);const sp={T}.currentSpawns();return [cc.capacity, t.positions.length, t.positions.every((p,i)=>p[0]===sp[i][0]&&p[1]===sp[i][1]), {T}.S.slotVerified]}})()")
+    check('导出 TMX：指挥中心槽位扩展到 100，100 个出生点按 team 0～99 写入且读回顺序一致', v == [100, 100, True, True], str(v))
+    ex = await pg.evaluate(f"(()=>{{const x=new TextDecoder().decode({T}.S.lastTmx.subarray(0,400000));const m=x.match(/<tileset\\b[^>]*name=\"50pCommandCenter_ext1\"[^>]*>/);return m?m[0]:''}})()")
+    check('扩展瓦片集追加在末尾（firstgid 不与已有瓦片冲突）', 'firstgid="' in ex and int(ex.split('firstgid="')[1].split('"')[0]) > 335, ex[:120])
+    # 12e 自由混战（FFA）
+    await pg.select_option('#gamePreset', 'ffa'); await pg.wait_for_timeout(150)
+    await gen(pg, w=200, players=8, mirror='both', res=16)
+    f = await pg.evaluate(f"""(()=>{{const sp={T}.currentSpawns(),[R,C]={T}.dims();const ang=p=>{{let a=Math.atan2(p[1]-(C-1)/2,-(p[0]-(R-1)/2));return a<0?a+2*Math.PI:a}};
+      const a=sp.map(ang);let wraps=0;for(let i=1;i<a.length;i++)if(a[i]<a[i-1]-1e-9)wraps++;
+      const am={T}.analyzeMap();return [sp.length, document.body.classList.contains('ffa'), wraps, am.ffa, am.rush.list.every((r,i)=>Number.isFinite(r.d)&&r.enemy>=0&&r.enemy!==i), Number.isFinite(am.score), !!am.ffaStats]}})()""")
+    check('FFA：8 人、body.ffa、槽位绕中心顺时针（至多一次回绕）', f[0] == 8 and f[1] and f[2] <= 1, str(f))
+    check('FFA 体检：每人都有最近对手（不是自己）且得分有效', f[3] and f[4] and f[5] and f[6], str(f))
+    fair = await pg.evaluate("document.getElementById('fairnessReport').textContent")
+    check('FFA 公平度报告按混战口径（最近对手间距）', '自由混战' in fair and '最近对手' in fair, fair[:60])
+    tsel = await pg.evaluate("getComputedStyle(document.querySelector('.spawn-row .spawn-team')).display")
+    check('FFA 下队伍下拉框隐藏', tsel == 'none', tsel)
+    await pg.keyboard.press('d'); await pg.wait_for_timeout(700)
+    rows = await pg.evaluate("[document.querySelectorAll('#modalBody .doc-players .pr').length, /最近对手/.test(document.getElementById('modalBody').textContent)]")
+    check('FFA 体检弹窗：玩家对比表 8 行 + 「最近对手」结论', rows == [8, True], str(rows))
+    await pg.click('#modalBody .doc-players .pr:nth-child(4)'); await pg.wait_for_timeout(700)
+    card = await pg.evaluate("[!document.getElementById('spawnCard').hidden, document.getElementById('spawnCard').textContent.includes('玩家 3'), window.__tmx.S.selectedSpawn]")
+    check('点击玩家对比第 3 行：飞到玩家 3 并弹出玩家卡片', card == [True, True, 2], str(card))
+    # 切回两队对抗：槽位按 A/B 重排，可撤销
+    await pg.keyboard.press('Escape'); await pg.keyboard.press('Escape')
+    await pg.select_option('#gamePreset', '4v4'); await pg.wait_for_timeout(300)
+    back = await pg.evaluate(f"[document.body.classList.contains('ffa'), {T}.analyzeMap().ffa, {T}.S.spawnHistory.length>0]")
+    check('切回 4V4：退出 FFA、体检恢复两队口径、重排可撤销', back == [False, False, True], str(back))
+    # 12f 对称检查：XY 对称地图移动一个出生点 → 标出无镜像点
+    sy0 = await pg.evaluate(f"(()=>{{const r={T}.analyzeSymmetry();return [r.mode, r.spawnsOff.length]}})()")
+    check('对称检查：XY 双轴地图识别为 both，出生点全部有镜像', sy0 == ['both', 0], str(sy0))
+    # 直接改写一个出生点坐标（只把它沿列方向挪 5 格，不动它的镜像点）
+    await pg.evaluate(f"(()=>{{const sp={T}.currentSpawns(),[R,C]={T}.dims();sp[0]=[sp[0][0],Math.min(C-3,sp[0][1]+5)];{T}.S.snapshot.cc_positions=sp;{T}.S.spawnAuthority=sp.map(p=>[...p]);}})()")
+    sy1 = await pg.evaluate(f"(()=>{{const r={T}.analyzeSymmetry();return r.spawnsOff.length}})()")
+    check('对称检查：单边移动一个出生点后被标为「无镜像点」', sy1 >= 1, str(sy1))
+    await pg.keyboard.press('y'); await pg.wait_for_timeout(500)
+    syl = await pg.evaluate("[document.getElementById('layerSymmetry').getAttribute('aria-checked'), document.getElementById('mapPanel').classList.contains('sym-on')]")
+    check('Y 键打开对称图层（aria-checked 同步、图例出现）', syl == ['true', True], str(syl))
+    # 12g 出生点巡视：. 下一个 / , 上一个 / Esc 关闭
+    await pg.keyboard.press('Escape'); await pg.wait_for_timeout(100)
+    await pg.evaluate(f"{T}.S.selectedSpawn=-1")
+    await pg.keyboard.press('.'); await pg.wait_for_timeout(650)
+    t1 = await pg.evaluate(f"[{T}.S.selectedSpawn, !document.getElementById('spawnCard').hidden]")
+    await pg.keyboard.press('.'); await pg.wait_for_timeout(650)
+    t2 = await pg.evaluate(f"{T}.S.selectedSpawn")
+    await pg.keyboard.press(','); await pg.keyboard.press(','); await pg.wait_for_timeout(650)
+    t3 = await pg.evaluate(f"[{T}.S.selectedSpawn, {T}.currentSpawns().length]")
+    check('巡视：「.」玩家 1 → 玩家 2，「,」×2 回绕到最后一位', t1 == [0, True] and t2 == 1 and t3[0] == t3[1] - 1, f'{t1} {t2} {t3}')
+    await pg.keyboard.press('Escape'); await pg.keyboard.press('Escape'); await pg.wait_for_timeout(350)
+    check('Esc 收起玩家卡片', await pg.evaluate("document.getElementById('spawnCard').hidden"))
+    # 12h 涟漪与 CC 瓦片集扩展单元测试
+    await pg.dispatch_event('#layerGrid', 'pointerdown', {'clientX': 10, 'clientY': 10, 'button': 0})
+    check('按下图层开关出现涟漪', await pg.evaluate("!!document.querySelector('#layerGrid .ripple-box i')"))
+    u = await pg.evaluate(f"""(()=>{{const tsx='<?xml version=\"1.0\"?><map width=\"4\" height=\"4\"><tileset firstgid=\"1\" name=\"a\" tilecount=\"100\"/><tileset firstgid=\"101\" name=\"50pCommandCenter\" columns=\"5\" tilecount=\"50\">'+
+      Array.from({{length:50}},(_,i)=>`<tile id=\"${{i}}\"><properties><property name=\"team\" value=\"${{i}}\" /><property name=\"unit\" value=\"commandCenter\" /></properties></tile>`).join('')+'</tileset><layer name=\"Units\"></layer></map>';
+      const r={T}.extendCcTileset(tsx,100);const cc={T}.buildCcMap(r.xml);return [r.added, cc.capacity, cc.gidForTeam(99) > 150, {T}.extendCcTileset(r.xml,100).added]}})()""")
+    check('extendCcTileset：补 50 个槽位 → 容量 100、新 GID 在原有之后、已足够时不重复追加', u == [50, 100, True, 0], str(u))
+    check('3.19.0 测试无页面错误', not pg.errors, str(pg.errors[:3]))
+    await pg.context.close()
+    # 12i 无旧地图时取消形态分步生成：回到空白画布（不留半成品）
+    pg = await new_page(b, base); await pg.click('#animToggle')
+    await pg.evaluate(f"{T}.selectShape('island', false)")
+    await pg.evaluate("(()=>{const s=(id,v)=>{const e=document.getElementById(id);e.value=v;e.dispatchEvent(new Event('change',{bubbles:true}))};s('width',400);s('height',400)})()")
+    await pg.evaluate("document.getElementById('generate').click()")
+    await pg.wait_for_function("['3/5','4/5'].includes(document.getElementById('busyStage').textContent)", timeout=90000)
+    await pg.evaluate("document.getElementById('busyCancel').click()"); await settle(pg)
+    em = await pg.evaluate(f"[{T}.S.snapshot === null, !document.getElementById('emptyState').classList.contains('hide'), document.getElementById('export').disabled]")
+    check('无旧地图时取消形态生成（第 3/4 步）：回到空白画布、导出不可用', em == [True, True, True], str(em))
+    check('12i 无页面错误', not pg.errors, str(pg.errors[:3]))
+    await pg.context.close()
+
+async def sec13(b, base):
+    # —— 13. 3.20.0：第十八轮审查修复 + 公平度微调 / 落点热力 / 对称修复 ——
+    pg = await new_page(b, base); await pg.click('#animToggle')
+    T = "window.__tmx"
+    # 13a 分步模式在完整地图之后重跑「海岸线」：写回出生点 / 项目载荷都不能污染上一张地图的 TMX
+    await gen(pg, w=120, players=6, mirror='vertical', res=10)
+    await pg.evaluate("document.querySelector('[data-act=run_coastline]').click()"); await settle(pg)
+    await pg.evaluate(f"{T}.syncTmxUnits()"); await pg.wait_for_timeout(500)
+    st = await pg.evaluate(f"(async()=>{{const t=await {T}.parseTmx({T}.S.lastTmx);const p={T}.projectPayload();return [{T}.mapUnfinished(), t.positions.length, p.spawnPositions===undefined, p.unfinished===true]}})()")
+    check('未完成地图：写回出生点不再抹掉上一张地图 TMX 的出生点（修复）', st[0] and st[1] == 6, str(st))
+    check('未完成地图：项目载荷只保存上一张地图的 TMX，不混入画布上的出生点（修复）', st[2] and st[3], str(st))
+    await pg.evaluate("document.getElementById('export').click()"); await pg.wait_for_timeout(700)
+    btns = await pg.evaluate("[document.getElementById('modalTitle')?.textContent||'', [...document.querySelectorAll('#modal .modal-actions button')].map(b=>b.textContent)]")
+    check('导出未完成地图：对话框说明「尚未完成」并提供「补完」与「载入上一张」', '载入上一张完整地图' in btns[1] and '补完剩余步骤并导出' in btns[1], str(btns))
+    await pg.click("#modal .modal-actions button:has-text('补完剩余步骤并导出')"); await settle(pg, 240000); await pg.wait_for_timeout(1500)
+    fin = await pg.evaluate(f"(async()=>{{const t=await {T}.parseTmx({T}.S.lastTmx);return [{T}.S.snapshot.meta.completed_step, t.positions.length===({T}.currentSpawns().length), t.positions.length>0, {T}.mapUnfinished()]}})()")
+    check('「补完剩余步骤并导出」：地图完成、TMX 与画布出生点一致', fin == [5, True, True, False], str(fin))
+    await pg.evaluate("document.querySelector('[data-act=run_coastline]').click()"); await settle(pg)
+    await pg.evaluate("document.getElementById('export').click()"); await pg.wait_for_timeout(700)
+    await pg.click("#modal .modal-actions button:has-text('载入上一张完整地图')"); await settle(pg); await pg.wait_for_timeout(1500)
+    rl = await pg.evaluate(f"[{T}.S.source, {T}.currentSpawns().length>0, {T}.mapUnfinished()]")
+    check('「载入上一张完整地图」：画布换回完整地图（出生点来自 TMX 本身）', rl == ['import', True, False], str(rl))
+    # 13b 60 人：列表不再误报「不会写入」
+    await pg.select_option('#gamePreset', '30v30'); await gen(pg, w=500, mirror='vertical'); await pg.wait_for_timeout(1500)
+    oc = await pg.evaluate(f"[{T}.currentSpawns().length, document.querySelectorAll('.spawn-row.over-cap').length, [...document.querySelectorAll('.spawn-row small')].some(x=>x.textContent.includes('不会写入'))]")
+    check('60 人地图：第 51 号之后不再误显示「超出槽位，不会写入」（修复）', oc[0] == 60 and oc[1] == 0 and not oc[2], str(oc))
+    # 13c FFA 新生成：玩家 1 在正上方（12 点钟方向最近）
+    await pg.select_option('#gamePreset', 'ffa'); await gen(pg, w=220, players=8, mirror='both', res=16)
+    up = await pg.evaluate(f"""(()=>{{const sp={T}.currentSpawns(),[R,C]={T}.dims();const ang=p=>{{let a=Math.atan2(p[1]-(C-1)/2,-(p[0]-(R-1)/2));return a<0?a+2*Math.PI:a}};
+      const a=sp.map(ang);return a[0]===Math.min(...a)&&a.every((x,i)=>i===0||x>=a[i-1]-1e-9)}})()""")
+    check('FFA 新生成：玩家 1 是正上方顺时针第一个，编号单调顺时针（修复）', up)
+    # 13d 公平度一键微调：把布局向中心挤压后微调。局部搜索的提升幅度取决于地形，所以断言「从不变差、始终对称、
+    #     3 张图里至少一张提升 ≥5 分」，而不是要求每张图都大幅提升
+    squeeze = f"""(()=>{{const t={T};const sp=t.currentSpawns(),[R,C]=t.dims();const out=sp.map(q=>[Math.round(R/2+(q[0]-R/2)*0.3),Math.round(C/2+(q[1]-C/2)*0.3)]);
+      t.S.snapshot.cc_positions=out;t.S.spawnAuthority=out.map(p=>[...p]);t.S.unitsDirty=true;}})()"""
+    results, never_worse, sym_ok = [], True, True
+    for attempt in range(3):
+        if attempt: await gen(pg, w=220, players=8, mirror='both', res=16)
+        await pg.evaluate(squeeze)
+        f0 = await pg.evaluate(f"{T}.spawnFairness().score")
+        if attempt == 0:
+            await pg.evaluate("document.activeElement?.blur()")  # 焦点在下拉框里时快捷键会被（有意）忽略
+            await pg.keyboard.press('o'); await pg.wait_for_timeout(1500)
+        else:
+            await pg.evaluate(f"{T}.tuneFairness()"); await pg.wait_for_timeout(300)
+        f1 = await pg.evaluate(f"[{T}.spawnFairness().score, {T}.analyzeSymmetry().spawnsOff.length, {T}.currentSpawns().length]")
+        results.append((f0, f1[0])); never_worse &= f1[0] >= f0; sym_ok &= f1[1] == 0 and f1[2] == 8
+        if f1[0] >= f0 + 5: break
+    check('一键微调（O）：从不让公平度变差、FFA XY 对称严格保持', never_worse and sym_ok, str(results))
+    check('一键微调：挤压后的布局至少有一张图提升 ≥ 5 分', any(b2 >= a2 + 5 for a2, b2 in results), str(results))
+    await pg.keyboard.press('Control+z'); await pg.wait_for_timeout(300)
+    check('一键微调可撤销', await pg.evaluate(f"{T}.spawnFairness().score") == results[-1][0])
+    await pg.select_option('#gamePreset', '5v5'); await gen(pg, w=200, players=10, mirror='vertical', res=20)
+    nr = await pg.evaluate(f"""(()=>{{const t={T},res=t.S.snapshot.resource_positions||[],m=t.S.nearRes;const cnt=q=>res.filter(x=>{{const d=Math.hypot(q[0]-x[0],q[1]-x[1]);return d>=m.min-0.5&&d<=m.max+0.5}}).length;
+      const before=t.currentSpawns().map(cnt);const r=t.optimizeSpawnLayout(t.currentSpawns(),{{seed:7}});const after=r.list.map(cnt);
+      return after.every((v,i)=>v>=Math.min(m.perSpawn,before[i]))}})()""")
+    check('微调保持近家资源保证（每个出生点近家范围内的资源点不减少）', nr)
+    # 13e 落点热力
+    await pg.evaluate("document.activeElement?.blur()")
+    await pg.keyboard.press('k'); await pg.wait_for_timeout(600)
+    sp = await pg.evaluate(f"(()=>{{const r={T}.analyzeSpots();const[R,C]={T}.dims();return [!!r.best, r.best&&Math.min(r.best[0],r.best[1],R-1-r.best[0],C-1-r.best[1])>2, document.getElementById('layerSpots').getAttribute('aria-checked'), document.getElementById('mapPanel').classList.contains('spots-on')]}})()")
+    check('落点热力（K）：给出合法的最佳落点，图层与图例同步', sp == [True, True, 'true', True], str(sp))
+    n0 = await pg.evaluate(f"{T}.currentSpawns().length")
+    await pg.click("#toastBox button:has-text('在此放置')"); await pg.wait_for_timeout(600)
+    n1 = await pg.evaluate(f"[{T}.currentSpawns().length, {T}.analyzeSymmetry().spawnsOff.length]")
+    check('「在此放置」：按对称设置放下出生点及其镜像', n1[0] == n0 + 2 and n1[1] == 0, f'{n0} → {n1}')
+    await pg.keyboard.press('k')
+    # 13f 对称修复
+    await pg.evaluate(f"{T}.removeSpawnIndex(3)"); await pg.wait_for_timeout(300)
+    r0 = await pg.evaluate(f"{T}.analyzeSymmetry().spawnsOff.length")
+    await pg.evaluate(f"{T}.repairSpawnSymmetry()"); await pg.wait_for_timeout(300)
+    r1 = await pg.evaluate(f"{T}.analyzeSymmetry().spawnsOff.length")
+    check('对称修复：删掉一个出生点后一键补回镜像', r0 >= 1 and r1 == 0, f'{r0} → {r1}')
+    check('3.20.0 测试无页面错误', not pg.errors, str(pg.errors[:3]))
+    await pg.context.close()
+
 async def main():
     srv = serve(); base = f'http://127.0.0.1:{srv.server_address[1]}/index.html?debug'
     async with async_playwright() as p:
         b = await p.chromium.launch(args=['--no-sandbox'])
+        if os.environ.get('ONLY') == '13':
+            await sec13(b, base); await b.close(); srv.shutdown()
+            print('\nALL BROWSER TESTS PASSED' if not FAILED else f'\nBROWSER TESTS FAILED ({len(FAILED)}): {FAILED}'); sys.exit(0 if not FAILED else 1)
+        if os.environ.get('ONLY') == '12':
+            await sec12(b, base); await b.close(); srv.shutdown()
+            print('\nALL BROWSER TESTS PASSED' if not FAILED else f'\nBROWSER TESTS FAILED ({len(FAILED)}): {FAILED}'); sys.exit(0 if not FAILED else 1)
         if os.environ.get('ONLY') == '11':
             await sec11(b, base); await b.close(); srv.shutdown()
             print('\nSECTION 11 PASSED' if not FAILED else f'\nSECTION 11 FAILED ({len(FAILED)}): {FAILED}')
@@ -251,7 +445,7 @@ async def main():
         # —— 2. 输入约束 / 密度提示 ——
         v = await pg.evaluate("""()=>{const e=document.getElementById('width');e.value='-5';e.dispatchEvent(new Event('change',{bubbles:true}));const a=e.value;
           const f=document.getElementById('players');f.value='999';f.dispatchEvent(new Event('change',{bubbles:true}));return [a,f.value]}""")
-        check('change 事件即约束越界输入（修复）', v == ['40', '50'], str(v))
+        check('change 事件即约束越界输入（修复；3.19.0 上限改为 100）', v == ['40', '100'], str(v))
         await pg.evaluate("""()=>{const s=(i,v)=>{const e=document.getElementById(i);e.value=v;e.dispatchEvent(new Event('change',{bubbles:true}))};s('width',60);s('height',60);s('players',10)}""")
         lv = await pg.evaluate("document.getElementById('densityHint').dataset.level")
         check('小图多人 → 密度提示为「过于拥挤」', lv == 'bad', lv)
@@ -457,6 +651,8 @@ async def main():
         check('手机 360px：主题面板完整显示在屏幕内', rc[0] >= 0 and rc[1] <= rc[3] and rc[2] <= rc[4], str(rc))
         await pg.context.close()
         await sec11(b, base)
+        await sec12(b, base)
+        await sec13(b, base)
         await b.close()
     srv.shutdown()
     print('\nALL BROWSER TESTS PASSED' if not FAILED else f'\nBROWSER TESTS FAILED ({len(FAILED)}): {FAILED}')

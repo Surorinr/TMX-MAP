@@ -1592,3 +1592,126 @@ body.focus-mode .focus-pill{display:inline-flex;animation:pillIn .45s .12s var(-
   .recipe-row .rc-done{transition:none}
   .map-panel.shot-flash::after{display:none}
 }
+
+/* =====================================================================
+ * 3.19.0：对称检查图层 / 出生点巡视卡片 / 体检「玩家对比」/ 自由混战（FFA）/ 按钮涟漪
+ * 颜色全部走主题变量或固定的语义色；所有动画都在下方 prefers-reduced-motion 中关闭
+ * ===================================================================== */
+/* 画布右侧按钮增加到 9 个：矮屏（横屏手机）时允许竖向滚动，不再超出画布 */
+.map-controls{max-height:calc(100% - 150px);overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none}
+.map-controls::-webkit-scrollbar{display:none}
+#tourBtn.touring{color:var(--gold)}
+
+/* ① 对称检查 */
+.chip-sym.active{background:linear-gradient(100deg,color-mix(in srgb,#b88cff 75%,#000 25%),color-mix(in srgb,#ff5bd1 72%,#000 28%));border-color:color-mix(in srgb,#fff 35%,transparent);color:#fff}
+.legend-sym{display:none}
+.map-panel.sym-on .legend-sym{display:inline-flex;animation:rise .3s ease both}
+.legend-dot.s3{background:#ff4d5e;border-radius:3px}.legend-dot.s2{background:#ff9f43;border-radius:3px}.legend-dot.s1{background:#ffd65c;border-radius:3px}
+.legend-dot.sx{background:transparent;border:2px dashed #ff5bd1;border-radius:50%}
+
+/* 图层开关切换时的弹跳 */
+.layer-row .chip.toggled{animation:chipToggle .38s var(--ease-spring)}
+@keyframes chipToggle{0%{transform:scale(1)}35%{transform:scale(.9)}70%{transform:scale(1.07)}100%{transform:none}}
+
+/* ② 出生点巡视：玩家卡片（顶栏下方居中，从上方滑入；切换玩家时内容轻微横移） */
+.spawn-card{position:absolute;z-index:7;left:50%;bottom:62px;display:flex;align-items:center;gap:6px;max-width:min(560px,calc(100% - 120px));
+  padding:7px 8px;border-radius:16px;background:var(--glass);border:1px solid color-mix(in srgb,var(--tc,var(--accent)) 55%,var(--line-2));
+  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);box-shadow:var(--shadow),0 0 0 3px color-mix(in srgb,var(--tc,var(--accent)) 14%,transparent);
+  opacity:0;transform:translate(-50%,14px) scale(.94);transition:opacity .2s ease,transform .34s var(--ease-spring),border-color .3s}
+.spawn-card.show{opacity:1;transform:translate(-50%,0)}
+.spawn-card[hidden]{display:none}
+.spawn-card[data-team="A"]{--tc:#4b8aff}.spawn-card[data-team="B"]{--tc:#ff6b6b}
+.spawn-card.swap .sc-main{animation:scSwap .32s var(--ease-out)}
+@keyframes scSwap{from{opacity:.2;transform:translateX(10px)}to{opacity:1;transform:none}}
+.sc-main{flex:1;min-width:0;display:grid;gap:4px}
+.sc-head{display:flex;align-items:baseline;gap:6px;white-space:nowrap;overflow:hidden}
+.sc-head b{font-size:14px}
+.sc-head small{color:var(--muted);font-size:11px;overflow:hidden;text-overflow:ellipsis}
+.sc-dot{width:10px;height:10px;border-radius:50%;background:var(--tc,var(--accent));box-shadow:0 0 0 3px color-mix(in srgb,var(--tc,var(--accent)) 28%,transparent);align-self:center;animation:scDot 1.6s ease-in-out infinite}
+@keyframes scDot{50%{box-shadow:0 0 0 6px color-mix(in srgb,var(--tc,var(--accent)) 8%,transparent)}}
+.sc-stats{display:flex;gap:6px;flex-wrap:wrap}
+.sc-stat{display:grid;min-width:58px;padding:3px 8px;border-radius:9px;background:color-mix(in srgb,var(--card) 70%,transparent);border:1px solid var(--line)}
+.sc-stat b{font-size:13px;font-variant-numeric:tabular-nums}
+.sc-stat small{font-size:10px;color:var(--muted)}
+.sc-stat.flag{border-color:color-mix(in srgb,var(--warn) 60%,var(--line));background:color-mix(in srgb,var(--warn) 12%,var(--card))}
+.sc-stat.flag b{color:var(--warn)}
+.sc-nav,.sc-close{flex:none;width:32px;height:32px;min-height:32px;padding:0;display:grid;place-items:center;border-radius:10px}
+.sc-nav svg{width:16px;height:16px}
+.sc-close{width:26px;height:26px;min-height:26px;font-size:12px;color:var(--muted);background:transparent;border-color:transparent;align-self:flex-start}
+@media(max-width:650px){
+  /* 手机：卡片贴左、给右下角悬浮按钮留出位置；四项数据排成一行 */
+  .spawn-card{left:10px;right:68px;bottom:46px;max-width:none;padding:6px;gap:4px;transform:translateY(14px) scale(.94)}
+  .spawn-card.show{transform:none}
+  .sc-main{flex:1}
+  .sc-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px}
+  .sc-stat{min-width:0;padding:2px 4px;text-align:center}.sc-stat b{font-size:12px}.sc-stat small{font-size:9.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .sc-head small{display:none}
+  .sc-nav{width:28px;height:28px;min-height:28px}
+  .map-panel.touring .minimap-wrap{opacity:0;pointer-events:none;transition:opacity .2s}
+}
+/* 卡片放在画布底部中央（顶部是提示条的位置，放在顶部会被提示遮住）；从下方滑入 */
+
+/* ③ 体检「玩家对比」 */
+.doc-players{margin:10px 0;border:1px solid var(--line);border-radius:12px;background:color-mix(in srgb,var(--card-2) 80%,transparent);overflow:hidden}
+.doc-players>summary{cursor:pointer;display:flex;flex-wrap:wrap;align-items:baseline;gap:8px;padding:9px 12px;list-style:none}
+.doc-players>summary::-webkit-details-marker{display:none}
+.doc-players>summary::before{content:"▸";color:var(--muted);transition:transform .2s var(--ease-out)}
+.doc-players[open]>summary::before{transform:rotate(90deg)}
+.doc-players>summary small{color:var(--muted);font-size:11px}
+.doc-players>summary em{color:var(--warn);font-style:normal;font-weight:700}
+.pt{max-height:300px;overflow:auto;padding:0 8px 8px}
+.ph,.pr{display:grid;grid-template-columns:44px repeat(4,minmax(0,1fr));gap:6px;align-items:center}
+.ph{position:sticky;top:0;z-index:1;padding:4px 4px;font-size:10.5px;color:var(--muted);background:var(--card-2)}
+.pr{width:100%;min-height:30px;padding:3px 4px;border-radius:8px;border:1px solid transparent;background:transparent;text-align:left;font:inherit;color:inherit;
+  animation:rise .38s var(--d,0ms) var(--ease-out) both}
+@media (hover:hover){.pr:hover{background:var(--btn-hover);border-color:var(--line)}}
+.pn{display:flex;align-items:center;gap:4px}
+.pn b{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:10.5px;color:#0b1220;background:var(--tc,#ffd45c)}
+.pr.team-A .pn b{background:#7fb0ff}.pr.team-B .pn b{background:#ff9a9a}
+.pn small{font-size:9.5px;color:var(--muted)}
+.pc{position:relative;height:20px;border-radius:6px;background:color-mix(in srgb,var(--line) 60%,transparent);overflow:hidden}
+.pc i{position:absolute;inset:0 auto 0 0;width:var(--w);border-radius:6px;background:linear-gradient(90deg,color-mix(in srgb,var(--accent) 55%,transparent),color-mix(in srgb,var(--accent-2) 55%,transparent));
+  transform-origin:left;animation:pcGrow .6s calc(var(--d,0ms) + 120ms) var(--ease-out) both}
+.pc.flag i{background:linear-gradient(90deg,color-mix(in srgb,var(--warn) 70%,transparent),color-mix(in srgb,var(--danger) 55%,transparent))}
+.pc em{position:relative;display:block;padding:0 6px;font-style:normal;font-size:10.5px;line-height:20px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.pc.flag em{font-weight:800}
+@keyframes pcGrow{from{transform:scaleX(0)}to{transform:none}}
+.doc-rush-bars i[style*="--tc"]{background:var(--tc)}
+
+/* ④ 自由混战（FFA）：每人一色；队伍下拉框与「槽位顺序」不适用 */
+body.ffa .spawn-team{display:none}
+body.ffa .spawn-badge{border-color:var(--tc,var(--line-2));box-shadow:0 0 0 2px color-mix(in srgb,var(--tc,transparent) 45%,transparent)}
+label.dim{opacity:.5}
+/* FFA 下领地图层是每人一色：隐藏 A / B 图例，显示「各玩家领地」 */
+.legend-ffa{display:none}
+body.ffa .map-panel.terr-on .legend-ffa{display:inline-flex;animation:rise .3s ease both}
+body.ffa .map-panel.terr-on .legend-terr.legend-ab{display:none}
+.legend-dot.tf{background:conic-gradient(#ff6b6b,#ffd45c,#55e6a5,#4b8aff,#b88cff,#ff6b6b);border-radius:3px}
+label.dim select{pointer-events:none}
+
+/* ⑤ 按钮涟漪（独立裁剪层，不改变按钮自身的 overflow） */
+.ripple-box{position:absolute;inset:0;border-radius:inherit;overflow:hidden;pointer-events:none;z-index:0}
+.ripple-box i{position:absolute;border-radius:50%;background:currentColor;opacity:.22;transform:scale(0);animation:ripple .6s var(--ease-out) forwards}
+@keyframes ripple{to{transform:scale(1);opacity:0}}
+
+@media (prefers-reduced-motion: reduce){
+  .layer-row .chip.toggled,.spawn-card.swap .sc-main,.sc-dot,.pr,.pc i,.map-panel.sym-on .legend-sym{animation:none!important}
+  .spawn-card,.doc-players>summary::before{transition:none}
+  .ripple-box{display:none}
+}
+
+/* =====================================================================
+ * 3.20.0：公平度一键微调 / 落点热力 / 对称修复
+ * ===================================================================== */
+.chip-spots.active{background:linear-gradient(100deg,#2f7cf0,#55e6a5 55%,#ffb347);border-color:color-mix(in srgb,#fff 35%,transparent);color:#0b1220}
+.legend-spots{display:none}
+.map-panel.spots-on .legend-spots{display:inline-flex;animation:rise .3s ease both}
+.legend-dot.sp{width:26px;border-radius:3px;background:linear-gradient(90deg,#2f6eff,#55e6a5,#ffb347)}
+.tune-btn{display:inline-flex;align-items:center;gap:6px}
+.tune-btn svg{width:15px;height:15px;transition:transform .35s var(--ease-spring)}
+@media (hover:hover){.tune-btn:hover svg{transform:rotate(90deg)}}
+.tune-btn:active svg{transform:rotate(180deg) scale(.9)}
+/* 公平度仪表在分数变化时弹一下 */
+.gauge.gauge-pop{animation:gaugePop .6s var(--ease-spring)}
+@keyframes gaugePop{0%{transform:scale(1)}30%{transform:scale(1.18) rotate(-6deg)}60%{transform:scale(.96)}100%{transform:none}}
+@media (prefers-reduced-motion: reduce){.gauge.gauge-pop,.map-panel.spots-on .legend-spots{animation:none!important}.tune-btn svg{transition:none}}

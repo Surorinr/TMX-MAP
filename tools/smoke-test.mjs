@@ -61,7 +61,16 @@ try {
     htmlRes.text(), appRes.text(), cssRes.text(), workerRes.text(), shapeWorkerRes.text()
   ]);
   check('首页通过本地 HTTP 正常提供', htmlRes.status === 200 && html.includes('<html'));
-  check('前端版本为 v3.18.0', app.includes("const APP_VERSION = '3.18.0'"));
+  check('前端版本为 v3.20.0', app.includes("const APP_VERSION = '3.20.0'") && app.includes('const PROJECT_FORMAT = 3200'));
+  // 3.20.0：第十八轮审查修复 + 新功能
+  check('3.20.0 修复锚点存在（未完成地图不写回出生点 / 导出补完或载入 / 载荷不混存 / 槽位可扩展判断 / FFA 全新布局从正上方编号）', ['function mapUnfinished', 'if (mapUnfinished()) return;', 'function finishRemainingSteps', "delete p.spawnPositions", 'function ccExtendableCap', '{ fresh: true }'].every(k => app.includes(k)));
+  check('3.20.0 新功能锚点与控件存在（公平度微调 / 落点热力 / 对称修复）', ['function tuneFairness', 'function optimizeSpawnLayout', 'function mirrorGroups', 'function analyzeSpots', 'function repairSpawnSymmetry'].every(k => app.includes(k)) && ['id="spawnTune"', 'id="layerSpots"'].every(k => html.includes(k)) && ['.chip-spots', '.tune-btn', '.gauge-pop'].every(k => css.includes(k)));
+  // 3.19.0：第十七轮审查修复 + 100 人 / 新预设 / FFA + 新功能
+  check('3.19.0 修复锚点存在（半成品地图回滚 / 配方码以地图生成参数为准 / 引擎槽位上限）', ['function restoreAfterAbort', 'function recipeFrom', 'S.mapRecipe = recipeFrom(p, S.mapShape)', 'const ENGINE_MAX_CC = 50', 'function extendCcTileset'].every(k => app.includes(k)));
+  check('3.19.0 出生点上限 100、预设去掉 25V25、新增 30V30 / 40V40 / 50V50 / FFA', app.includes('const MAX_SPAWN_POINTS = 100') && /id="players"[^>]*max="100"/.test(html) && !html.includes('value="25v25"') && ['30v30', '40v40', '50v50', 'ffa'].every(v => html.includes(`value="${v}"`)) && app.includes("'50v50': 100"));
+  check('3.19.0 FFA 逻辑锚点存在（顺时针槽位 / FFA 公平度 / FFA 接敌 / 每人一色）', ['function orderClockwise', 'function ffaFairness', 'function rushAnalysisFFA', 'function teamColor', 'function onTeamModeChange'].every(k => app.includes(k)));
+  check('3.19.0 新功能锚点与控件存在（对称检查 / 出生点巡视 / 玩家对比 / 涟漪）', ['function analyzeSymmetry', 'function tourSpawn', 'function playersHtml', 'function bindRipples', 'function flyViewTo'].every(k => app.includes(k)) && ['id="layerSymmetry"', 'id="tourBtn"', 'id="spawnCard"'].every(k => html.includes(k)) && ['.spawn-card', '.chip-sym', '.doc-players', '.ripple-box', 'body.ffa'].every(k => css.includes(k)));
+  check('3.19.0 配方码预设表只在末尾追加（旧码可解）', app.includes("const RECIPE_PRESETS = ['1v1', '2v2', '3v3', '4v4', '5v5', '10v10', '20v20', '25v25', 'free', '30v30', '40v40', '50v50', 'ffa']"));
   check('3.18.0 修复锚点存在（图层 aria 同步 / 队伍号枚举上限钳制）', app.includes('function syncLayerAria') && app.includes('Math.min(MAX_SPAWN_POINTS - 1'));
   check('3.18.0 无障碍状态存在（图层 role="switch" / 标签页 aria-selected）', html.includes('role="switch"') && html.includes('aria-selected="true"'));
   check('3.17.0 新功能锚点存在（配方码 / 体检徽章 / 放大镜 / 专注模式 / 视图截图 / 生成取消还原）', ['function encodeRecipe', 'function decodeRecipe', 'function runHealthBadge', 'function drawLoupe', 'function setFocusMode', 'function saveViewShot', 'function restoreEditorState', 'function themeGridMove'].every(k => app.includes(k)));

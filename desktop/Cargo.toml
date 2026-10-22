@@ -1,6 +1,6 @@
 [package]
 name = "tmx-mapforge-desktop"
-version = "3.18.0"
+version = "3.20.0"
 description = "铁锈战争地图生成器 · PC 版（Rust + Tauri 2，复用 Android 版前端与 Rust/WASM 生成引擎）"
 authors = ["TMX MapForge"]
 edition = "2021"
