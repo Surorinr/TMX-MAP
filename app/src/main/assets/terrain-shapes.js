@@ -277,8 +277,14 @@
 
   /* ================================================================ 原版辅助函数 */
   const clamp01 = v => Math.max(0, Math.min(1, v));
-  /* 注意：原版在 e1 < e0 时分母取 1e-4，相当于在 e0 处的阶跃 —— 为保证一致性原样保留 */
-  function smooth(e0, e1, x) { const r = clamp01((x - e0) / Math.max(1e-4, e1 - e0)); return r * r * (3 - 2 * r); }
+  /* 注意：e1 < e0 时按降序平滑处理（原实现误用 max(1e-4, e1-e0) 变成了硬边阶跃，
+     导致山湖「碗形」与火山口被反向应用、高度场出现大片 0 值） */
+  /** 平滑阶跃：e0 < e1 时从 0 升到 1，e0 > e1 时从 1 降到 0 */
+  function smooth(e0, e1, x) {
+    const span = e1 - e0, r = clamp01((x - e0) / Math.max(1e-4, Math.abs(span)));
+    const s = r * r * (3 - 2 * r);
+    return span < 0 ? 1 - s : s;
+  }
   const angDist = (a, b) => Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b)));
   /** 两岸狭路：第 row 行中央河道的中心列 */
   function channelCenter(n, row, w, h) {
@@ -410,7 +416,34 @@
     return H;
   }
 
-  function classify(ctx, H, w, h, shape, rough, st = 1, gw = w, gh = h, need = null, prog = null) {
+  /** 海平面阈值：取 H 的分位数，使「低于 sea」的格子占比 ≈ 水面比例（不含河流 / 湖泊等结构性水域）。
+   *  这样陆地比例滑杆控制的是最终水量，而不是像原来那样只给高度场加一个固定偏移。 */
+  function seaThreshold(H, gw, gh, need, waterFrac) {
+    const BINS = 512, hist = new Uint32Array(BINS + 1);
+    let total = 0;
+    for (let gy = 0; gy < gh; gy++) for (let gx = 0; gx < gw; gx++) {
+      if (need && !need(gx, gy)) continue;
+      hist[Math.min(BINS, (clamp01(H[gy * gw + gx]) * BINS) | 0)]++; total++;
+    }
+    if (!total) return 0.3;
+    const want = clamp01(waterFrac) * total;
+    let acc = 0, bin = 0;
+    while (bin < BINS && acc + hist[bin] < want) acc += hist[bin++];
+    return clamp01((bin + 0.5) / BINS);
+  }
+
+  /** 陆地占比（水与岩浆都算非陆地，与 build() 的 stats.landRatio 口径一致） */
+  function landFraction(cats, gw, gh, need) {
+    let land = 0, total = 0;
+    for (let gy = 0; gy < gh; gy++) for (let gx = 0; gx < gw; gx++) {
+      if (need && !need(gx, gy)) continue;
+      const t = cats[gy * gw + gx];
+      total++; if (!isWaterT(t) && t !== T.LAVA) land++;
+    }
+    return total ? land / total : 0.5;
+  }
+
+  function classify(ctx, H, w, h, shape, rough, st = 1, gw = w, gh = h, need = null, prog = null, sea = 0.3) {
     const { noise, nat } = ctx;
     const out = new Uint8Array(gw * gh);
     const thr = 0.72 + rough * 0.15 + (shape === 'continent' ? 0.03 : 0);
@@ -429,6 +462,8 @@
         const g = noise.ridgedFbm(s * 0.022 - 40, i * 0.022 + 29, 4);
         const up = gy > 0 ? H[k - gw] : c, dn = gy < gh - 1 ? H[k + gw] : c, lf = gx > 0 ? H[k - 1] : c, rt = gx < gw - 1 ? H[k + 1] : c;
         const slope = Math.max(Math.abs(c - up), Math.abs(c - dn), Math.abs(c - lf), Math.abs(c - rt));
+        // 统一海平面：所有模板先按校准后的海平面判定水域，再由各模板补结构性水域（河流 / 湖泊 / 两岸河道）
+        if (c < sea) { out[k] = T.WATER; continue; }
         if (shape === 'volcano') {
           const a = Math.atan2(f, d);
           const t = p + (nat.sampleWarped(Math.cos(a) * 1.9 + 310, Math.sin(a) * 1.9 - 470) - 0.5) * 0.24;
@@ -462,8 +497,7 @@
         }
         if (shape === 'two_sides' && Math.abs(s - cc) <= cw) { out[k] = crossing ? T.SAND : T.WATER; continue; }
         if (shape === 'continent') {
-          if (c < 0.3) out[k] = T.WATER;
-          else if (c < 0.37) out[k] = T.SAND;
+          if (c < 0.37) out[k] = T.SAND;
           else if (c > thr || (g > 0.78 && slope > 0.1)) out[k] = T.MOUNTAIN;
           else if (slope > 0.16 && g > 0.58) out[k] = T.STONE;
           else if (m < 0.3 && hh < 0.3 && slope < 0.08) out[k] = T.DIRT;
@@ -473,8 +507,7 @@
         if (shape === 'desert') {
           const e = noise.warpedFbm(s * 0.026 + 1500, i * 0.026 - 1300, 4, 0.9);
           const t = noise.ridgedFbm(s * 0.035 + 50, i * 0.018 + 50, 4);
-          if (c < 0.29) out[k] = T.WATER;
-          else if (c < 0.36) out[k] = T.SAND;
+          if (c < 0.36) out[k] = T.SAND;
           else if (e > 0.77 && c < 0.52) out[k] = e > 0.84 ? T.LONG_GRASS : T.SAND;
           else if (c > thr || (t > 0.78 && slope > 0.1)) out[k] = T.MOUNTAIN;
           else if (slope > 0.16 || hh < 0.25) out[k] = T.STONE;
@@ -483,14 +516,13 @@
         }
         if (shape === 'snowland') {
           const e = noise.warpedFbm(s * 0.018 + 870, i * 0.018 - 510, 5, 0.95);
-          if (c < 0.27) out[k] = T.WATER;
-          else if (c < 0.4 || (e > 0.68 && g < 0.72)) out[k] = T.ICE;
+          if (c < 0.4 || (e > 0.68 && g < 0.72)) out[k] = T.ICE;
           else if (c > thr) out[k] = T.MOUNTAIN;
           else if (slope > 0.18 || (g > 0.74 && hh < 0.58)) out[k] = T.STONE;
           else out[k] = T.SNOW;
           continue;
         }
-        out[k] = c < 0.3 ? T.WATER : c < 0.38 ? T.SAND
+        out[k] = c < 0.38 ? T.SAND
           : c < 0.58 ? (m < 0.42 || slope > 0.22 ? T.DIRT : (m > 0.52 && hh > 0.25 ? T.SHORT_GRASS : T.LONG_GRASS))
           : c < thr ? (m < 0.4 || slope > 0.25 ? T.DIRT : (m > 0.54 ? T.SHORT_GRASS : T.LONG_GRASS))
           : T.MOUNTAIN;
@@ -550,8 +582,17 @@
     const st = Math.max(1, Math.floor(o.stride || 1)), gw = Math.ceil(w / st), gh = Math.ceil(h / st);
     const need = o._need || null, prog = o._progress || null;
     const H = heightMap(ctx, w, h, shape, land, st, gw, gh, need, prog && (f => prog('terrain', f * 0.5)));
-    let cats = classify(ctx, H, w, h, shape, rough, st, gw, gh, need, prog && (f => prog('terrain', 0.5 + f * 0.5)));
-    cats = shallowShore(cleanupArtifacts(cats, gw, gh), gw, gh);
+    const targetLand = clamp01(o.land ?? 0.5);
+    let sea = seaThreshold(H, gw, gh, need, 1 - targetLand);
+    const pass = (cb) => shallowShore(cleanupArtifacts(classify(ctx, H, w, h, shape, rough, st, gw, gh, need, cb, sea), gw, gh), gw, gh);
+    let cats = pass(prog && (f => prog('terrain', 0.5 + f * 0.5)));
+    // 校正一次：结构性水域、岩浆与碎岛清理会让实际陆地占比偏离目标，按偏差反推海平面再算一遍
+    // （碎块清理在分类之后进行，所以必须用清理后的占比作为偏差依据；偏差 ≤2.5% 时不再重算）
+    const actualLand = landFraction(cats, gw, gh, need);
+    if (Math.abs(actualLand - targetLand) > 0.025) {
+      sea = seaThreshold(H, gw, gh, need, clamp01(1 - targetLand + (actualLand - targetLand)));
+      cats = pass(null);
+    }
     if (shape === 'two_sides') twoSidesCrossings(new PermNoise(seed), cats, w, h, st, gw, gh);
     return cats;
   }
@@ -651,7 +692,7 @@
    *   data：交给引擎 set_coastline_from_image（0 水 / 1 平地 / 2 高地 / -2 高地坡道）
    *   view：预览用类别（T 的取值 + FORD 浅滩 + RAMP 坡道）
    */
-  function build(o) {
+  function buildOnce(o) {
     const st = Math.max(1, Math.floor(o.stride || 1));
     const w = Math.ceil((o.width | 0) / st), h = Math.ceil((o.height | 0) / st), n = w * h;
     const meta = SHAPE_MAP.get(o.shape) || SHAPES[0];
@@ -882,6 +923,19 @@
     stats.mountainRatio = +(mountN / n).toFixed(3);
     stats.landmasses = Lf.sizes.filter((s, i) => i && s >= minIsland).length;
     return { width: w, height: h, data, view, stats };
+  }
+
+  /**
+   * 对外生成入口：后处理（碎岛清理 / 连通浅滩 / 高地整形）会改变陆地占比，
+   * 因此在偏离目标超过 3% 时，把偏差按 0.55 的阻尼系数反馈给目标再生成一次
+   * （碎岛清理造成的损失随目标升高而减小，全量反馈会过冲；确定性流程，同种子结果稳定）。
+   */
+  function build(o) {
+    const targetLand = clamp01(o.land ?? 0.5);
+    let r = buildOnce(o);
+    const dev = targetLand - r.stats.landRatio;
+    if (Math.abs(dev) > 0.03) r = buildOnce({ ...o, land: clamp01(targetLand + dev * 0.55), _progress: null });
+    return r;
   }
 
   /** 预览：大地图按步长在原坐标上采样（噪声频率与地图坐标绑定，直接缩小尺寸生成会得到完全不同的形状） */
