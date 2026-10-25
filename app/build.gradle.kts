@@ -40,8 +40,9 @@ android {
         // 3.19.0-offline (29) → 3.20.0-offline (30)：第十八轮全局审查（分步重跑步骤后导出 / 自动保存抹掉上一张地图出生点、项目载荷错配、51 号之后槽位误报、FFA 编号起点、FFA 对位连线）+ 公平度一键微调 / 落点热力 / 对称修复
         // 3.20.0-offline (30) → 3.21.0-offline (31)：近家陆地占比偏好读取范围放宽到 10～90
         // 3.21.0-offline (31) → 3.22.0-offline (32)：陆地占比真正作用于所有模板（海平面按目标分位数校准 / 修正降序 smooth / 后处理偏差反馈）
-        versionCode = 32
-        versionName = "3.22.0-offline"
+        // 3.22.0-offline (32) → 3.22.1-offline (33)：陆地占比改为在模板原生形态上缩放（高度场单调平移对齐原生海平面 / 山湖缩放湖面半径 / 火山岩浆分位）
+        versionCode = 33
+        versionName = "3.22.1-offline"
     }
     signingConfigs {
         create("release") {

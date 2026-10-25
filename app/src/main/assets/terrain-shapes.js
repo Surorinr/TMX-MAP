@@ -416,8 +416,12 @@
     return H;
   }
 
-  /** 海平面阈值：取 H 的分位数，使「低于 sea」的格子占比 ≈ 水面比例（不含河流 / 湖泊等结构性水域）。
-   *  这样陆地比例滑杆控制的是最终水量，而不是像原来那样只给高度场加一个固定偏移。 */
+  /** 各模板「原生海平面」——即 classify 里写死的水域判定阈值。
+   *  陆地比例只平移高度场，让这个原生阈值恰好切出目标水面比例，模板的等值线形态保持不变。 */
+  const NATIVE_SEA = { mountain_lake: 0.42, continent: 0.3, desert: 0.29, snowland: 0.27 };
+  const nativeSea = shape => NATIVE_SEA[shape] ?? 0.3;
+
+  /** 高度分位数：使「低于该值」的格子占比 ≈ waterFrac（不含河流 / 湖泊等结构性水域） */
   function seaThreshold(H, gw, gh, need, waterFrac) {
     const BINS = 512, hist = new Uint32Array(BINS + 1);
     let total = 0;
@@ -432,6 +436,34 @@
     return clamp01((bin + 0.5) / BINS);
   }
 
+  /** 火山岩浆阈值：按 t 场分位数求，使岩浆面积随陆地比例变化。
+   *  t 场的等值线是火山的同心环 / 熔岩流，按分位取阈值只缩放范围，不改变火山形态。 */
+  function lavaThreshold(ctx, w, h, st, gw, gh, need, lavaFrac) {
+    const { nat } = ctx;
+    const BINS = 256, SPAN = 1.6, hist = new Uint32Array(BINS + 1);
+    let total = 0;
+    for (let gy = 0; gy < gh; gy++) {
+      const i = gy * st;
+      for (let gx = 0; gx < gw; gx++) {
+        if (need && !need(gx, gy)) continue;
+        const s = gx * st;
+        const d = (s / w) * 2 - 1, f = (i / h) * 2 - 1, p = Math.sqrt(d * d + f * f);
+        const a = Math.atan2(f, d);
+        const t = p + (nat.sampleWarped(Math.cos(a) * 1.9 + 310, Math.sin(a) * 1.9 - 470) - 0.5) * 0.24;
+        hist[Math.min(BINS, Math.max(0, (t * BINS / SPAN) | 0))]++; total++;
+      }
+    }
+    if (!total) return 0.18;
+    const want = clamp01(lavaFrac) * total;
+    let acc = 0, bin = 0;
+    while (bin < BINS && acc + hist[bin] < want) acc += hist[bin++];
+    return (bin + 0.5) * SPAN / BINS;
+  }
+
+  /** 山湖模板的湖面半径：椭圆湖面积占比 ≈ πR²/4，反解出目标水面比例对应的半径。
+   *  只缩放同心湖面，环形山脉与缺口结构不动，因此模板形态保持不变。 */
+  const lakeRadius = waterFrac => Math.min(2.2, Math.max(0.05, Math.sqrt(4 * clamp01(waterFrac) / Math.PI)));
+
   /** 陆地占比（水与岩浆都算非陆地，与 build() 的 stats.landRatio 口径一致） */
   function landFraction(cats, gw, gh, need) {
     let land = 0, total = 0;
@@ -443,7 +475,7 @@
     return total ? land / total : 0.5;
   }
 
-  function classify(ctx, H, w, h, shape, rough, st = 1, gw = w, gh = h, need = null, prog = null, sea = 0.3) {
+  function classify(ctx, H, w, h, shape, rough, st = 1, gw = w, gh = h, need = null, prog = null, lavaT = 0.18, lakeR = 0.24) {
     const { noise, nat } = ctx;
     const out = new Uint8Array(gw * gh);
     const thr = 0.72 + rough * 0.15 + (shape === 'continent' ? 0.03 : 0);
@@ -462,14 +494,13 @@
         const g = noise.ridgedFbm(s * 0.022 - 40, i * 0.022 + 29, 4);
         const up = gy > 0 ? H[k - gw] : c, dn = gy < gh - 1 ? H[k + gw] : c, lf = gx > 0 ? H[k - 1] : c, rt = gx < gw - 1 ? H[k + 1] : c;
         const slope = Math.max(Math.abs(c - up), Math.abs(c - dn), Math.abs(c - lf), Math.abs(c - rt));
-        // 统一海平面：所有模板先按校准后的海平面判定水域，再由各模板补结构性水域（河流 / 湖泊 / 两岸河道）
-        if (c < sea) { out[k] = T.WATER; continue; }
+        // 水域判定沿用各模板的原生海平面阈值（高度场已按目标比例平移，阈值本身不动）
         if (shape === 'volcano') {
           const a = Math.atan2(f, d);
           const t = p + (nat.sampleWarped(Math.cos(a) * 1.9 + 310, Math.sin(a) * 1.9 - 470) - 0.5) * 0.24;
           const n = nat.ridged(s * 0.022 - 40, i * 0.022 + 29);
           const flowA = Math.abs(d + f * 0.28 - 0.02) < 0.055 && f > -0.08, flowB = Math.abs(d - f * 0.46 + 0.08) < 0.045 && f < 0.55;
-          if (t < 0.18 || ((flowA || flowB) && p < 0.82)) out[k] = T.LAVA;
+          if (t < lavaT || ((flowA || flowB) && p < 0.82)) out[k] = T.LAVA;
           else if (t < 0.29) out[k] = T.STONE;
           else if (t < 0.48 && (c > 0.47 || n > 0.62)) out[k] = T.MOUNTAIN;
           else if (t < 0.62 && (slope > 0.1 || n > 0.58)) out[k] = T.STONE;
@@ -484,20 +515,22 @@
         if (shape === 'mountain_lake') {
           const ex = d + 0.11, ey = f - 0.06;
           const n = Math.sqrt((ex * 1.18) ** 2 + (ey * 0.86) ** 2) + (nat.sampleWarped(s * 0.018 + 500, i * 0.018 + 500) - 0.5) * 0.12;
-          if (n < 0.24 && c < 0.42) { out[k] = T.WATER; continue; }
+          // 湖泊半径由陆地比例决定：只缩放同心椭圆湖面，山脉环绕的结构保持原样
+          if (n < lakeR && c < 0.42) { out[k] = T.WATER; continue; }
           const a = Math.atan2(ey, ex);
           const gap = Math.max(1 - smooth(0.05, 0.34, angDist(a, -0.45)), 1 - smooth(0.04, 0.3, angDist(a, 2.55)));
           const ring = Math.max(0, 1 - Math.abs(n - 0.42) * 4.2) * (0.82 + nat.cellular(s * 0.014 + 80, i * 0.014 - 60) * 0.18) * (1 - gap * 0.8);
           if (ring > 0.58) out[k] = T.MOUNTAIN;
           else if (ring > 0.3 && g > 0.46) out[k] = T.STONE;
-          else if (n < 0.31 && c < 0.5) out[k] = T.SHALLOW;
+          else if (n < lakeR * 1.29 && c < 0.5) out[k] = T.SHALLOW;
           else if (n < 0.58 && (slope > 0.11 || g > 0.63)) out[k] = T.STONE;
           else out[k] = m > 0.54 ? T.SHORT_GRASS : T.LONG_GRASS;
           continue;
         }
         if (shape === 'two_sides' && Math.abs(s - cc) <= cw) { out[k] = crossing ? T.SAND : T.WATER; continue; }
         if (shape === 'continent') {
-          if (c < 0.37) out[k] = T.SAND;
+          if (c < 0.3) out[k] = T.WATER;
+          else if (c < 0.37) out[k] = T.SAND;
           else if (c > thr || (g > 0.78 && slope > 0.1)) out[k] = T.MOUNTAIN;
           else if (slope > 0.16 && g > 0.58) out[k] = T.STONE;
           else if (m < 0.3 && hh < 0.3 && slope < 0.08) out[k] = T.DIRT;
@@ -507,7 +540,8 @@
         if (shape === 'desert') {
           const e = noise.warpedFbm(s * 0.026 + 1500, i * 0.026 - 1300, 4, 0.9);
           const t = noise.ridgedFbm(s * 0.035 + 50, i * 0.018 + 50, 4);
-          if (c < 0.36) out[k] = T.SAND;
+          if (c < 0.29) out[k] = T.WATER;
+          else if (c < 0.36) out[k] = T.SAND;
           else if (e > 0.77 && c < 0.52) out[k] = e > 0.84 ? T.LONG_GRASS : T.SAND;
           else if (c > thr || (t > 0.78 && slope > 0.1)) out[k] = T.MOUNTAIN;
           else if (slope > 0.16 || hh < 0.25) out[k] = T.STONE;
@@ -516,13 +550,15 @@
         }
         if (shape === 'snowland') {
           const e = noise.warpedFbm(s * 0.018 + 870, i * 0.018 - 510, 5, 0.95);
-          if (c < 0.4 || (e > 0.68 && g < 0.72)) out[k] = T.ICE;
+          if (c < 0.27) out[k] = T.WATER;
+          else if (c < 0.4 || (e > 0.68 && g < 0.72)) out[k] = T.ICE;
           else if (c > thr) out[k] = T.MOUNTAIN;
           else if (slope > 0.18 || (g > 0.74 && hh < 0.58)) out[k] = T.STONE;
           else out[k] = T.SNOW;
           continue;
         }
-        out[k] = c < 0.38 ? T.SAND
+        out[k] = c < 0.3 ? T.WATER
+          : c < 0.38 ? T.SAND
           : c < 0.58 ? (m < 0.42 || slope > 0.22 ? T.DIRT : (m > 0.52 && hh > 0.25 ? T.SHORT_GRASS : T.LONG_GRASS))
           : c < thr ? (m < 0.4 || slope > 0.25 ? T.DIRT : (m > 0.54 ? T.SHORT_GRASS : T.LONG_GRASS))
           : T.MOUNTAIN;
@@ -577,20 +613,45 @@
   function generateCategories(o) {
     const w = o.width | 0, h = o.height | 0, shape = SHAPE_MAP.has(o.shape) ? o.shape : 'island';
     const seed = normSeed(o.seed ?? 42);
-    const land = clamp01(o.land ?? 0.5), rough = clamp01(o.rough ?? 0.3);
+    const rough = clamp01(o.rough ?? 0.3);
+    const targetLand = clamp01(o.land ?? 0.5);
     const ctx = { noise: new PermNoise(seed), nat: new NaturalNoise(seed + 7919, { warpAmplitude: 0.9 }) };
     const st = Math.max(1, Math.floor(o.stride || 1)), gw = Math.ceil(w / st), gh = Math.ceil(h / st);
     const need = o._need || null, prog = o._progress || null;
-    const H = heightMap(ctx, w, h, shape, land, st, gw, gh, need, prog && (f => prog('terrain', f * 0.5)));
-    const targetLand = clamp01(o.land ?? 0.5);
-    let sea = seaThreshold(H, gw, gh, need, 1 - targetLand);
-    const pass = (cb) => shallowShore(cleanupArtifacts(classify(ctx, H, w, h, shape, rough, st, gw, gh, need, cb, sea), gw, gh), gw, gh);
+    // 高度场始终按模板标准形态生成（land 固定 0.5 ⇒ 偏移 f = 0），
+    // 陆地比例只在后面对整场做一次平移，让模板原生海平面恰好切出目标水面比例。
+    // 平移是单调变换，所有等值线 / 海岸轮廓 / 山脊走向都保持模板原样。
+    const H0 = heightMap(ctx, w, h, shape, 0.5, st, gw, gh, need, prog && (f => prog('terrain', f * 0.5)));
+    const sea = nativeSea(shape);
+    const volcano = shape === 'volcano', lake = shape === 'mountain_lake';
+    let water = 1 - targetLand;
+    let shift = 0;
+    if (!volcano && !lake) shift = sea - seaThreshold(H0, gw, gh, need, water);
+    let lavaT = 0.18;
+    if (volcano) lavaT = lavaThreshold(ctx, w, h, st, gw, gh, need, water);
+    let lakeR = 0.24;
+    if (lake) lakeR = lakeRadius(water);
+    const pass = (cb) => {
+      const H = new Float64Array(H0.length);
+      for (let k = 0; k < H0.length; k++) H[k] = clamp01(H0[k] + shift);
+      return shallowShore(cleanupArtifacts(classify(ctx, H, w, h, shape, rough, st, gw, gh, need, cb, lavaT, lakeR), gw, gh), gw, gh);
+    };
     let cats = pass(prog && (f => prog('terrain', 0.5 + f * 0.5)));
-    // 校正一次：结构性水域、岩浆与碎岛清理会让实际陆地占比偏离目标，按偏差反推海平面再算一遍
-    // （碎块清理在分类之后进行，所以必须用清理后的占比作为偏差依据；偏差 ≤2.5% 时不再重算）
-    const actualLand = landFraction(cats, gw, gh, need);
-    if (Math.abs(actualLand - targetLand) > 0.025) {
-      sea = seaThreshold(H, gw, gh, need, clamp01(1 - targetLand + (actualLand - targetLand)));
+    let actualLand = landFraction(cats, gw, gh, need);
+    if (lake) {
+      // 山湖：湖面被环形山脉截断，面积与半径不严格成正比，用二分域值稳定逼近目标陆地占比
+      let lo = 0.02, hi = 2.2;
+      for (let it = 0; it < 5 && Math.abs(actualLand - targetLand) > 0.015; it++) {
+        if (actualLand > targetLand) lo = lakeR; else hi = lakeR;
+        lakeR = (lo + hi) / 2;
+        cats = pass(null); actualLand = landFraction(cats, gw, gh, need);
+      }
+    } else if (Math.abs(actualLand - targetLand) > 0.025) {
+      // 校正一次：结构性水域（河流 / 两岸河道）、岩浆与碎岛清理会让实际占比偏离目标，
+      // 按偏差反推水位再算一遍
+      water = clamp01(1 - targetLand + (actualLand - targetLand));
+      if (volcano) lavaT = lavaThreshold(ctx, w, h, st, gw, gh, need, water);
+      else shift = sea - seaThreshold(H0, gw, gh, need, water);
       cats = pass(null);
     }
     if (shape === 'two_sides') twoSidesCrossings(new PermNoise(seed), cats, w, h, st, gw, gh);
@@ -934,7 +995,7 @@
     const targetLand = clamp01(o.land ?? 0.5);
     let r = buildOnce(o);
     const dev = targetLand - r.stats.landRatio;
-    if (Math.abs(dev) > 0.03) r = buildOnce({ ...o, land: clamp01(targetLand + dev * 0.55), _progress: null });
+    if (Math.abs(dev) > 0.025) r = buildOnce({ ...o, land: clamp01(targetLand + dev * 0.85), _progress: null });
     return r;
   }
 

@@ -62,7 +62,7 @@ try {
     htmlRes.text(), appRes.text(), cssRes.text(), workerRes.text(), shapeWorkerRes.text(), tsRes.text()
   ]);
   check('首页通过本地 HTTP 正常提供', htmlRes.status === 200 && html.includes('<html'));
-  check('前端版本为 v3.22.0', app.includes("const APP_VERSION = '3.22.0'") && app.includes('const PROJECT_FORMAT = 3220'));
+  check('前端版本为 v3.22.1', app.includes("const APP_VERSION = '3.22.1'") && app.includes('const PROJECT_FORMAT = 3221'));
   check('3.21.0 陆地占比全路径为 10～90', [
     "shapeState.land = clamp(+s.land, 10, 90)",
     "shapeState.land = clamp(Number($('shapeLand').value) || 50, 10, 90)",
@@ -72,8 +72,10 @@ try {
     'd.land >= 10 && d.land <= 90',
     '10 + Math.floor(Math.random() * 81)'
   ].every(k => app.includes(k)) && html.includes('id="shapeLand" type="range" min="10" max="90"'));
-  // 3.22.0：陆地占比对所有模板真正生效（海平面分位数校准 / 降序 smooth / 后处理偏差反馈）
-  check('3.22.0 陆地占比生成层修复锚点存在', ['function seaThreshold', 'function landFraction', 'if (c < sea)', 'span < 0 ? 1 - s : s', 'function buildOnce', 'dev * 0.55'].every(k => ts.includes(k)));
+  // 3.22.1：陆地占比在模板原生形态上缩放（高度场单调平移对齐原生海平面 / 山湖湖面半径 / 火山岩浆分位）
+  check('3.22.1 陆地占比保形锚点存在', ['const NATIVE_SEA', 'function seaThreshold', 'function lavaThreshold', 'shift = sea - seaThreshold', 'lakeRadius', 'function landFraction', 'span < 0 ? 1 - s : s', 'function buildOnce', 'targetLand + dev * 0.85'].every(k => ts.includes(k)));
+  // 3.22.0 旧锚点应已移除（不再用统一海平面覆盖各模板原生阈值）
+  check('3.22.1 已移除统一海平面覆盖', !ts.includes('if (c < sea)'));
   // 3.20.0：第十八轮审查修复 + 新功能
   check('3.20.0 修复锚点存在（未完成地图不写回出生点 / 导出补完或载入 / 载荷不混存 / 槽位可扩展判断 / FFA 全新布局从正上方编号）', ['function mapUnfinished', 'if (mapUnfinished()) return;', 'function finishRemainingSteps', "delete p.spawnPositions", 'function ccExtendableCap', '{ fresh: true }'].every(k => app.includes(k)));
   check('3.20.0 新功能锚点与控件存在（公平度微调 / 落点热力 / 对称修复）', ['function tuneFairness', 'function optimizeSpawnLayout', 'function mirrorGroups', 'function analyzeSpots', 'function repairSpawnSymmetry'].every(k => app.includes(k)) && ['id="spawnTune"', 'id="layerSpots"'].every(k => html.includes(k)) && ['.chip-spots', '.tune-btn', '.gauge-pop'].every(k => css.includes(k)));
