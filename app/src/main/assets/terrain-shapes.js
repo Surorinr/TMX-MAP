@@ -1,9 +1,12 @@
 /*
- * 铁锈战争地图生成器 · 地形形态模板（3.8.0 新增，3.24.0 重写模板层）
+ * 铁锈战争地图生成器 · 地形形态模板（3.8.0 新增，3.24.0 重写模板层，3.25.0 按「参照物」重做山湖 / 火山 / 两岸等模板）
  *
  * 11 套形态模板：岛屿 / 半岛 / 群岛 / 双河 / 山湖 / 大陆 / 沙漠 / 雪原 / 火山 / 迷宫 / 两岸狭路。
  * 第一部分（3.24.0 重写）：每个模板定义一组与陆地比例无关的「模板场」（陆地优先级 / 结构水域 / 岩浆 / 山地 / 纹理），
  * 陆地比例只决定在同一族嵌套等值线中取哪一条，按格数精确命中目标比例 —— 调比例只改变陆地多少，不改变模板形态。
+ * 3.25.0：每个模板的陆地比例都有明确的「参照物」（SHAPES[].ref）：陆地少则参照物大，陆地多则参照物小。
+ *   山湖 = 陆地 ↔ 中央湖、火山 = 周围陆地 ↔ 火山（岩浆）、两岸狭路 = 两岸 ↔ 中央水道、双河 = 陆地 ↔ 河道……
+ *   环形山 / 火山锥这类「沿岸骨架」改为跟随水体岸线定位，随中央湖 / 火口一起缩放。
  * 第二部分是「可对战化」后处理：对称镜像、碎块清理、浅滩、高地坡道、凿通被山围死的空地，
  * 最终转换成引擎 set_coastline_from_image 认识的矩阵（0 水 / 1 平地 / 2 高地 / -2 高地坡道）。
  *
@@ -88,19 +91,20 @@
 
   /* ================================================================ 形态模板定义
    * size：推荐尺寸；theme：推荐贴图主题（1 丛林 2 雪山 3 火山 4 沙漠 5 森林）；mirror：推荐对称方式；
-   * levels/ocean/magnet：推荐高度层级 / 海洋层级 / 墙体吸附；bridge：是否自动用浅滩连通被水隔开的大块陆地。 */
+   * levels/ocean/magnet：推荐高度层级 / 海洋层级 / 墙体吸附；bridge：是否自动用浅滩连通被水隔开的大块陆地；
+   * ref（3.25.0）：「陆地比例」的参照物 —— 比例只在「陆地 ↔ ref」之间调节（陆地少则 ref 大，陆地多则 ref 小）。 */
   const SHAPES = [
-    { id: 'island', label: '岛屿', desc: '四面环海，中央一座完整的大岛，岛心为山地', size: [120, 120], theme: 5, mirror: 'both', levels: 6, ocean: 3, magnet: 25, bridge: false },
-    { id: 'peninsula', label: '半岛', desc: '大陆一侧伸出一条狭长半岛，半岛三面环海', size: [160, 120], theme: 1, mirror: 'horizontal', levels: 6, ocean: 3, magnet: 25, bridge: true },
-    { id: 'archipelago', label: '群岛', desc: '大小岛屿散布海中，岛与岛之间隔着海峡，适合海战', size: [180, 180], theme: 1, mirror: 'both', levels: 4, ocean: 3, magnet: 20, bridge: false },
-    { id: 'river', label: '双河', desc: '两条贯通全图的河流将陆地分为三块（不可陆路跨越），陆地越少河面越宽', size: [160, 120], theme: 5, mirror: 'vertical', levels: 6, ocean: 2, magnet: 25, bridge: false },
-    { id: 'mountain_lake', label: '山湖', desc: '中央湖泊被环形山脉环抱，四处山口通往外围平原', size: [120, 120], theme: 5, mirror: 'vertical', levels: 7, ocean: 2, magnet: 35, bridge: true },
-    { id: 'continent', label: '大陆', desc: '一整块大陆，海岸曲折多湾，内陆有山脉与湖泊，边缘少量水域', size: [160, 160], theme: 1, mirror: 'vertical', levels: 7, ocean: 2, magnet: 25, bridge: true },
-    { id: 'desert', label: '沙漠', desc: '大片沙丘与岩石台地，散布少量绿洲湖泊', size: [140, 140], theme: 4, mirror: 'vertical', levels: 5, ocean: 2, magnet: 20, bridge: true },
-    { id: 'snowland', label: '雪原', desc: '冰雪覆盖的大地，峡湾海岸、冰湖与雪山', size: [140, 140], theme: 2, mirror: 'vertical', levels: 7, ocean: 2, magnet: 25, bridge: true },
-    { id: 'volcano', label: '火山', desc: '中央火山锥环抱岩浆火口，熔岩流沿山坡淌下，外围临海', size: [120, 120], theme: 3, mirror: 'vertical', levels: 7, ocean: 2, magnet: 30, bridge: true },
-    { id: 'labyrinth', label: '迷宫', desc: '高地山脊构成迷宫走廊，陆地越少外围走廊被水淹没得越多', size: [160, 160], theme: 5, mirror: 'both', levels: 6, ocean: 1, magnet: 30, bridge: true },
-    { id: 'two_sides', label: '两岸狭路', desc: '中央水道把地图分为对峙两岸，仅几处渡口相通，两岸外侧临海', size: [240, 110], theme: 1, mirror: 'vertical', levels: 6, ocean: 2, magnet: 20, bridge: false }
+    { id: 'island', label: '岛屿', desc: '四面环海，中央一座完整的大岛，岛心为山地', ref: '外海', size: [120, 120], theme: 5, mirror: 'both', levels: 6, ocean: 3, magnet: 25, bridge: false },
+    { id: 'peninsula', label: '半岛', desc: '大陆一侧伸出一条狭长半岛，半岛三面环海', ref: '外海', size: [160, 120], theme: 1, mirror: 'horizontal', levels: 6, ocean: 3, magnet: 25, bridge: true },
+    { id: 'archipelago', label: '群岛', desc: '大小岛屿散布海中，岛与岛之间隔着贯通的海峡，适合海战', ref: '海峡与外海', size: [180, 180], theme: 1, mirror: 'both', levels: 4, ocean: 3, magnet: 20, bridge: false },
+    { id: 'river', label: '双河', desc: '两条贯通全图的河流将陆地分为三块（不可陆路跨越），陆地越少河面越宽', ref: '两条河', size: [160, 120], theme: 5, mirror: 'vertical', levels: 6, ocean: 2, magnet: 25, bridge: false },
+    { id: 'mountain_lake', label: '山湖', desc: '中央湖泊被环形山脉沿岸环抱，四处山口；陆地越少湖面越大，四周始终是一圈陆地', ref: '中央湖', size: [120, 120], theme: 5, mirror: 'vertical', levels: 7, ocean: 2, magnet: 35, bridge: true },
+    { id: 'continent', label: '大陆', desc: '一整块大陆，海岸曲折多湾，内陆有山脉与湖泊，边缘少量水域', ref: '外海与内陆湖', size: [160, 160], theme: 1, mirror: 'vertical', levels: 7, ocean: 2, magnet: 25, bridge: true },
+    { id: 'desert', label: '沙漠', desc: '大片沙丘与岩石台地，散布带草环的绿洲湖；陆地越少绿洲湖越大', ref: '外海与绿洲湖', size: [140, 140], theme: 4, mirror: 'vertical', levels: 5, ocean: 2, magnet: 20, bridge: true },
+    { id: 'snowland', label: '雪原', desc: '冰雪覆盖的大地，峡湾海岸、冰湖与雪山', ref: '外海与峡湾', size: [140, 140], theme: 2, mirror: 'vertical', levels: 7, ocean: 2, magnet: 25, bridge: true },
+    { id: 'volcano', label: '火山', desc: '中央火山：岩浆火口 + 熔岩流，火山锥沿火口环抱；陆地越少火山越大，外围始终是一圈陆地', ref: '火山（岩浆）', size: [120, 120], theme: 3, mirror: 'vertical', levels: 7, ocean: 2, magnet: 30, bridge: true },
+    { id: 'labyrinth', label: '迷宫', desc: '高地山脊构成迷宫走廊，陆地越少外围走廊被水淹没得越多', ref: '外围水域', size: [160, 160], theme: 5, mirror: 'both', levels: 6, ocean: 1, magnet: 30, bridge: true },
+    { id: 'two_sides', label: '两岸狭路', desc: '中央水道把地图分为对峙两岸，两岸延伸到图边；陆地越少水道越宽，中间渡口始终相通', ref: '中央水道', size: [240, 110], theme: 1, mirror: 'vertical', levels: 6, ocean: 2, magnet: 20, bridge: false }
   ];
   const SHAPE_MAP = new Map(SHAPES.map(s => [s.id, s]));
 
@@ -122,11 +126,37 @@
    *   M    山地强度：> 阈值且离岸足够远的陆地成为高地；M ≥ 2 为模板骨架山地（环形山 / 火山锥 / 迷宫墙）
    *   B    地表纹理噪声（只影响预览材质）；tag：材质提示（绿洲草环 / 火山灰 / 渡口）
    * 所有比例共用同一个 P，比例变化只是在同一族嵌套等值线中取另一条：陆地随比例单调扩张 / 收缩，
-   * 骨架、山脉位置与纹理都不随比例改变 —— 「陆地占比只调节陆地占比」。
+   * 山脉位置与纹理都不随比例改变 —— 「陆地占比只调节陆地占比」。
+   * 3.25.0：P 的设计保证比例只在「陆地 ↔ 参照物」之间调节（例如山湖的 P 是到图心的距离，陆地少时让出的是中央湖，
+   * 而不是四周的海）；山湖环形山与火山锥按 G − τ（到岸线的距离）放置，见 RING 与 categoriesFromFields。
    * 噪声频率与整图尺寸绑定（而非像素），所以同一模板在 80×80 和 2000×2000 上形态一致，预览与成品一致。 */
   const sn = v => (v - 0.5) * 3.5; // fbm(均值 0.5、σ≈0.085) → 均值 0、σ≈0.3
   const pnorm = (x, y, p) => Math.pow(Math.pow(Math.abs(x), p) + Math.pow(Math.abs(y), p), 1 / p);
   const TAG = { NONE: 0, OASIS: 1, ASH: 2, CROSSING: 3 };
+  /** 圆 → 方的混合半径（3.25.0）：图心附近是圆（ρ = hypot），靠近图边逐渐过渡为方形（p=8 范数）。
+   *  「中心水体 + 四周陆地」型模板（山湖 / 火山）用它作陆地优先级：陆地很少时剩下的是贴着四条边、
+   *  宽度均匀的一圈完整陆地，而不是被水体从边中点切成四个角块。沿任意射线单调递增。 */
+  /** p=8 范数（展开成乘法与三次开方，避免逐格 Math.pow，大地图上快约一倍） */
+  function norm8(l, u) {
+    const a = l * l, b = u * u, a2 = a * a, b2 = b * b;
+    return Math.sqrt(Math.sqrt(Math.sqrt(a2 * a2 + b2 * b2)));
+  }
+  function radBlend(l, u, r8 = norm8(l, u)) {
+    const r2 = Math.sqrt(l * l + u * u), w = smooth(0.6, 1.0, r8);
+    return r2 + (r8 - r2) * w;
+  }
+  /** 火山熔岩流（3.25.0）：火口半径为 rc 时，熔岩流尖端到达 R(rc) = rc + min(α·rc, β·(1 − rc))。
+   *  火口小（陆地多）时熔岩流随火口同比伸长；火口大（陆地少）时熔岩流只占火口外剩余陆地的固定比例，
+   *  尖端永远到不了图边，外围陆地始终连成完整的一圈。R 关于 rc 单调递增，下面是它的反函数。 */
+  const FLOW_A = 1.7, FLOW_B = 0.72, FLOW_J = FLOW_B / (FLOW_A + FLOW_B), FLOW_RJ = FLOW_J * (1 + FLOW_A);
+  const flowInv = R => R <= FLOW_RJ ? R / (1 + FLOW_A) : (R - FLOW_B) / (1 - FLOW_B);
+  /** 「沿岸骨架」配置（3.25.0）：山湖的环形山与火山的火山锥跟随水体岸线（τ 等值线）定位，而不是固定半径 ——
+   *  中央湖 / 火口随陆地比例缩放时，山脉始终环抱在岸边。g0 / w：岸边留白与山环宽度（占「岸线到图边」带宽的比例），
+   *  g0c / wc / pc：以格计的最小值；p：山口半宽（归一化弧长）；ash：火山灰带（带宽比例）。 */
+  const RING = {
+    mountain_lake: { g0: 0.08, g0c: 1.3, w: 0.2, wc: 3.0, p: 0.075, pc: 2.6, hill: 0.06 },
+    volcano: { g0: 0.035, g0c: 1.4, w: 0.17, wc: 3.4, p: 0.06, pc: 2.4, hill: 0.05, ash: 0.16 }
+  };
 
   /** 镜像坐标系：返回 (l,u) → (a,b) 的线性变换。约定单轴镜像时镜像操作为 b → −b（a 轴即对称轴），
    *  both 时 a → −a 且 b → −b。需要「方向」的模板（半岛 / 双河 / 两岸 / 火山熔岩流）在这个坐标系里定义，
@@ -185,10 +215,13 @@
       if (mode === 'both') flows = [0.62 + j1, -0.62 - j1, Math.PI - 0.62 - j1, -Math.PI + 0.62 + j1].map((a, i) => ({ a, m: i % 2 ? -1 : 1 }));
       else if (fr.axis) flows = [{ a: 0, m: 0 }, { a: 2.2 + j1, m: 1 }, { a: -2.2 - j1, m: -1 }];
       else { const a0 = rng() * Math.PI * 2; flows = [a0, a0 + 2.0 + j1, a0 - 2.1 + j2].map(a => ({ a, m: 1 })); }
-      for (const f of flows) { f.len = 0.47 + rng() * 0.09; f.ph = rng() * 6.283; }
-      // 镜像成对的熔岩流共用长度与相位，保证两条严格镜像
-      if (flows.length >= 3 && fr.axis) { flows[2].len = flows[1].len; flows[2].ph = flows[1].ph; }
-      if (mode === 'both') for (const f of flows) { f.len = flows[0].len; f.ph = flows[0].ph; }
+      for (const f of flows) f.ph = rng() * 6.283;
+      // 镜像成对的熔岩流共用相位，保证两条严格镜像
+      if (flows.length >= 3 && fr.axis) flows[2].ph = flows[1].ph;
+      if (mode === 'both') for (const f of flows) f.ph = flows[0].ph;
+      // 火山锥山口：取相邻两条熔岩流的角平分线（对任意对称方式都自成镜像），让火口岸边的平地与外围相通
+      const ang = flows.map(f => Math.atan2(Math.sin(f.a), Math.cos(f.a))).sort((x, y) => x - y);
+      t.passes = ang.map((x, i) => { const y = i + 1 < ang.length ? ang[i + 1] : ang[0] + Math.PI * 2; return (x + y) / 2; });
       t.flows = flows;
     } else if (shape === 'desert' || shape === 'continent') {
       // 绿洲 / 内陆湖：在内陆随机撒点（彼此保持距离），镜像后成对出现
@@ -243,6 +276,8 @@
   function templateFields(shape, W, H, st, gw, gh, seed, mode, need, prog) {
     const n = gw * gh;
     const P = new Float32Array(n), M = new Float32Array(n), B = new Float32Array(n);
+    // G：沿岸骨架的定位场（山湖 = P，火山 = 火口项，两岸 = 渡口处的自然优先级，沙漠 / 大陆 = 湖泊项）；A：到山口的弧长
+    const G = new Float32Array(n), A = new Float32Array(n);
     const fw = new Uint8Array(n), lava = new Uint8Array(n), tag = new Uint8Array(n);
     const noise = new PermNoise(seed), tex = new PermNoise(seed ^ 0x2545f491);
     const t = setupTemplate(shape, W, H, seed, mode), fr = t.fr, S = t.S;
@@ -304,8 +339,14 @@
               if (d < f1) { f2 = f1; f1 = d; } else if (d < f2) f2 = d;
             }
             const vor = (f2 - f1) / t.cell; // 岛心大、海峡（Voronoi 边）为 0
-            const rim = smooth(0.82, 1.0, Math.max(Math.abs(l), Math.abs(u)));
-            p = vor + 0.14 * nm + 0.05 * nl - 0.35 * rim;
+            // 3.25.0：岛屿优先级 = min(到海峡中线的 Voronoi 距离, 到图边的距离)。海峡与外缘海按同一族等值线
+            // 一起收放：陆地少时岛屿缩回各自的岛心、四周留海（贴边的岛不再被图边切掉半个）；陆地多时海峡与外缘海
+            // 一同变窄，岛与岛之间仍隔着贯通的海峡，而不是先把外缘填满、再把海峡挤没。
+            // 海岸噪声在海峡中线附近减弱：窄海峡是一条连贯的水道，不会被噪声切成一串小湖、让相邻的岛从缺口处粘连。
+            const edgeD = 1 - Math.max(Math.abs(l), Math.abs(u));
+            const pv = vor + (0.14 * nm + 0.05 * nl) * smooth(0, 0.3, vor), pe = 2.2 * edgeD + (0.5 * nl + 0.2 * nm) * smooth(0, 0.3, edgeD);
+            const hk = Math.max(0, 0.16 - Math.abs(pv - pe)) / 0.16; // 平滑取小：两族等值线交汇处圆滑过渡，不留直角
+            p = Math.min(pv, pe) - hk * hk * 0.04;
             m = vor * 1.1 + 0.6 * (rg - 0.66);
             break;
           }
@@ -329,39 +370,46 @@
             break;
           }
           case 'mountain_lake': {
-            const th = Math.atan2(u, l);
-            const rr = Math.hypot(l, u) * (1 + 0.05 * sn(noise.fbm(Math.cos(th) * 1.4 + 70.1, Math.sin(th) * 1.4 - 33.3, 3)));
-            const R = 0.43, half = 0.075, rCore = 0.12, rMax = R - half - 0.03;
-            // 四个山口位于 45° 对角方向：对任意对称方式都自成镜像
-            const pass = Math.min(angDist(th, Math.PI / 4), angDist(th, 3 * Math.PI / 4), angDist(th, -Math.PI / 4), angDist(th, -3 * Math.PI / 4)) < 0.17;
-            if (rr < rCore) { fw[k] = 1; p = -1; }
-            else if (rr < rMax) p = (rr - rCore) / (rMax - rCore) * 0.9 + 0.03 * nm;
-            else if (rr < R + half + 0.03) p = 1.2 + 0.02 * nm;
-            else {
-              const q = pnorm(l, u, 2.4);
-              p = (1.02 - q) / (1.02 - (R + half)) * 0.9 + 0.09 * nl + 0.03 * nm;
-            }
-            if (Math.abs(rr - R) < half) m = pass ? -1 : 2;
-            else m = rr > R + half + 0.06 ? 1.3 * (rg - 0.66) + 0.1 * nm : -1;
+            // 3.25.0：陆地比例在「陆地 ↔ 中央湖」之间调节 —— 陆地少则湖大，陆地多则湖小，四周不再化为外海。
+            // 优先级就是到图心的（圆→方混合）半径：湖岸是一族同心等值线，陆地最少时剩下贴图边的一圈完整陆地。
+            const th = Math.atan2(u, l), rr = Math.hypot(l, u), r8 = norm8(l, u);
+            const ew = smooth(0.7, 0.97, r8); // 近图边：岸线起伏与噪声逐渐消失，外圈陆地不被切断
+            const ct = rr > 1e-9 ? l / rr : 1, stt = rr > 1e-9 ? u / rr : 0;
+            const wob = 0.06 * sn(noise.fbm(ct * 1.4 + 70.1, stt * 1.4 - 33.3, 3));
+            p = radBlend(l, u, r8) * (1 + wob * (1 - ew)) + (0.025 * nl + 0.012 * nm) * (1 - 0.85 * ew);
+            if (rr < 0.085) fw[k] = 1; // 湖心：任何比例都保留
+            G[k] = p;
+            // 四个山口位于 45° 对角方向（对任意对称方式都自成镜像）；A 为到最近山口中线的弧长
+            A[k] = Math.min(angDist(th, Math.PI / 4), angDist(th, 3 * Math.PI / 4), angDist(th, -Math.PI / 4), angDist(th, -3 * Math.PI / 4)) * rr;
+            // 环形山由 categoriesFromFields 沿湖岸放置；这里只是外围平原的丘陵（受「山地」档位控制）
+            m = 1.3 * (rg - 0.66) + 0.1 * nm;
             break;
           }
           case 'continent': {
             const q = pnorm(l, u, 3.2);
-            p = -(q + 0.24 * nl + 0.06 * nm);
+            const pc = -(q + 0.24 * nl + 0.06 * nm);
+            // 3.25.0：内陆湖与外海一起随比例变化（陆地少时湖面变大），湖心始终保留
+            let po = Infinity;
             for (const pl of t.pools) {
               const d = Math.hypot(l - pl.x, u - pl.y) * (1 + 0.25 * nm);
-              if (d < pl.r) fw[k] = 1;
+              if (d < pl.r * 0.8) fw[k] = 1;
+              po = Math.min(po, -1.02 + 0.42 * (d / pl.r - 1));
             }
+            p = Math.min(pc, po); G[k] = po;
             m = 1.7 * (rg - 0.66) + 0.25 * (0.6 - q);
             break;
           }
           case 'desert': {
             const q = pnorm(l, u, 3.0);
-            p = -(q + 0.1 * nl + 0.03 * nm);
+            const pc = -(q + 0.1 * nl + 0.03 * nm);
+            // 3.25.0：绿洲湖随比例变化 —— 陆地多时只剩湖心，陆地少时湖面扩大（绿洲草环跟随湖岸，见 categoriesFromFields）
+            let po = Infinity;
             for (const pl of t.pools) {
               const d = Math.hypot(l - pl.x, u - pl.y) * (1 + 0.2 * nm);
-              if (d < pl.r) fw[k] = 1; else if (d < pl.r * 2.7) tag[k] = TAG.OASIS;
+              if (d < pl.r * 0.8) fw[k] = 1;
+              po = Math.min(po, -1.0 + 0.45 * (d / pl.r - 1));
             }
+            p = Math.min(pc, po); G[k] = po;
             // 岩石台地：稀疏的平顶高地
             const mesa = noise.fbm(X * 4.2 + 300.5, Y * 4.2 - 120.7, 3);
             m = (mesa - 0.5) * 6 - 0.15 + 0.3 * (rg - 0.66);
@@ -377,23 +425,32 @@
             break;
           }
           case 'volcano': {
-            const r = Math.hypot(a, b), th = Math.atan2(b, a);
-            const rw = r + 0.012 * nm;
-            p = -(r + 0.09 * nl + 0.035 * nm);
-            const crater = 0.095, coneOut = 0.215 + 0.015 * nm;
-            if (rw < crater) lava[k] = 1;
-            else {
-              for (const f of t.flows) {
-                if (rw > f.len) continue;
-                const meander = f.m * 0.16 * Math.sin(rw * 11 + f.ph) * smooth(0.12, 0.3, rw);
-                const ang = angDist(th, f.a + meander);
-                const hw = Math.max(1.3 * cellMin, 0.028 - 0.012 * clamp01((rw - crater) / (f.len - crater)));
-                const end = smooth(f.len - 0.06, f.len, rw);
-                if (ang * r < hw * (1 - 0.7 * end)) { lava[k] = 1; break; }
-              }
+            // 3.25.0：陆地比例在「火山 ↔ 周围陆地」之间调节 —— 非陆地部分全部是火山（岩浆火口 + 熔岩流），
+            // 陆地少则火口与熔岩流大，陆地多则火山小；外围是一圈完整陆地，不再临海。
+            const rr = Math.hypot(l, u), th = Math.atan2(b, a), r8 = norm8(l, u);
+            const ew = smooth(0.7, 0.97, r8);
+            const rab = Math.hypot(a, b), ct = rab > 1e-9 ? a / rab : 1, stt = rab > 1e-9 ? b / rab : 0;
+            const wob = 0.07 * sn(noise.fbm(ct * 1.5 + 21.7, stt * 1.5 - 4.9, 3));
+            // 火口朝熔岩流方向鼓出成三 / 四瓣（花瓣状），整体像岩浆从火口向外漫溢，而不是一个规整的圆 / 方
+            let lobe = 0; for (const f of t.flows) lobe = Math.max(lobe, smooth(0.6, 0, angDist(th, f.a)));
+            const rc = radBlend(l, u, r8) * (1 + (wob - 0.12 * lobe) * (1 - ew)) + 0.012 * nm * (1 - ew); // 火口项：火口半径 = τ
+            let pf = Infinity;
+            const w0 = 1.1 * cellMin; // 熔岩流最窄处也至少约 2 格宽
+            for (const f of t.flows) {
+              const mea = f.m * 0.07 * Math.sin(rr * 9 + f.ph) * smooth(0.08, 0.3, rr);
+              const d = angDist(th, f.a + mea);
+              if (d >= Math.PI / 2) continue;
+              // 抛物线形熔岩舌：火口岸边最宽、尖端圆钝；长度与宽度都随火口一起变化（见 flowInv）
+              const pp = Math.max(0, rr * Math.sin(d) - w0);
+              const R = rr * Math.cos(d) + pp * pp / 0.014;
+              pf = Math.min(pf, flowInv(R));
             }
-            m = rw < coneOut ? 2 : 1.4 * (rg - 0.66) + 0.25 * smooth(0.36, 0.22, r);
-            if (r < 0.34) tag[k] = TAG.ASH;
+            p = Math.min(rc, pf) + 0.012 * nl * (1 - ew);
+            G[k] = rc;
+            let ap = 9; for (const ps of t.passes) ap = Math.min(ap, angDist(th, ps));
+            A[k] = ap * rr;
+            // 火山锥由 categoriesFromFields 沿火口岸线放置；这里只是外围陆地的丘陵
+            m = 1.4 * (rg - 0.66) + 0.1 * nm;
             break;
           }
           case 'labyrinth': {
@@ -409,17 +466,30 @@
             break;
           }
           case 'two_sides': {
+            // 3.25.0：陆地比例在「两岸陆地 ↔ 中央水道」之间调节 —— 陆地少则水道宽，陆地多则水道窄；两岸一直延伸到图边。
             let q, s;
             if (fr.axis) { q = b / fr.E; s = a / fr.E; } else if (t.longAxisA) { q = l; s = u; } else { q = u; s = l; }
             const cc = (fr.axis || mode === 'both') ? 0 : 0.022 * Math.sin(s * Math.PI * 1.3 + t.ph) + 0.018 * sn(noise.fbm(s * 2.3 + 17.1, 4.4, 3));
             const across = fr.axis ? cellQ : (t.longAxisA ? cellL : cellU), along = fr.axis ? cellQ : (t.longAxisA ? cellU : cellL);
-            const hwc = Math.max(1.7 * across, 0.028 + 0.006 * sn(noise.fbm(s * 3.1 - 2.2, 9.9, 3)));
-            const crossing = t.cross.some(c => Math.abs(s - c) < Math.max(1.8 * along, 0.04));
-            const dq = Math.abs(q - cc);
-            if (dq < hwc) {
-              if (crossing) { p = 3; tag[k] = TAG.CROSSING; } else fw[k] = 1;
-            } else p = 1 - dq + 0.2 * nl + 0.05 * nm;
-            m = 1.5 * (rg - 0.66) + 0.2 * smooth(0.12, 0.3, dq) - 0.3 * smooth(0.8, 1.0, dq);
+            const hwc = Math.max(1.7 * across, 0.026 + 0.005 * sn(noise.fbm(s * 3.1 - 2.2, 9.9, 3)));
+            const dq = Math.abs(q - cc), side = q >= cc ? 1 : -1;
+            const qe = smooth(0.8, 0.98, dq); // 靠近图边：岸线起伏逐渐消失，陆地很少时两岸仍是完整的一条
+            // 两岸岸线各自起伏（按到水道中线的相对距离缩放），水道宽窄变化时岸线形状同比例保持
+            const wob = 0.28 * sn(noise.fbm(s * 2.2 + 31.3 * side, 5.5 + side, 3));
+            const nat = dq * (1 + wob * (1 - qe)) + (0.05 * nl + 0.015 * nm) * (1 - qe);
+            const hwb = Math.max(1.5 * along, 0.032);
+            let ci = -1;
+            for (let i = 0; i < t.cross.length; i++) if (Math.abs(s - t.cross[i]) < hwb) { ci = i; break; }
+            if (ci >= 0) {
+              // 渡口：中间一条任何比例都保留（两岸始终相通）；两侧的渡口在水道很宽（陆地 ≲ 40%）时被淹没，
+              // 从中段先断开、留下两岸的栈桥 —— 否则陆地很少时三条长堤会吃掉大部分陆地配额
+              tag[k] = TAG.CROSSING; G[k] = nat;
+              p = ci === 1 ? 3 : Math.max(nat, 0.6 + 0.004 * dq);
+            } else {
+              p = nat;
+              if (dq < hwc) fw[k] = 1;
+            }
+            m = 1.5 * (rg - 0.66) + 0.12 * (1 - qe);
             break;
           }
           default: p = -Math.hypot(l, u) + 0.1 * nl;
@@ -427,7 +497,7 @@
         P[k] = p; M[k] = m;
       }
     }
-    return { P, M, B, fw, lava, tag };
+    return { P, M, B, G, A, fw, lava, tag, cell: cellMin };
   }
 
   /** 精确选格：在可选格（非结构水域、非岩浆）中按 P 从高到低取 targetN 格（镜像时按轨道大小加权）。
@@ -487,7 +557,7 @@
    * @param F 模板场；targetLand 目标陆地比例；src 对称源函数
    */
   function categoriesFromFields(F, shape, gw, gh, st, rough, targetLand, src) {
-    const n = gw * gh, { P, M, B, fw, lava, tag } = F;
+    const n = gw * gh, { P, M, B, G, A, fw, lava, tag } = F;
     const elig = new Uint8Array(n);
     for (let k = 0; k < n; k++) elig[k] = fw[k] || lava[k] ? 0 : 1;
     const targetN = Math.round(clamp01(targetLand) * n);
@@ -504,15 +574,12 @@
       for (const k of fix) chosen[k] ^= 1;
       if (src) for (let k = 0; k < n; k++) { const c = src(k); if (c !== k) chosen[k] = chosen[c]; }
     }
-    // 岩浆只留在陆地内：P 低于海平面的岩浆格（熔岩流冲出海岸的部分）化为海水
-    const cats = new Uint8Array(n);
-    for (let k = 0; k < n; k++) {
-      if (lava[k]) cats[k] = P[k] >= tau || shape !== 'volcano' ? T.LAVA : T.WATER;
-      else cats[k] = chosen[k] ? T.SAND : T.WATER;
-    }
-    // 离岸距离（格）：岩浆不算水
+    // 3.25.0：火山模板的非陆地部分就是火山本身（岩浆火口 + 熔岩流），不再有外海
+    const cats = new Uint8Array(n), hole = shape === 'volcano' ? T.LAVA : T.WATER;
+    for (let k = 0; k < n; k++) cats[k] = lava[k] ? T.LAVA : chosen[k] ? T.SAND : hole;
+    // 离岸距离（格）：到最近的水 / 岩浆
     const landMask = new Uint8Array(n);
-    for (let k = 0; k < n; k++) landMask[k] = cats[k] === T.WATER ? 0 : 1;
+    for (let k = 0; k < n; k++) landMask[k] = cats[k] === T.SAND ? 1 : 0;
     const toWater = chamferDistance(landMask, gw, gh, 0);
     let maxD = 1;
     for (let k = 0; k < n; k++) if (landMask[k] && toWater[k] > maxD && toWater[k] < 30000) maxD = toWater[k];
@@ -521,11 +588,33 @@
     const mountDepth = Math.max(2, 3 / st);  // 普通山地至少离岸 2 格（按预览步长折算，至少 2 格）
     const wob = new PermNoise((F.seed ^ 0x7f4a7c15) >>> 0);
     const beachCells = shape === 'snowland' ? 2.4 : shape === 'labyrinth' ? 1.2 : shape === 'archipelago' ? 1.5 : 1.9;
+    // 沿岸骨架（3.25.0）：山湖的环形山 / 火山的火山锥按「到水体岸线的距离」G − τ 放置，随中央湖 / 火口一起缩放。
+    // band 为岸线到图边的带宽（归一化），山环宽度与岸边留白按带宽同比变化，并有以格计的下限；带宽不够时不放山环。
+    const rc = RING[shape], cell = F.cell || 0.02;
+    let g0 = 0, g1 = 0, gHill = 0, gAsh = 0, passHalf = 0, ringOK = false;
+    if (rc) {
+      const band = Math.max(cell, 1 - tau);
+      g0 = Math.max(rc.g0c * cell, rc.g0 * band); g1 = g0 + Math.max(rc.wc * cell, rc.w * band);
+      ringOK = g1 + 1.5 * cell <= band;
+      gHill = g1 + Math.max(2 * cell, rc.hill * band);
+      gAsh = g1 + (rc.ash || 0) * band;
+      passHalf = Math.max(rc.pc * cell, rc.p);
+    }
+    const oasisBand = shape === 'desert' ? 0.4 : 0;
     for (let k = 0; k < n; k++) {
       if (cats[k] !== T.SAND) continue;
       const c = src ? src(k) : k, cx = c % gw, cy = (c / gw) | 0;
-      const d = toWater[k] / 3, tg = tag[k];
-      const m = M[k] >= 2 ? M[k] : M[k] + rel * (Math.min(toWater[k], maxD) / maxD - 0.5);
+      const d = toWater[k] / 3;
+      let tg = tag[k], mk = M[k];
+      if (rc) {
+        const rl = G[k] - tau;
+        if (ringOK && rl >= g0 && rl < g1) mk = A[k] < passHalf ? -1 : 2;
+        else if (rl < gHill) mk = -1; // 岸边与山环内外侧不长零散丘陵，山环轮廓清楚
+        if (rc.ash && rl < gAsh) tg = TAG.ASH;
+      }
+      if (tg === TAG.CROSSING && G[k] >= tau) tg = TAG.NONE; // 渡口落在岸上的部分按普通陆地处理
+      if (oasisBand && G[k] - tau < oasisBand) tg = TAG.OASIS; // 绿洲草环跟随湖岸
+      const m = mk >= 2 ? mk : mk + rel * (Math.min(toWater[k], maxD) / maxD - 0.5);
       if (m >= 2 || (m > thr && d >= mountDepth)) { cats[k] = T.MOUNTAIN; continue; }
       if (tg === TAG.CROSSING) { cats[k] = T.SAND; continue; }
       const jitter = (wob.fbm(cx * st * 0.08 + 1.3, cy * st * 0.08 - 2.1, 2) - 0.5) * 0.9;
@@ -555,7 +644,7 @@
     const shape = SHAPE_MAP.has(o.shape) ? o.shape : 'island';
     const seed = normSeed(o.seed ?? 42);
     const F = templateFields(shape, W, H, st, gw, gh, seed, mode, need, prog);
-    if (src) for (const arr of [F.P, F.M, F.B, F.fw, F.lava, F.tag]) mirrorArray(arr, src);
+    if (src) for (const arr of [F.P, F.M, F.B, F.G, F.A, F.fw, F.lava, F.tag]) mirrorArray(arr, src);
     F.seed = seed; F.shape = shape; F.gw = gw; F.gh = gh; F.st = st; F.n = n;
     return F;
   }
@@ -749,7 +838,7 @@
     const { st, w, h, n, meta, seed, src, F, rough, prog } = pr;
     const rng = mulberry32(seed ^ 0x5bd1e995);
     prog && prog('shape', 0);
-    const cats = categoriesFromFields(F, meta.id, w, h, st, rough, targetLand, src).cats;
+    const cf = categoriesFromFields(F, meta.id, w, h, st, rough, targetLand, src), cats = cf.cats;
     const sym = !!src;
     const canon = k => !src || src(k) === k;
     const mirror = arr => { if (src) for (let k = 0; k < n; k++) { const s = src(k); if (s !== k) arr[k] = arr[s]; } };
@@ -766,7 +855,7 @@
     }
 
     /* ① 碎岛 / 小水坑 */
-    const minIsland = meta.id === 'archipelago' ? Math.max(4, Math.round(area * 0.00012)) : Math.max(16, Math.round(area * 0.0012)), minLake = Math.max(12, Math.round(area * 0.0008));
+    const minIsland = meta.id === 'archipelago' ? Math.max(9, Math.round(area * 0.0003)) : Math.max(16, Math.round(area * 0.0012)), minLake = Math.max(12, Math.round(area * 0.0008));
     {
       const L = label(k => land[k] === 1, w, h, false);
       for (let k = 0; k < n; k++) if (L.label[k] && L.sizes[L.label[k]] < minIsland) { land[k] = 0; mount[k] = 0; }
@@ -942,11 +1031,11 @@
     }
 
     /* ⑤ 输出 */
-    const data = new Int32Array(n), view = new Uint8Array(n);
+    const data = new Int32Array(n), view = new Uint8Array(n), lavaWorld = meta.id === 'volcano';
     let landN = 0, mountN = 0;
     for (let k = 0; k < n; k++) {
       const t = cats[k];
-      if (!land[k]) { data[k] = 0; view[k] = t === T.LAVA ? T.LAVA : t === T.SHALLOW ? T.SHALLOW : isWaterT(t) ? T.WATER : T.SHALLOW; continue; }
+      if (!land[k]) { data[k] = 0; view[k] = t === T.LAVA || lavaWorld ? T.LAVA : t === T.SHALLOW ? T.SHALLOW : isWaterT(t) ? T.WATER : T.SHALLOW; continue; }
       landN++;
       if (mount[k]) { mountN++; data[k] = gap[k] ? -2 : 2; view[k] = gap[k] ? VIEW.RAMP : T.MOUNTAIN; continue; }
       data[k] = 1;
@@ -959,6 +1048,7 @@
     for (let k = 0; k < n; k++) { const a = Wf.label[k]; if (a && Wf.sizes[a] >= 9) { const L = Lf.label[k]; (perLand.get(L) || perLand.set(L, new Set()).get(L)).add(a); } }
     stats.sealedPockets = [...perLand.values()].reduce((s, v) => s + v.size - 1, 0);
     stats.landRatio = +(landN / n).toFixed(3);
+    stats.level = Number.isFinite(cf.tau) ? +cf.tau.toFixed(4) : null; // 选格分界（陆地优先级等值线），供回归测试检查水体随比例单调变化
     stats.mountainRatio = +(mountN / n).toFixed(3);
     stats.landmasses = Lf.sizes.filter((s, i) => i && s >= minIsland).length;
     return { width: w, height: h, data, view, stats };
@@ -1015,7 +1105,7 @@
     return rgba;
   }
 
-  const API = { VERSION: '1.2', T, VIEW, SHAPES, SHAPE_MAP, normSeed, generateCategories, build, preview, paint, COLORS, mirrorSource };
+  const API = { VERSION: '1.3', T, VIEW, SHAPES, SHAPE_MAP, normSeed, generateCategories, build, preview, paint, COLORS, mirrorSource };
   root.TerrainShapes = API;
   if (typeof module !== 'undefined' && module.exports) module.exports = API;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

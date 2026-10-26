@@ -44,8 +44,9 @@ android {
         // 3.23.1-offline (35) → 3.23.2-offline (36)：修复结构性水域被比例缩放填平（双河三块陆地被连通）、群岛 / 迷宫高陆地档水道退化
         // 3.23.2-offline (36) → 3.24.0-offline (37)：重写地形形态模板层（比例无关的陆地优先级场 + 精确选格），陆地占比只改变陆地多少、不改变模板形态
         // 3.24.0-offline (37) → 3.24.1-offline (38)：全量审查修复（种子折叠 / 配方码版本 / 模板场缓存 / 山地档位 / 对角对称宽度 / open_path 限定）
-        versionCode = 38
-        versionName = "3.24.1-offline"
+        // 3.24.1-offline (38) → 3.25.0-offline (39)：地形形态按「陆地比例参照物」重做（山湖 / 火山 / 两岸狭路 / 群岛 / 沙漠 / 大陆）
+        versionCode = 39
+        versionName = "3.25.0-offline"
     }
     signingConfigs {
         create("release") {

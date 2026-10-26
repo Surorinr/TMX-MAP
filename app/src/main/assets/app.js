@@ -1,5 +1,9 @@
 /*
  * 铁锈战争地图生成器 · TMX MapForge Offline
+ * 版本 3.25.0 —— 地形形态的「陆地比例」按参照物调节：山湖 = 陆地 ↔ 中央湖（陆地少湖大，四周一圈陆地，环形山沿湖岸）、
+ *              火山 = 周围陆地 ↔ 火山（非陆地全为岩浆，火口与熔岩流随比例缩放，火山锥沿火口）、两岸狭路 = 两岸 ↔ 中央水道
+ *              （两岸延伸到图边，中间渡口始终相通）；群岛海峡与外缘海同步收放（高比例仍有贯通海峡、贴边岛不被切半）；
+ *              沙漠绿洲湖 / 大陆内陆湖随比例缩放；界面显示每个模板的比例参照物；配方码格式版本 3。
  * 版本 3.24.1 —— 全量审查：形态种子按生成器规则折叠（大数种子的配方码可还原同一张图）、配方码写入格式版本 2 并识别旧版形态码、
  *              模板场与陆地比例完全无关并缓存（拖动比例滑块只重新选格）、迷宫 / 山湖响应「山地」档位、对角对称下河道 / 水道宽度修正、
  *              小地图岛屿外缘海带收窄、build 参数 NaN 防护、连通块标记提速；PC 版 open_path 限定在导出目录内。
@@ -92,8 +96,8 @@
  *   Pointer    —— 统一手势状态机：平移 / 双指缩放 / 画笔 / 多边形 / 放置 / 拖动出生点 / 长按删除
  *   Project    —— IndexedDB 项目存储（可保存大体积 TMX），兼容旧版 localStorage 草稿
  */
-const APP_VERSION = '3.24.1';
-const PROJECT_FORMAT = 3241; // 3.24.1：仅记录写入版本（读取时不校验），旧项目仍可读取
+const APP_VERSION = '3.25.0';
+const PROJECT_FORMAT = 3250; // 3.25.0：仅记录写入版本（读取时不校验），旧项目仍可读取
 const $ = id => document.getElementById(id);
 const MAX_SPAWN_POINTS = 100; // 3.19.0：50 → 100（51～100 号槽位的指挥中心瓦片在导出时自动补进 TMX，见 extendCcTileset）
 const ENGINE_MAX_CC = 50;     // 3.19.0：WASM 引擎与内置蓝图只有 50 个指挥中心槽位；超出部分由 JS 智能布点补齐
@@ -5244,6 +5248,13 @@ function syncShapeUI() {
     $('shapeTitle').textContent = m.label;
     $('shapeDesc').textContent = m.desc;
     $('shapeRec').innerHTML = `推荐：${m.size[0]}×${m.size[1]} · ${SHAPE_THEMES[m.theme]}主题 · ${MIRROR_LABELS[m.mirror]}`;
+    // 3.25.0：陆地比例的参照物（陆地少则参照物大，陆地多则参照物小），滑块提示与之对应
+    const ref = m.ref ? escapeHtml(m.ref) : '';
+    $('shapeLandRef').textContent = m.ref ? `陆地 ↔ ${m.ref}` : '';
+    $('shapeLand').closest('label').title = m.ref
+      ? `陆地比例在「陆地 ↔ ${m.ref}」之间调节：陆地越少，${m.ref}越大；陆地越多，${m.ref}越小。山脉位置与地表纹理保持不变。`
+      : '只改变陆地的多少：山脉位置与地表纹理保持不变';
+    if (ref) $('shapeRec').innerHTML += `<br>陆地比例参照：陆地 ↔ ${ref}`;
   }
   const btn = document.querySelector('[data-act="run_coastline"]');
   if (btn) btn.textContent = on ? `生成「${m.label}」形态` : '生成海岸线';
@@ -6585,7 +6596,10 @@ const RECIPE_ROUGH = ['0', '0.3', '0.8'];
 const RECIPE_LEN = 29; // 27 字节参数 + 2 字节 CRC
 /* 3.24.0：首字节为配方格式版本。地形形态模板在 3.24.0 重写，旧版（版本 1）的形态配方码参数仍然可解，
  * 但同一种子生成的轮廓与当年不同；写入版本 2 以便解码时识别并提示。字段布局两版完全相同。 */
-const RECIPE_VERSION = 2;
+/* 3.25.0：山湖 / 火山 / 两岸狭路 / 群岛 / 沙漠 / 大陆六个模板按「陆地比例参照物」重做（其余五个模板逐格不变），
+ * 写入版本 3；版本 2 的这六个模板的形态码在解码时提示轮廓已更新。字段布局三版完全相同。 */
+const RECIPE_VERSION = 3;
+const RECIPE_SHAPES_V3 = ['mountain_lake', 'volcano', 'two_sides', 'archipelago', 'desert', 'continent'];
 const RECIPE_RE = /TMX1-([A-Za-z0-9_-]{39})/;
 const toB64Url = bytes => bytesToBase64(bytes).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 /** 3.19.0：由「一组生成参数 + 形态信息」组成配方数据。ms = 地图实际使用的形态（S.mapShape），为空时取界面上的形态设置 */
@@ -6648,8 +6662,9 @@ function decodeRecipe(text) {
     && d.pl <= MAX_SPAWN_POINTS && d.rs <= MAX_RESOURCES && d.shape && d.land >= 10 && d.land <= 90 && d.rough && d.sym && d.slot
     && d.near.perSpawn >= 2 && d.near.perSpawn <= 4 && d.near.min >= 4 && d.near.max >= d.near.min;
   if (!ok) return { error: '配方码中的参数超出范围（可能来自不兼容的版本）' };
-  // 版本 1 = 3.24.0 之前生成：形态配方的参数照常套用，但地形轮廓算法已更新
-  d.legacyShape = b[0] < 2 && d.shape !== 'classic';
+  // 版本 1 = 3.24.0 之前生成（全部形态）；版本 2 = 3.24.x 生成（3.25.0 重做的六个模板）：参数照常套用，但地形轮廓算法已更新
+  d.legacyShape = d.shape !== 'classic' && (b[0] < 2 || (b[0] < 3 && RECIPE_SHAPES_V3.includes(d.shape)));
+  d.legacyFrom = b[0] < 2 ? '3.24.0' : '3.25.0';
   return { data: d, code: 'TMX1-' + m[1] };
 }
 function recipeSummary(d) {
@@ -6709,7 +6724,7 @@ async function pasteRecipe(prefill = '') {
     const show = () => {
       const r = decodeRecipe(ta.value);
       pv.dataset.state = !ta.value.trim() ? '' : r.error ? 'bad' : 'ok';
-      pv.textContent = !ta.value.trim() ? '' : r.error ? r.error : `✓ ${recipeSummary(r.data)}${r.data.legacyShape ? '（旧版配方码：地形形态算法已在 3.24.0 更新，参数一致但轮廓会与原图不同）' : ''}`;
+      pv.textContent = !ta.value.trim() ? '' : r.error ? r.error : `✓ ${recipeSummary(r.data)}${r.data.legacyShape ? `（旧版配方码：该地形形态的算法已在 ${r.data.legacyFrom} 更新，参数一致但轮廓会与原图不同）` : ''}`;
     };
     ta.addEventListener('input', show); show();
     if (!prefill) ta.focus({ preventScroll: true });
@@ -6720,7 +6735,7 @@ async function pasteRecipe(prefill = '') {
   if (r.error) { toast(r.error, 'warn', 4200); return; }
   const full = applyRecipe(r.data);
   if (!full) toast('配方码里的地形形态在当前版本中不存在，已改用经典地形', 'warn', 4200);
-  else if (r.data.legacyShape) toast('这是 3.24.0 之前的配方码：地形形态算法已更新，同一种子的地形轮廓会与原图不同', 'warn', 5200);
+  else if (r.data.legacyShape) toast(`这是 ${r.data.legacyFrom} 之前的配方码：该地形形态的算法已更新，同一种子的地形轮廓会与原图不同`, 'warn', 5200);
   toast(`已套用配方：${recipeSummary(r.data)}`, 'success', 3600);
   if (k === 'gen') await generate();
 }

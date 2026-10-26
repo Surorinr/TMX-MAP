@@ -1,5 +1,5 @@
 /**
- * TMX MapForge Offline · 跨平台静态冒烟测试（3.17.0 起，3.24.0 更新形态模板锚点）
+ * TMX MapForge Offline · 跨平台静态冒烟测试（3.17.0 起，3.24.0 更新形态模板锚点，3.25.0 增加比例参照物锚点）
  * 检查本地资产可服务、关键 UI / 版本锚点存在、资源可读取、路径穿越被拒绝。
  * 不依赖 Chrome / Playwright；不等价于真实浏览器或真机交互测试。
  * 用法：node tools/smoke-test.mjs
@@ -62,9 +62,12 @@ try {
     htmlRes.text(), appRes.text(), cssRes.text(), workerRes.text(), shapeWorkerRes.text(), tsRes.text()
   ]);
   check('首页通过本地 HTTP 正常提供', htmlRes.status === 200 && html.includes('<html'));
-  check('前端版本为 v3.24.1', app.includes("const APP_VERSION = '3.24.1'") && app.includes('const PROJECT_FORMAT = 3241'));
+  check('前端版本为 v3.25.0', app.includes("const APP_VERSION = '3.25.0'") && app.includes('const PROJECT_FORMAT = 3250'));
+  // 3.25.0：陆地比例按参照物调节（山湖 ↔ 中央湖、火山 ↔ 周围陆地、两岸 ↔ 中央水道），沿岸骨架随水体缩放
+  check('3.25.0 模板定义比例参照物 / 沿岸骨架 / 熔岩流反函数', ["ref: '中央湖'", "ref: '火山（岩浆）'", "ref: '中央水道'", 'const RING = {', 'function radBlend', 'const flowInv = R =>', "hole = shape === 'volcano' ? T.LAVA : T.WATER"].every(k => ts.includes(k)));
+  check('3.25.0 界面显示比例参照 / 配方码格式版本 3 并识别重做模板的旧码', html.includes('id="shapeLandRef"') && app.includes("$('shapeLandRef').textContent") && app.includes('const RECIPE_VERSION = 3') && app.includes('RECIPE_SHAPES_V3.includes(d.shape)'));
   // 3.24.1：全量审查修复锚点
-  check('3.24.1 形态种子按生成器规则折叠 / 配方码格式版本 2 且识别旧版形态码', app.includes('TerrainShapes.normSeed(v)') && app.includes('const RECIPE_VERSION = 2') && app.includes('u8(RECIPE_VERSION)') && app.includes('d.legacyShape = b[0] < 2'));
+  check('3.24.1 形态种子按生成器规则折叠 / 配方码格式版本 2 且识别旧版形态码', app.includes('TerrainShapes.normSeed(v)') && app.includes('u8(RECIPE_VERSION)') && app.includes('(b[0] < 2 ||'));
   check('3.24.1 模板场与比例无关并缓存 / 参数 NaN 防护 / 对角对称步长', ts.includes('const FIELD_CACHE_MAX = 160000') && !ts.includes('waterFrac') && ts.includes('const unit = (v, def)') && ts.includes('const cellQ = cellMin / (fr.E * fr.E)'));
   check('3.24.1 陆地比例滑块说明语义', html.includes('只改变陆地的多少'));
   check('3.21.0 陆地占比全路径为 10～90', [
@@ -77,7 +80,7 @@ try {
     '10 + Math.floor(Math.random() * 81)'
   ].every(k => app.includes(k)) && html.includes('id="shapeLand" type="range" min="10" max="90"'));
   // 3.24.0：模板层重写 —— 比例无关的陆地优先级场 + 精确选格；旧的 50% 基准图形态学缩放已移除。
-  check('3.24.0 模板场 / 精确选格锚点存在', ['function templateFields', 'function setupTemplate', 'function selectLand', 'function categoriesFromFields', 'function frameOf', 'function mazeWallDist', 'function prepareShape', 'function finishShape', "const API = { VERSION: '1.2'"].every(k => ts.includes(k)));
+  check('3.24.0 模板场 / 精确选格锚点存在', ['function templateFields', 'function setupTemplate', 'function selectLand', 'function categoriesFromFields', 'function frameOf', 'function mazeWallDist', 'function prepareShape', 'function finishShape', "const API = { VERSION: '1.3'"].every(k => ts.includes(k)));
   check('3.24.0 生成流程：模板场只算一次、比例只驱动选格', ts.includes('const pr = prepareShape(o)') && ts.includes('const r = finishShape(pr, goal)') && ts.includes('const targetN = Math.round(clamp01(targetLand) * n)'));
   check('3.24.0 旧的基准图形态学缩放已移除', !['function adjustLandRatio', 'function heightMap', 'land: 0.5, shape: meta.id', 'protectedWater.fill(0)'].some(k => ts.includes(k)));
   check('3.24.0 双河 / 两岸不自动搭浅滩（结构水域贯通）', /id: 'river'[^\n]*bridge: false/.test(ts) && /id: 'two_sides'[^\n]*bridge: false/.test(ts));
