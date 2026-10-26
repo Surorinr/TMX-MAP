@@ -75,7 +75,7 @@
     </div>
     <div id="shapeFields" hidden>
       <div class="field-grid compact-fields">
-        <label class="shape-range"><span>陆地比例 <b id="shapeLandText">50%</b></span><input id="shapeLand" type="range" min="10" max="90" step="5" value="50"></label>
+        <label class="shape-range" title="只改变陆地的多少：模板的骨架（河道 / 湖泊 / 环形山 / 迷宫墙等）、山脉位置与地表纹理保持不变"><span>陆地比例 <b id="shapeLandText">50%</b></span><input id="shapeLand" type="range" min="10" max="90" step="5" value="50"></label>
         <label><span>山地</span><select id="shapeRough"><option value="0.8">少</option><option value="0.3" selected>标准</option><option value="0">多</option></select></label>
         <label class="span2"><span>形态种子</span><span class="seed-row"><input id="shapeSeed" type="number" inputmode="numeric" placeholder="留空 = 每次生成后自动换新"><button id="shapeDice" type="button" class="dice-btn" title="换一个种子" aria-label="换一个种子"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="4"/><circle cx="8.5" cy="8.5" r="1.3" fill="currentColor"/><circle cx="15.5" cy="15.5" r="1.3" fill="currentColor"/><circle cx="12" cy="12" r="1.3" fill="currentColor"/></svg></button></span><small id="shapeSeedHint"></small></label>
       </div>

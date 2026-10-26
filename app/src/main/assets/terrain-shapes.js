@@ -1,17 +1,16 @@
 /*
- * 铁锈战争地图生成器 · 地形形态模板（3.8.0 新增）
+ * 铁锈战争地图生成器 · 地形形态模板（3.8.0 新增，3.24.0 重写模板层）
  *
- * 11 套形态模板移植自「锈匠地图生成器」（岛屿 / 半岛 / 群岛 / 双河 / 山湖 / 大陆 / 沙漠 / 雪原 / 火山 / 迷宫 / 两岸狭路）。
- * 第一部分（APK 同款算法）逐行对照原实现重写为可读代码，同一种子、同一尺寸下输出与原版逐格一致
- * （tools/verify 中的对照脚本已验证 11 套 × 多种子 × 多尺寸）。
- * 第二部分是本项目新增的「可对战化」后处理：对称镜像、碎块清理、浅滩、高地坡道、凿通被山围死的空地，
+ * 11 套形态模板：岛屿 / 半岛 / 群岛 / 双河 / 山湖 / 大陆 / 沙漠 / 雪原 / 火山 / 迷宫 / 两岸狭路。
+ * 第一部分（3.24.0 重写）：每个模板定义一组与陆地比例无关的「模板场」（陆地优先级 / 结构水域 / 岩浆 / 山地 / 纹理），
+ * 陆地比例只决定在同一族嵌套等值线中取哪一条，按格数精确命中目标比例 —— 调比例只改变陆地多少，不改变模板形态。
+ * 第二部分是「可对战化」后处理：对称镜像、碎块清理、浅滩、高地坡道、凿通被山围死的空地，
  * 最终转换成引擎 set_coastline_from_image 认识的矩阵（0 水 / 1 平地 / 2 高地 / -2 高地坡道）。
  *
- * 噪声：PermNoise 为原版使用的经典 Perlin；NaturalNoise 基于 FastNoiseLite（© Jordan Peck，MIT License）
- * 的 OpenSimplex2S / Cellular 二维实现，仅保留本模块用到的部分，梯度表与原库一致。
+ * 噪声：PermNoise 为经典 Perlin（fbm / 域扭曲 fbm / 脊状 fbm）。
  *
  * 本文件既可在网页主线程 / Web Worker 中以 <script> 或 import 加载（挂到 globalThis.TerrainShapes），
- * 也可在 Node 中 require（用于离线对照测试）。纯计算，无 DOM 依赖。
+ * 也可在 Node 中 require（用于离线回归测试）。纯计算，无 DOM 依赖。
  */
 (function (root) {
   'use strict';
@@ -24,7 +23,7 @@
   const T_NAMES = ['', 'water', 'deepWater', 'shallowWater', 'sand', 'longGrass', 'shortGrass', 'dirt', 'stone', 'mountain', 'snow', 'ice', 'lava'];
   const isWaterT = v => v === T.WATER || v === T.DEEP || v === T.SHALLOW;
 
-  /* ================================================================ 经典 Perlin（原版 _E） */
+  /* ================================================================ 经典 Perlin */
   class PermNoise {
     constructor(seed = 42) {
       this.perm = new Uint8Array(512);
@@ -77,208 +76,8 @@
     }
   }
 
-  /* ================================================================ FastNoiseLite 子集（OpenSimplex2S / Cellular，2D） */
-  const GRAD2 = new Float64Array([
-    .130526192220052, .99144486137381, .38268343236509, .923879532511287, .608761429008721, .793353340291235, .793353340291235, .608761429008721,
-    .923879532511287, .38268343236509, .99144486137381, .130526192220051, .99144486137381, -.130526192220051, .923879532511287, -.38268343236509,
-    .793353340291235, -.60876142900872, .608761429008721, -.793353340291235, .38268343236509, -.923879532511287, .130526192220052, -.99144486137381,
-    -.130526192220052, -.99144486137381, -.38268343236509, -.923879532511287, -.608761429008721, -.793353340291235, -.793353340291235, -.608761429008721,
-    -.923879532511287, -.38268343236509, -.99144486137381, -.130526192220052, -.99144486137381, .130526192220051, -.923879532511287, .38268343236509,
-    -.793353340291235, .608761429008721, -.608761429008721, .793353340291235, -.38268343236509, .923879532511287, -.130526192220052, .99144486137381,
-    .130526192220052, .99144486137381, .38268343236509, .923879532511287, .608761429008721, .793353340291235, .793353340291235, .608761429008721,
-    .923879532511287, .38268343236509, .99144486137381, .130526192220051, .99144486137381, -.130526192220051, .923879532511287, -.38268343236509,
-    .793353340291235, -.60876142900872, .608761429008721, -.793353340291235, .38268343236509, -.923879532511287, .130526192220052, -.99144486137381,
-    -.130526192220052, -.99144486137381, -.38268343236509, -.923879532511287, -.608761429008721, -.793353340291235, -.793353340291235, -.608761429008721,
-    -.923879532511287, -.38268343236509, -.99144486137381, -.130526192220052, -.99144486137381, .130526192220051, -.923879532511287, .38268343236509,
-    -.793353340291235, .608761429008721, -.608761429008721, .793353340291235, -.38268343236509, .923879532511287, -.130526192220052, .99144486137381,
-    .130526192220052, .99144486137381, .38268343236509, .923879532511287, .608761429008721, .793353340291235, .793353340291235, .608761429008721,
-    .923879532511287, .38268343236509, .99144486137381, .130526192220051, .99144486137381, -.130526192220051, .923879532511287, -.38268343236509,
-    .793353340291235, -.60876142900872, .608761429008721, -.793353340291235, .38268343236509, -.923879532511287, .130526192220052, -.99144486137381,
-    -.130526192220052, -.99144486137381, -.38268343236509, -.923879532511287, -.608761429008721, -.793353340291235, -.793353340291235, -.608761429008721,
-    -.923879532511287, -.38268343236509, -.99144486137381, -.130526192220052, -.99144486137381, .130526192220051, -.923879532511287, .38268343236509,
-    -.793353340291235, .608761429008721, -.608761429008721, .793353340291235, -.38268343236509, .923879532511287, -.130526192220052, .99144486137381,
-    .130526192220052, .99144486137381, .38268343236509, .923879532511287, .608761429008721, .793353340291235, .793353340291235, .608761429008721,
-    .923879532511287, .38268343236509, .99144486137381, .130526192220051, .99144486137381, -.130526192220051, .923879532511287, -.38268343236509,
-    .793353340291235, -.60876142900872, .608761429008721, -.793353340291235, .38268343236509, -.923879532511287, .130526192220052, -.99144486137381,
-    -.130526192220052, -.99144486137381, -.38268343236509, -.923879532511287, -.608761429008721, -.793353340291235, -.793353340291235, -.608761429008721,
-    -.923879532511287, -.38268343236509, -.99144486137381, -.130526192220052, -.99144486137381, .130526192220051, -.923879532511287, .38268343236509,
-    -.793353340291235, .608761429008721, -.608761429008721, .793353340291235, -.38268343236509, .923879532511287, -.130526192220052, .99144486137381,
-    .130526192220052, .99144486137381, .38268343236509, .923879532511287, .608761429008721, .793353340291235, .793353340291235, .608761429008721,
-    .923879532511287, .38268343236509, .99144486137381, .130526192220051, .99144486137381, -.130526192220051, .923879532511287, -.38268343236509,
-    .793353340291235, -.60876142900872, .608761429008721, -.793353340291235, .38268343236509, -.923879532511287, .130526192220052, -.99144486137381,
-    -.130526192220052, -.99144486137381, -.38268343236509, -.923879532511287, -.608761429008721, -.793353340291235, -.793353340291235, -.608761429008721,
-    -.923879532511287, -.38268343236509, -.99144486137381, -.130526192220052, -.99144486137381, .130526192220051, -.923879532511287, .38268343236509,
-    -.793353340291235, .608761429008721, -.608761429008721, .793353340291235, -.38268343236509, .923879532511287, -.130526192220052, .99144486137381,
-    .38268343236509, .923879532511287, .923879532511287, .38268343236509, .923879532511287, -.38268343236509, .38268343236509, -.923879532511287,
-    -.38268343236509, -.923879532511287, -.923879532511287, -.38268343236509, -.923879532511287, .38268343236509, -.38268343236509, .923879532511287
-  ]);
-  const RAND2 = new Float64Array([
-    -.2700222198, -.9628540911, .3863092627, -.9223693152, .04444859006, -.999011673, -.5992523158, -.8005602176,
-    -.7819280288, .6233687174, .9464672271, .3227999196, -.6514146797, -.7587218957, .9378472289, .347048376,
-    -.8497875957, -.5271252623, -.879042592, .4767432447, -.892300288, -.4514423508, -.379844434, -.9250503802,
-    -.9951650832, .0982163789, .7724397808, -.6350880136, .7573283322, -.6530343002, -.9928004525, -.119780055,
-    -.0532665713, .9985803285, .9754253726, -.2203300762, -.7665018163, .6422421394, .991636706, .1290606184,
-    -.994696838, .1028503788, -.5379205513, -.84299554, .5022815471, -.8647041387, .4559821461, -.8899889226,
-    -.8659131224, -.5001944266, .0879458407, -.9961252577, -.5051684983, .8630207346, .7753185226, -.6315704146,
-    -.6921944612, .7217110418, -.5191659449, -.8546734591, .8978622882, -.4402764035, -.1706774107, .9853269617,
-    -.9353430106, -.3537420705, -.9992404798, .03896746794, -.2882064021, -.9575683108, -.9663811329, .2571137995,
-    -.8759714238, -.4823630009, -.8303123018, -.5572983775, .05110133755, -.9986934731, -.8558373281, -.5172450752,
-    .09887025282, .9951003332, .9189016087, .3944867976, -.2439375892, -.9697909324, -.8121409387, -.5834613061,
-    -.9910431363, .1335421355, .8492423985, -.5280031709, -.9717838994, -.2358729591, .9949457207, .1004142068,
-    .6241065508, -.7813392434, .662910307, .7486988212, -.7197418176, .6942418282, -.8143370775, -.5803922158,
-    .104521054, -.9945226741, -.1065926113, -.9943027784, .445799684, -.8951327509, .105547406, .9944142724,
-    -.992790267, .1198644477, -.8334366408, .552615025, .9115561563, -.4111755999, .8285544909, -.5599084351,
-    .7217097654, -.6921957921, .4940492677, -.8694339084, -.3652321272, -.9309164803, -.9696606758, .2444548501,
-    .08925509731, -.996008799, .5354071276, -.8445941083, -.1053576186, .9944343981, -.9890284586, .1477251101,
-    .004856104961, .9999882091, .9885598478, .1508291331, .9286129562, -.3710498316, -.5832393863, -.8123003252,
-    .3015207509, .9534596146, -.9575110528, .2883965738, .9715802154, -.2367105511, .229981792, .9731949318,
-    .955763816, -.2941352207, .740956116, .6715534485, -.9971513787, -.07542630764, .6905710663, -.7232645452,
-    -.290713703, -.9568100872, .5912777791, -.8064679708, -.9454592212, -.325740481, .6664455681, .74555369,
-    .6236134912, .7817328275, .9126993851, -.4086316587, -.8191762011, .5735419353, -.8812745759, -.4726046147,
-    .9953313627, .09651672651, .9855650846, -.1692969699, -.8495980887, .5274306472, .6174853946, -.7865823463,
-    .8508156371, .52546432, .9985032451, -.05469249926, .1971371563, -.9803759185, .6607855748, -.7505747292,
-    -.03097494063, .9995201614, -.6731660801, .739491331, -.7195018362, -.6944905383, .9727511689, .2318515979,
-    .9997059088, -.0242506907, .4421787429, -.8969269532, .9981350961, -.061043673, -.9173660799, -.3980445648,
-    -.8150056635, -.5794529907, -.8789331304, .4769450202, .0158605829, .999874213, -.8095464474, .5870558317,
-    -.9165898907, -.3998286786, -.8023542565, .5968480938, -.5176737917, .8555780767, -.8154407307, -.5788405779,
-    .4022010347, -.9155513791, -.9052556868, -.4248672045, .7317445619, .6815789728, -.5647632201, -.8252529947,
-    -.8403276335, -.5420788397, -.9314281527, .363925262, .5238198472, .8518290719, .7432803869, -.6689800195,
-    -.985371561, -.1704197369, .4601468731, .88784281, .825855404, .5638819483, .6182366099, .7859920446,
-    .8331502863, -.553046653, .1500307506, .9886813308, -.662330369, -.7492119075, -.668598664, .743623444,
-    .7025606278, .7116238924, -.5419389763, -.8404178401, -.3388616456, .9408362159, .8331530315, .5530425174,
-    -.2989720662, -.9542618632, .2638522993, .9645630949, .124108739, -.9922686234, -.7282649308, -.6852956957,
-    .6962500149, .7177993569, -.9183535368, .3957610156, -.6326102274, -.7744703352, -.9331891859, -.359385508,
-    -.1153779357, -.9933216659, .9514974788, -.3076565421, -.08987977445, -.9959526224, .6678496916, .7442961705,
-    .7952400393, -.6062947138, -.6462007402, -.7631674805, -.2733598753, .9619118351, .9669590226, -.254931851,
-    -.9792894595, .2024651934, -.5369502995, -.8436138784, -.270036471, -.9628500944, -.6400277131, .7683518247,
-    -.7854537493, -.6189203566, .06005905383, -.9981948257, -.02455770378, .9996984141, -.65983623, .751409442,
-    -.6253894466, -.7803127835, -.6210408851, -.7837781695, .8348888491, .5504185768, -.1592275245, .9872419133,
-    .8367622488, .5475663786, -.8675753916, -.4973056806, -.2022662628, -.9793305667, .9399189937, .3413975472,
-    .9877404807, -.1561049093, -.9034455656, .4287028224, .1269804218, -.9919052235, -.3819600854, .924178821,
-    .9754625894, .2201652486, -.3204015856, -.9472818081, -.9874760884, .1577687387, .02535348474, -.9996785487,
-    .4835130794, -.8753371362, -.2850799925, -.9585037287, -.06805516006, -.99768156, -.7885244045, -.6150034663,
-    .3185392127, -.9479096845, .8880043089, .4598351306, .6476921488, -.7619021462, .9820241299, .1887554194,
-    .9357275128, -.3527237187, -.8894895414, .4569555293, .7922791302, .6101588153, .7483818261, .6632681526,
-    -.7288929755, -.6846276581, .8729032783, -.4878932944, .8288345784, .5594937369, .08074567077, .9967347374,
-    .9799148216, -.1994165048, -.580730673, -.8140957471, -.4700049791, -.8826637636, .2409492979, .9705377045,
-    .9437816757, -.3305694308, -.8927998638, -.4504535528, -.8069622304, .5906030467, .06258973166, .9980393407,
-    -.9312597469, .3643559849, .5777449785, .8162173362, -.3360095855, -.941858566, .697932075, -.7161639607,
-    -.002008157227, -.9999979837, -.1827294312, -.9831632392, -.6523911722, .7578824173, -.4302626911, -.9027037258,
-    -.9985126289, -.05452091251, -.01028102172, -.9999471489, -.4946071129, .8691166802, -.2999350194, .9539596344,
-    .8165471961, .5772786819, .2697460475, .962931498, -.7306287391, -.6827749597, -.7590952064, -.6509796216,
-    -.907053853, .4210146171, -.5104861064, -.8598860013, .8613350597, .5080373165, .5007881595, -.8655698812,
-    -.654158152, .7563577938, -.8382755311, -.545246856, .6940070834, .7199681717, .06950936031, .9975812994,
-    .1702942185, -.9853932612, .2695973274, .9629731466, .5519612192, -.8338697815, .225657487, -.9742067022,
-    .4215262855, -.9068161835, .4881873305, -.8727388672, -.3683854996, -.9296731273, -.9825390578, .1860564427,
-    .81256471, .5828709909, .3196460933, -.9475370046, .9570913859, .2897862643, -.6876655497, -.7260276109,
-    -.9988770922, -.047376731, -.1250179027, .992154486, -.8280133617, .560708367, .9324863769, -.3612051451,
-    .6394653183, .7688199442, -.01623847064, -.9998681473, -.9955014666, -.09474613458, -.81453315, .580117012,
-    .4037327978, -.9148769469, .9944263371, .1054336766, -.1624711654, .9867132919, -.9949487814, -.100383875,
-    -.6995302564, .7146029809, .5263414922, -.85027327, -.5395221479, .841971408, .6579370318, .7530729462,
-    .01426758847, -.9998982128, -.6734383991, .7392433447, .639412098, -.7688642071, .9211571421, .3891908523,
-    -.146637214, -.9891903394, -.782318098, .6228791163, -.5039610839, -.8637263605, -.7743120191, -.6328039957
-  ]);
-  const PRIME_X = 501125321, PRIME_Y = 1136930381;
-  const hashR2 = (seed, xp, yp) => Math.imul(seed ^ xp ^ yp, 668265261);
-  function gradCoord(seed, xp, yp, xd, yd) {
-    let h = hashR2(seed, xp, yp);
-    h ^= h >> 15; h &= 254;
-    return xd * GRAD2[h] + yd * GRAD2[h | 1];
-  }
-  function openSimplex2S(seed, x, y) {
-    const G = 1.2679491924311228 / 6;
-    let i = Math.floor(x), j = Math.floor(y);
-    const xi = x - i, yi = y - j;
-    i = Math.imul(i, PRIME_X); j = Math.imul(j, PRIME_Y);
-    const i1 = i + PRIME_X, j1 = j + PRIME_Y;
-    const t = (xi + yi) * G, x0 = xi - t, y0 = yi - t;
-    const a0 = 2 / 3 - x0 * x0 - y0 * y0;
-    let value = a0 * a0 * (a0 * a0) * gradCoord(seed, i, j, x0, y0);
-    const a1 = 2 * (1 - 2 * G) * (1 / G - 2) * t + (-2 * (1 - 2 * G) * (1 - 2 * G) + a0);
-    const x1 = x0 - (1 - 2 * G), y1 = y0 - (1 - 2 * G);
-    value += a1 * a1 * (a1 * a1) * gradCoord(seed, i1, j1, x1, y1);
-    const d = xi - yi;
-    const add = (xp, yp, dx, dy) => { const a = 2 / 3 - dx * dx - dy * dy; if (a > 0) value += a * a * (a * a) * gradCoord(seed, xp, yp, dx, dy); };
-    if (t > G) {
-      if (xi + d > 1) add(i + (PRIME_X << 1), j + PRIME_Y, x0 + (3 * G - 2), y0 + (3 * G - 1));
-      else add(i, j + PRIME_Y, x0 + G, y0 + (G - 1));
-      if (yi - d > 1) add(i + PRIME_X, j + (PRIME_Y << 1), x0 + (3 * G - 1), y0 + (3 * G - 2));
-      else add(i + PRIME_X, j, x0 + (G - 1), y0 + G);
-    } else {
-      if (xi + d < 0) add(i - PRIME_X, j, x0 + (1 - G), y0 - G);
-      else add(i + PRIME_X, j, x0 + (G - 1), y0 + G);
-      if (yi < d) add(i, j - PRIME_Y, x0 - G, y0 - (G - 1));
-      else add(i, j + PRIME_Y, x0 + G, y0 + (G - 1));
-    }
-    return value * 18.24196194486065;
-  }
-  /* Cellular：欧氏距离平方，返回 Distance2Sub */
-  function cellular(seed, x, y, jitter) {
-    const rx = Math.round(x), ry = Math.round(y);
-    let d0 = Number.MAX_VALUE, d1 = Number.MAX_VALUE;
-    const cj = 0.43701595 * jitter;
-    let xp = (rx - 1) * PRIME_X;
-    const yBase = (ry - 1) * PRIME_Y;
-    for (let xi = rx - 1; xi <= rx + 1; xi++) {
-      let yp = yBase;
-      for (let yi = ry - 1; yi <= ry + 1; yi++) {
-        const h = hashR2(seed, xp, yp), k = h & 510;
-        const vx = xi - x + RAND2[k] * cj, vy = yi - y + RAND2[k | 1] * cj;
-        const dd = vx * vx + vy * vy;
-        d1 = Math.max(Math.min(d1, dd), d0);
-        if (dd < d0) d0 = dd;
-        yp += PRIME_Y;
-      }
-      xp += PRIME_X;
-    }
-    return d1 - d0 - 1;
-  }
-  class FastNoise {
-    /** fractal: 'none' | 'fbm' | 'ridged'；type: 'os2s' | 'cellular'；频率固定为 1（原版用法） */
-    constructor(seed, type, fractal, octaves = 5, jitter = 1) {
-      this.seed = seed; this.type = type; this.fractal = fractal; this.oct = octaves; this.jitter = jitter;
-      let amp = 0.5, f = 1;
-      for (let i = 1; i < octaves; i++) { f += amp; amp *= 0.5; }
-      this.bound = 1 / f;
-    }
-    single(seed, x, y) { return this.type === 'cellular' ? cellular(seed, x, y, this.jitter) : openSimplex2S(seed, x, y); }
-    get(x, y) {
-      if (this.type === 'os2s') { const t = (x + y) * (0.5 * 0.7320508075688772); x += t; y += t; }
-      if (this.fractal === 'none') return this.single(this.seed, x, y);
-      let seed = this.seed, sum = 0, amp = this.bound;
-      for (let i = 0; i < this.oct; i++) {
-        const n = this.single(seed++, x, y);
-        sum += this.fractal === 'ridged' ? (Math.abs(n) * -2 + 1) * amp : n * amp;
-        x *= 2; y *= 2; amp *= 0.5;
-      }
-      return sum;
-    }
-  }
-  const to01 = v => Math.max(0, Math.min(1, v * 0.5 + 0.5));
-  /** 原版 gE：带域扭曲的自然噪声 */
-  class NaturalNoise {
-    constructor(seed, opts = {}) {
-      const oct = opts.octaves ?? 5;
-      this.sampleN = new FastNoise(seed, 'os2s', 'fbm', oct);
-      this.ridgeN = new FastNoise(seed + 1013, 'os2s', 'ridged', oct);
-      this.cellN = new FastNoise(seed + 2027, 'cellular', 'none', 3, 0.9);
-      this.warpX = new FastNoise(seed + 3041, 'os2s', 'fbm', 3);
-      this.warpY = new FastNoise(seed + 4051, 'os2s', 'fbm', 3);
-      this.amp = opts.warpAmplitude ?? 0.85;
-    }
-    sample(x, y) { return to01(this.sampleN.get(x, y)); }
-    ridged(x, y) { return to01(this.ridgeN.get(x, y)); }
-    cellular(x, y) { return to01(this.cellN.get(x, y)); }
-    sampleWarped(x, y) {
-      const dx = this.warpX.get(x + 31.7, y - 18.3) * this.amp, dy = this.warpY.get(x - 47.1, y + 63.9) * this.amp;
-      return this.sample(x + dx, y + dy);
-    }
-  }
-
-  /* ================================================================ 原版辅助函数 */
+  /* ================================================================ 辅助函数 */
   const clamp01 = v => Math.max(0, Math.min(1, v));
-  /* 注意：e1 < e0 时按降序平滑处理（原实现误用 max(1e-4, e1-e0) 变成了硬边阶跃，
-     导致山湖「碗形」与火山口被反向应用、高度场出现大片 0 值） */
   /** 平滑阶跃：e0 < e1 时从 0 升到 1，e0 > e1 时从 1 降到 0 */
   function smooth(e0, e1, x) {
     const span = e1 - e0, r = clamp01((x - e0) / Math.max(1e-4, Math.abs(span)));
@@ -286,304 +85,458 @@
     return span < 0 ? 1 - s : s;
   }
   const angDist = (a, b) => Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b)));
-  /** 两岸狭路：第 row 行中央河道的中心列 */
-  function channelCenter(n, row, w, h) {
-    const t = row / Math.max(1, h - 1);
-    return w * 0.5 + (n.warpedFbm(t * 2.4 + 41, 19.7, 4, 0.9) - 0.5) * w * 0.12 + Math.sin(t * Math.PI * 2.2 + 0.7) * w * 0.018;
-  }
-  function channelHalfWidth(n, row, w, h) {
-    const t = row / Math.max(1, h - 1);
-    return Math.max(2, w * (0.022 + n.fbm(t * 3.1 + 8, 27, 3) * 0.012));
-  }
-  function crossingRows(n, h) { return [0.24, 0.5, 0.76].map((v, k) => Math.round(h * (v + (n.random2D(k + 71, 33) - 0.5) * 0.055))); }
-  function isCrossingRow(n, row, h) { const r = Math.max(1, Math.round(h * 0.014)); return crossingRows(n, h).some(c => Math.abs(row - c) <= r); }
 
   /* ================================================================ 形态模板定义
-   * size：原版推荐尺寸；theme：推荐贴图主题（1 丛林 2 雪山 3 火山 4 沙漠 5 森林）；mirror：推荐对称方式；
+   * size：推荐尺寸；theme：推荐贴图主题（1 丛林 2 雪山 3 火山 4 沙漠 5 森林）；mirror：推荐对称方式；
    * levels/ocean/magnet：推荐高度层级 / 海洋层级 / 墙体吸附；bridge：是否自动用浅滩连通被水隔开的大块陆地。 */
   const SHAPES = [
-    { id: 'island', label: '岛屿', desc: '四面环海，中央一块陆地', size: [120, 120], theme: 5, mirror: 'both', levels: 6, ocean: 3, magnet: 25, bridge: false },
-    { id: 'peninsula', label: '半岛', desc: '大陆边缘突出半岛，三面环海', size: [160, 120], theme: 1, mirror: 'horizontal', levels: 6, ocean: 3, magnet: 25, bridge: true },
-    { id: 'archipelago', label: '群岛', desc: '多个小岛散布在海中，适合海战', size: [180, 180], theme: 1, mirror: 'both', levels: 4, ocean: 3, magnet: 20, bridge: false },
-    { id: 'river', label: '双河', desc: '两条河流将陆地分为三块（自动加浅滩渡口）', size: [160, 120], theme: 5, mirror: 'vertical', levels: 6, ocean: 2, magnet: 25, bridge: true },
-    { id: 'mountain_lake', label: '山湖', desc: '中央山脉环绕湖泊', size: [120, 120], theme: 5, mirror: 'vertical', levels: 7, ocean: 2, magnet: 35, bridge: true },
-    { id: 'continent', label: '大陆', desc: '一整块大陆，边缘少量水域', size: [160, 160], theme: 1, mirror: 'vertical', levels: 7, ocean: 2, magnet: 25, bridge: true },
-    { id: 'desert', label: '沙漠', desc: '大片沙漠，少量绿洲', size: [140, 140], theme: 4, mirror: 'vertical', levels: 5, ocean: 2, magnet: 20, bridge: true },
-    { id: 'snowland', label: '雪原', desc: '冰雪覆盖的大地', size: [140, 140], theme: 2, mirror: 'vertical', levels: 7, ocean: 2, magnet: 25, bridge: true },
-    { id: 'volcano', label: '火山', desc: '中央火山口，岩浆流淌', size: [120, 120], theme: 3, mirror: 'vertical', levels: 7, ocean: 2, magnet: 30, bridge: true },
-    { id: 'labyrinth', label: '迷宫', desc: '山脊形成迷宫通道', size: [160, 160], theme: 5, mirror: 'both', levels: 6, ocean: 1, magnet: 30, bridge: true },
-    { id: 'two_sides', label: '两岸狭路', desc: '左右两岸对峙，中间狭路相逢', size: [240, 110], theme: 1, mirror: 'vertical', levels: 6, ocean: 2, magnet: 20, bridge: true }
+    { id: 'island', label: '岛屿', desc: '四面环海，中央一座完整的大岛，岛心为山地', size: [120, 120], theme: 5, mirror: 'both', levels: 6, ocean: 3, magnet: 25, bridge: false },
+    { id: 'peninsula', label: '半岛', desc: '大陆一侧伸出一条狭长半岛，半岛三面环海', size: [160, 120], theme: 1, mirror: 'horizontal', levels: 6, ocean: 3, magnet: 25, bridge: true },
+    { id: 'archipelago', label: '群岛', desc: '大小岛屿散布海中，岛与岛之间隔着海峡，适合海战', size: [180, 180], theme: 1, mirror: 'both', levels: 4, ocean: 3, magnet: 20, bridge: false },
+    { id: 'river', label: '双河', desc: '两条贯通全图的河流将陆地分为三块（不可陆路跨越），陆地越少河面越宽', size: [160, 120], theme: 5, mirror: 'vertical', levels: 6, ocean: 2, magnet: 25, bridge: false },
+    { id: 'mountain_lake', label: '山湖', desc: '中央湖泊被环形山脉环抱，四处山口通往外围平原', size: [120, 120], theme: 5, mirror: 'vertical', levels: 7, ocean: 2, magnet: 35, bridge: true },
+    { id: 'continent', label: '大陆', desc: '一整块大陆，海岸曲折多湾，内陆有山脉与湖泊，边缘少量水域', size: [160, 160], theme: 1, mirror: 'vertical', levels: 7, ocean: 2, magnet: 25, bridge: true },
+    { id: 'desert', label: '沙漠', desc: '大片沙丘与岩石台地，散布少量绿洲湖泊', size: [140, 140], theme: 4, mirror: 'vertical', levels: 5, ocean: 2, magnet: 20, bridge: true },
+    { id: 'snowland', label: '雪原', desc: '冰雪覆盖的大地，峡湾海岸、冰湖与雪山', size: [140, 140], theme: 2, mirror: 'vertical', levels: 7, ocean: 2, magnet: 25, bridge: true },
+    { id: 'volcano', label: '火山', desc: '中央火山锥环抱岩浆火口，熔岩流沿山坡淌下，外围临海', size: [120, 120], theme: 3, mirror: 'vertical', levels: 7, ocean: 2, magnet: 30, bridge: true },
+    { id: 'labyrinth', label: '迷宫', desc: '高地山脊构成迷宫走廊，陆地越少外围走廊被水淹没得越多', size: [160, 160], theme: 5, mirror: 'both', levels: 6, ocean: 1, magnet: 30, bridge: true },
+    { id: 'two_sides', label: '两岸狭路', desc: '中央水道把地图分为对峙两岸，仅几处渡口相通，两岸外侧临海', size: [240, 110], theme: 1, mirror: 'vertical', levels: 6, ocean: 2, magnet: 20, bridge: false }
   ];
   const SHAPE_MAP = new Map(SHAPES.map(s => [s.id, s]));
 
-  /** 种子规范化：与原版一致地保留正整数种子（42 仍是 42），其余折叠到 [1, 2^31-2] */
+  /** 种子规范化：保留正整数种子（42 仍是 42），其余折叠到 [1, 2^31-2] */
   function normSeed(seed) {
     let s = Math.abs(Math.trunc(Number(seed) || 0)) % 2147483647;
     return s === 0 ? 7 : s;
   }
 
-  /* ================================================================ 第一部分：APK 同款分类（输出 Uint8Array，取值见 T） */
-  function heightMap(ctx, w, h, shape, land, st = 1, gw = w, gh = h, need = null, prog = null) {
-    const { noise, nat } = ctx;
-    const H = new Float64Array(gw * gh);
-    const f = (land - 0.5) * 0.42;
+  /* ================================================================ 第一部分（3.24.0 重写）：模板场
+   * 旧版先以 50% 生成一张基准图，再按到海岸的距离向外扩张 / 向内腐蚀来凑比例。
+   * 基准图本身的噪声形态并不贴合模板名字，边界等距偏移又会把噪点放大：岛屿变成八边形、
+   * 双河陆地只从一侧收缩、山湖的环形山退化成细线、火山变成 X 形熔岩……
+   *
+   * 新做法：每个模板在「整图归一化坐标」上定义一组与陆地比例无关的场 ——
+   *   P    陆地优先级：陆地 = 可选格中 P 最高的 N 格（N = 目标比例 × 总格数，按镜像轨道加权精确计数）
+   *   fw   结构性水域（河道 / 中央水道 / 湖心 / 绿洲 / 外缘海带）：任何比例都保持为水
+   *   lava 岩浆（火口 / 熔岩流）：不计入陆地，也不参与选格
+   *   M    山地强度：> 阈值且离岸足够远的陆地成为高地；M ≥ 2 为模板骨架山地（环形山 / 火山锥 / 迷宫墙）
+   *   B    地表纹理噪声（只影响预览材质）；tag：材质提示（绿洲草环 / 火山灰 / 渡口）
+   * 所有比例共用同一个 P，比例变化只是在同一族嵌套等值线中取另一条：陆地随比例单调扩张 / 收缩，
+   * 骨架、山脉位置与纹理都不随比例改变 —— 「陆地占比只调节陆地占比」。
+   * 噪声频率与整图尺寸绑定（而非像素），所以同一模板在 80×80 和 2000×2000 上形态一致，预览与成品一致。 */
+  const sn = v => (v - 0.5) * 3.5; // fbm(均值 0.5、σ≈0.085) → 均值 0、σ≈0.3
+  const pnorm = (x, y, p) => Math.pow(Math.pow(Math.abs(x), p) + Math.pow(Math.abs(y), p), 1 / p);
+  const TAG = { NONE: 0, OASIS: 1, ASH: 2, CROSSING: 3 };
+
+  /** 镜像坐标系：返回 (l,u) → (a,b) 的线性变换。约定单轴镜像时镜像操作为 b → −b（a 轴即对称轴），
+   *  both 时 a → −a 且 b → −b。需要「方向」的模板（半岛 / 双河 / 两岸 / 火山熔岩流）在这个坐标系里定义，
+   *  于是换用任意对称方式，半岛都沿对称轴伸出、河流与水道都与对称轴保持正确的相对关系。 */
+  function frameOf(mode) {
+    const R = Math.SQRT1_2;
+    switch (mode) {
+      case 'vertical': return { aL: 0, aU: 1, bL: 1, bU: 0, E: 1, axis: true };
+      case 'horizontal': return { aL: 1, aU: 0, bL: 0, bU: 1, E: 1, axis: true };
+      case 'diagonal1': return { aL: R, aU: R, bL: -R, bU: R, E: Math.SQRT2, axis: true };
+      case 'diagonal2': return { aL: R, aU: -R, bL: R, bU: R, E: Math.SQRT2, axis: true };
+      default: return { aL: 1, aU: 0, bL: 0, bU: 1, E: 1, axis: false }; // none / both
+    }
+  }
+
+  /** 模板的预计算数据（站点、迷宫、熔岩流方向等），只依赖种子、整图尺寸与对称方式 */
+  function setupTemplate(shape, W, H, seed, mode) {
+    const rng = mulberry32(seed ^ 0x3c6ef372), S = (W + H) / 2, asp = W / Math.max(1, H);
+    const fr = frameOf(mode), t = { fr, S };
+    const longAxisA = W >= H; // 无单轴对称时，方向性模板沿地图长边展开
+    if (shape === 'archipelago') {
+      const nx = Math.max(3, Math.min(7, Math.round(4.3 * Math.sqrt(asp)))), ny = Math.max(3, Math.min(7, Math.round(4.3 / Math.sqrt(asp))));
+      const cw = W / S / nx, ch = H / S / ny, sites = [];
+      for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
+        sites.push({ x: (i + 0.5 + (rng() - 0.5) * 0.78) * cw, y: (j + 0.5 + (rng() - 0.5) * 0.78) * ch, w: 0.62 + rng() * 0.72 });
+      }
+      Object.assign(t, { nx, ny, cw, ch, sites, cell: Math.sqrt(cw * ch) });
+    } else if (shape === 'labyrinth') {
+      const base = Math.max(6, Math.min(15, Math.round(Math.sqrt(W * H) / 17)));
+      const nx = Math.max(4, Math.round(base * Math.sqrt(asp))), ny = Math.max(4, Math.round(base / Math.sqrt(asp)));
+      // V[j*nx+i]：格 (i,j) 与 (i+1,j) 之间的竖墙；Hz[j*nx+i]：格 (i,j) 与 (i,j+1) 之间的横墙
+      const V = new Uint8Array(nx * ny).fill(1), Hz = new Uint8Array(nx * ny).fill(1), seen = new Uint8Array(nx * ny);
+      const stack = [((ny >> 1) * nx) + (nx >> 1)]; seen[stack[0]] = 1;
+      while (stack.length) {
+        const c = stack[stack.length - 1], i = c % nx, j = (c / nx) | 0, opts = [];
+        if (i > 0 && !seen[c - 1]) opts.push(0); if (i < nx - 1 && !seen[c + 1]) opts.push(1);
+        if (j > 0 && !seen[c - nx]) opts.push(2); if (j < ny - 1 && !seen[c + nx]) opts.push(3);
+        if (!opts.length) { stack.pop(); continue; }
+        const d = opts[(rng() * opts.length) | 0];
+        const q = d === 0 ? c - 1 : d === 1 ? c + 1 : d === 2 ? c - nx : c + nx;
+        if (d === 0) V[c - 1] = 0; else if (d === 1) V[c] = 0; else if (d === 2) Hz[c - nx] = 0; else Hz[c] = 0;
+        seen[q] = 1; stack.push(q);
+      }
+      // 打通约 14% 的内墙形成环路：减少死胡同，迷宫依旧可辨但不至于只有一条路线
+      for (let c = 0; c < nx * ny; c++) {
+        if (c % nx < nx - 1 && V[c] && rng() < 0.14) V[c] = 0;
+        if (((c / nx) | 0) < ny - 1 && Hz[c] && rng() < 0.14) Hz[c] = 0;
+      }
+      for (let j = 0; j < ny; j++) V[j * nx + nx - 1] = 0;   // 外框不设墙
+      for (let i = 0; i < nx; i++) Hz[(ny - 1) * nx + i] = 0;
+      Object.assign(t, { nx, ny, V, Hz, cwPx: W / nx, chPx: H / ny });
+    } else if (shape === 'volcano') {
+      // 熔岩流方向：在镜像坐标系中取对称的方向组，镜像后每条熔岩流都完整，不会被对称折叠成「V」字岔口
+      const j1 = (rng() - 0.5) * 0.5, j2 = (rng() - 0.5) * 0.5;
+      let flows;
+      if (mode === 'both') flows = [0.62 + j1, -0.62 - j1, Math.PI - 0.62 - j1, -Math.PI + 0.62 + j1].map((a, i) => ({ a, m: i % 2 ? -1 : 1 }));
+      else if (fr.axis) flows = [{ a: 0, m: 0 }, { a: 2.2 + j1, m: 1 }, { a: -2.2 - j1, m: -1 }];
+      else { const a0 = rng() * Math.PI * 2; flows = [a0, a0 + 2.0 + j1, a0 - 2.1 + j2].map(a => ({ a, m: 1 })); }
+      for (const f of flows) { f.len = 0.47 + rng() * 0.09; f.ph = rng() * 6.283; }
+      // 镜像成对的熔岩流共用长度与相位，保证两条严格镜像
+      if (flows.length >= 3 && fr.axis) { flows[2].len = flows[1].len; flows[2].ph = flows[1].ph; }
+      if (mode === 'both') for (const f of flows) { f.len = flows[0].len; f.ph = flows[0].ph; }
+      t.flows = flows;
+    } else if (shape === 'desert' || shape === 'continent') {
+      // 绿洲 / 内陆湖：在内陆随机撒点（彼此保持距离），镜像后成对出现
+      const want = shape === 'desert' ? 5 : 3, pts = [];
+      for (let tries = 0; tries < 200 && pts.length < want; tries++) {
+        const x = (rng() * 2 - 1) * 0.62, y = (rng() * 2 - 1) * 0.62;
+        if (pts.some(p => Math.hypot(p.x - x, p.y - y) < 0.38)) continue;
+        pts.push({ x, y, r: shape === 'desert' ? 0.036 + rng() * 0.025 : 0.05 + rng() * 0.034 });
+      }
+      t.pools = pts;
+    } else if (shape === 'peninsula') {
+      const along = fr.axis ? null : (longAxisA ? 'l' : 'u');
+      t.pen = { along, tip: mode === 'both' ? -0.16 : 0.5 + (rng() - 0.5) * 0.08, bend: fr.axis || mode === 'both' ? 0 : (rng() - 0.5) * 0.24, ph: rng() * 6.283 };
+    } else if (shape === 'river') {
+      t.riv = { ph1: rng() * 6.283, ph2: rng() * 6.283, f1: 1.1 + rng() * 0.5, f2: 1.1 + rng() * 0.5 };
+    } else if (shape === 'two_sides') {
+      const j = (rng() - 0.5) * 0.12;
+      t.cross = mode === 'both' ? [-0.56 - j, 0, 0.56 + j] : [-0.56 + (rng() - 0.5) * 0.1, (rng() - 0.5) * 0.08, 0.56 + (rng() - 0.5) * 0.1];
+      t.ph = rng() * 6.283;
+    }
+    t.longAxisA = longAxisA;
+    return t;
+  }
+
+  /** 迷宫墙距离（像素）：到最近一段墙（含墙段端点处的立柱）的距离 */
+  function mazeWallDist(t, px, py) {
+    const { nx, ny, V, Hz, cwPx, chPx } = t;
+    const fx = px / cwPx, fy = py / chPx;
+    const i = Math.max(0, Math.min(nx - 1, Math.floor(fx))), j = Math.max(0, Math.min(ny - 1, Math.floor(fy)));
+    const dx = (fx - i) * cwPx, dy = (fy - j) * chPx, rx = cwPx - dx, ry = chPx - dy;
+    let d = 1e9;
+    if (i > 0 && V[j * nx + i - 1]) d = Math.min(d, dx);
+    if (V[j * nx + i]) d = Math.min(d, rx);
+    if (j > 0 && Hz[(j - 1) * nx + i]) d = Math.min(d, dy);
+    if (Hz[j * nx + i]) d = Math.min(d, ry);
+    // 四个角点：任一相邻墙段触及该角点即视为立柱，墙体转角饱满、不留缝
+    const vt = (ii, jj) => ii >= 0 && jj >= 0 && ii < nx && jj < ny && V[jj * nx + ii];
+    const ht = (ii, jj) => ii >= 0 && jj >= 0 && ii < nx && jj < ny && Hz[jj * nx + ii];
+    for (let cy = 0; cy <= 1; cy++) for (let cx = 0; cx <= 1; cx++) {
+      const vi = i + cx, vj = j + cy; // 角点 (vi,vj)
+      if (vt(vi - 1, vj - 1) || vt(vi - 1, vj) || ht(vi - 1, vj - 1) || ht(vi, vj - 1)) {
+        d = Math.min(d, Math.hypot(cx ? rx : dx, cy ? ry : dy));
+      }
+    }
+    return d;
+  }
+
+  /**
+   * 计算模板场。只计算 need 为真的格（对称源半区），其余由镜像填充。
+   * @returns {{P:Float32Array,M:Float32Array,B:Float32Array,fw:Uint8Array,lava:Uint8Array,tag:Uint8Array}}
+   */
+  function templateFields(shape, W, H, st, gw, gh, seed, mode, need, prog) {
+    const n = gw * gh;
+    const P = new Float32Array(n), M = new Float32Array(n), B = new Float32Array(n);
+    const fw = new Uint8Array(n), lava = new Uint8Array(n), tag = new Uint8Array(n);
+    const noise = new PermNoise(seed), tex = new PermNoise(seed ^ 0x2545f491);
+    const t = setupTemplate(shape, W, H, seed, mode), fr = t.fr, S = t.S;
+    const cellU = 2 * st / Math.max(1, H - 1), cellL = 2 * st / Math.max(1, W - 1), cellMin = Math.max(cellU, cellL);
+    // 镜像坐标系中 (a/E, b/E) 每格的步长：正交时即 cellMin，对角时 (l±u)/2 每格只走 cellMin/2
+    const cellQ = cellMin / (fr.E * fr.E);
+    const minSide = Math.min(W, H);
     for (let gy = 0; gy < gh; gy++) {
-      const i = gy * st;
-      if (prog && (gy & 31) === 0) prog(gy / gh);
-      // 两岸狭路的河道中心 / 半宽只与行有关，按行缓存（原版逐格重复计算，结果相同）
-      const cc = shape === 'two_sides' ? channelCenter(noise, i, w, h) : 0;
-      const cw = shape === 'two_sides' ? channelHalfWidth(noise, i, w, h) : 0;
+      if (prog && (gy & 15) === 0) prog(gy / gh);
+      const py = gy * st, u = py / Math.max(1, H - 1) * 2 - 1, Y = py / S;
       for (let gx = 0; gx < gw; gx++) {
         if (need && !need(gx, gy)) continue;
-        const o = gx * st;
-        const sx = o / w, sy = i / h, l = sx * 2 - 1, u = sy * 2 - 1, d = Math.sqrt(l * l + u * u);
-        const p = noise.warpedFbm(o * 0.012 + 11, i * 0.012 - 17, 5, 0.9);
-        const m = noise.fbm(o * 0.045 + 101, i * 0.045 + 73, 4);
-        const rg = noise.ridgedFbm(o * 0.022 - 40, i * 0.022 + 29, 4);
-        const g = (noise.warpedFbm(o * 0.018 + 500, i * 0.018 + 500, 4, 0.8) - 0.5) * 0.24;
-        let v = p * 0.58 + m * 0.27 + rg * 0.15 + f;
+        const k = gy * gw + gx, px = gx * st, l = px / Math.max(1, W - 1) * 2 - 1, X = px / S;
+        const a = fr.aL * l + fr.aU * u, b = fr.bL * l + fr.bU * u;
+        const nl = sn(noise.warpedFbm(X * 2.1 + 11.3, Y * 2.1 - 7.7, 4, 0.7));   // 大尺度：海湾 / 半岛
+        const nm = sn(noise.fbm(X * 6.3 + 3.1, Y * 6.3 + 9.4, 3));              // 中尺度：海岸细节
+        const rg = noise.ridgedFbm(X * 2.7 + 41.7, Y * 2.7 - 23.9, 4);            // 山脉链（均值≈0.66）
+        B[k] = tex.fbm(X * 7.5 + 13.7, Y * 7.5 - 9.3, 3);
+        let p = 0, m = 0;
         switch (shape) {
           case 'island': {
-            const e = 0.48 + land * 0.48, t = 1 - smooth(e - 0.28, e + 0.12, d + g);
-            v = v * 0.5 + t * 0.5; break;
+            const q = pnorm(l, u, 2.3);
+            p = -(q + 0.21 * nl + 0.07 * nm);
+            m = 1.1 * (rg - 0.66) + 0.15 * nm; // 再叠加「离岸相对深度」，山地总在岛心（见 MOUNT_REL）
+            // 外缘海带：任何比例下四面都留有海，岛屿不会贴边变成「大陆」
+            const edge = Math.min(px, py, W - 1 - px, H - 1 - py);
+            // 宽度约为短边的 1.5%（至少 1 格）：120×120 时 2 格，40×40 时 1 格，仍能达到 90% 陆地
+            if (edge < Math.max(st, minSide * 0.015)) fw[k] = 1;
+            break;
           }
           case 'peninsula': {
-            const e = (noise.warpedFbm(o * 0.02 + 300, i * 0.02 - 90, 4, 0.7) - 0.5) * 0.32;
-            const t = smooth(-0.65 - f, 0.28 - f, l + e), n = 1 - smooth(0.72, 1.2, d + g * 0.5);
-            v = v * 0.38 + t * n * 0.62; break;
+            const pen = t.pen;
+            let an, bn;
+            if (pen.along === 'l') { an = l; bn = u; } else if (pen.along === 'u') { an = u; bn = l; } else { an = a / fr.E; bn = b / fr.E; }
+            const base = -0.62, tip = pen.tip, mEdge = -0.6;
+            const bc = pen.bend * Math.sin((an - base) * 2.4 + pen.ph) + 0.035 * nl * (pen.bend ? 1 : 0);
+            const tt = clamp01((an - base) / Math.max(0.05, tip - base));
+            const hw = 0.27 - 0.12 * tt;
+            // 大陆与半岛各自按「相对宽度」排序：pM 从地图边缘的 1 降到大陆海岸的 0，pA 从半岛中脊的 1 降到半岛海岸的 0。
+            // 于是任何比例下大陆条带与半岛都按同一比例变宽 / 变窄，低比例时半岛也不会先于大陆消失。
+            const pM = (mEdge - an) / (mEdge + 1);
+            const pA = an <= tip ? 1 - Math.abs(bn - bc) / hw : 1 - Math.hypot(an - tip, bn - bc) / (0.27 - 0.12);
+            // 半岛优先（×1.45 + 0.2）：最低比例时半岛仍有可通行的宽度
+            p = Math.max(pM + 0.22 * nl, pA * 1.45 + 0.2 + 0.3 * nl * (0.4 + 0.6 * tt)) + 0.06 * nm;
+            // 山地以大陆内部丘陵为主，半岛上只零星分布（再叠加离岸相对深度，见 MOUNT_REL）
+            m = (rg - 0.66) * 1.6 + 0.25 * smooth(-0.2, -0.75, an);
+            // 半岛尖端外侧始终是海（three sides sea）；双轴对称时两条半岛之间留一道海峡
+            if (mode === 'both') { if (Math.abs(an) < Math.max(0.035, 1.6 * cellMin)) fw[k] = 1; }
+            else if (an > 0.93) fw[k] = 1;
+            break;
           }
           case 'archipelago': {
-            const e = noise.warpedFbm(o * 0.028 + 100, i * 0.028 + 100, 5, 1.15);
-            const t = noise.fbm(o * 0.072 + 200, i * 0.072 + 200, 3);
-            const n = 1 - smooth(0.66, 1.25, d + g), r = smooth(0.52, 0.82, rg) * 0.22;
-            v = e * 0.46 + t * 0.16 + rg * 0.1 + r + n * 0.16 - 0.23 + f; break;
+            const wx = X + 0.05 * nl, wy = Y + 0.05 * sn(noise.fbm(X * 2.1 - 61.3, Y * 2.1 + 17.9, 3));
+            const ci = Math.floor(wx / t.cw), cj = Math.floor(wy / t.ch);
+            let f1 = 1e9, f2 = 1e9;
+            for (let jj = cj - 2; jj <= cj + 2; jj++) for (let ii = ci - 2; ii <= ci + 2; ii++) {
+              if (ii < 0 || jj < 0 || ii >= t.nx || jj >= t.ny) continue;
+              const s = t.sites[jj * t.nx + ii], d = Math.hypot(wx - s.x, wy - s.y) / s.w;
+              if (d < f1) { f2 = f1; f1 = d; } else if (d < f2) f2 = d;
+            }
+            const vor = (f2 - f1) / t.cell; // 岛心大、海峡（Voronoi 边）为 0
+            const rim = smooth(0.82, 1.0, Math.max(Math.abs(l), Math.abs(u)));
+            p = vor + 0.14 * nm + 0.05 * nl - 0.35 * rim;
+            m = vor * 1.1 + 0.6 * (rg - 0.66);
+            break;
           }
           case 'river': {
-            const e = (noise.warpedFbm(o * 0.012 + 700, i * 0.012 + 700, 4, 1.1) - 0.5) * 0.2;
-            const t = Math.max(0, 1 - Math.abs(u + 0.3 + e) * 9), n = Math.max(0, 1 - Math.abs(u - 0.3 + e) * 9);
-            v = v * 0.58 + 0.28 + f - Math.max(t, n) * 0.72; break;
+            const rv = t.riv;
+            let q, s;
+            if (fr.axis) { q = a / fr.E; s = b / fr.E; } else if (t.longAxisA) { q = u; s = l; } else { q = l; s = u; }
+            const w1 = 0.06 * sn(noise.fbm(s * 1.9 + 7.3, 3.3, 3)), w2 = 0.06 * sn(noise.fbm(s * 1.9 - 5.1, 8.8, 3));
+            const c1 = -0.34 + 0.085 * Math.sin(s * Math.PI * rv.f1 + rv.ph1) + w1;
+            // 双轴对称时两条河互为镜像（q → −q），必须严格取 c2 = −c1，中间那块陆地才不会被折叠成梭形
+            const c2 = mode === 'both' ? -c1 : 0.34 + 0.085 * Math.sin(s * Math.PI * rv.f2 + rv.ph2) + w2;
+            const hwFix = Math.max(1.25 * (fr.axis ? cellQ : (t.longAxisA ? cellU : cellL)), 0.02);
+            if (Math.abs(q - c1) < hwFix || Math.abs(q - c2) < hwFix) fw[k] = 1;
+            // 三块陆地各自按「到河岸的相对距离」排序：任何比例下三块都按同一比例收缩，不会有哪一块先消失
+            let band;
+            if (q < c1) band = (c1 - q) / Math.max(0.1, c1 + 1);
+            else if (q > c2) band = (q - c2) / Math.max(0.1, 1 - c2);
+            else band = Math.min(q - c1, c2 - q) / Math.max(0.05, (c2 - c1) / 2);
+            p = band + 0.08 * nl + 0.03 * nm;
+            m = band * 0.35 + 1.4 * (rg - 0.66) + 0.1 * nm;
+            break;
           }
           case 'mountain_lake': {
-            const ex = l + 0.11, ey = u - 0.06;
-            const n = Math.sqrt((ex * 1.18) ** 2 + (ey * 0.86) ** 2) + g * 0.5, a = Math.atan2(ey, ex);
-            const k = 0.5 + 0.32 * nat.sampleWarped(Math.cos(a) * 1.7 + 910, Math.sin(a) * 1.7 - 640) + 0.18 * nat.cellular(Math.cos(a) * 1.2 + 120, Math.sin(a) * 1.2 - 240);
-            const gap = Math.max(1 - smooth(0.05, 0.34, angDist(a, -0.45)), 1 - smooth(0.04, 0.3, angDist(a, 2.55)));
-            const ring = Math.max(0, 1 - Math.abs(n - 0.42) * 4.2) * k * (1 - gap * 0.72);
-            const bowl = smooth(0.3, 0.08, n) * -0.48;
-            const inlet = Math.max(0, 1 - Math.abs(ey - ex * 0.26 - 0.05) * 18) * smooth(-0.15, 0.8, ex) * -0.3;
-            v = v * 0.28 + ring * 0.56 + 0.2 + bowl + inlet; break;
+            const th = Math.atan2(u, l);
+            const rr = Math.hypot(l, u) * (1 + 0.05 * sn(noise.fbm(Math.cos(th) * 1.4 + 70.1, Math.sin(th) * 1.4 - 33.3, 3)));
+            const R = 0.43, half = 0.075, rCore = 0.12, rMax = R - half - 0.03;
+            // 四个山口位于 45° 对角方向：对任意对称方式都自成镜像
+            const pass = Math.min(angDist(th, Math.PI / 4), angDist(th, 3 * Math.PI / 4), angDist(th, -Math.PI / 4), angDist(th, -3 * Math.PI / 4)) < 0.17;
+            if (rr < rCore) { fw[k] = 1; p = -1; }
+            else if (rr < rMax) p = (rr - rCore) / (rMax - rCore) * 0.9 + 0.03 * nm;
+            else if (rr < R + half + 0.03) p = 1.2 + 0.02 * nm;
+            else {
+              const q = pnorm(l, u, 2.4);
+              p = (1.02 - q) / (1.02 - (R + half)) * 0.9 + 0.09 * nl + 0.03 * nm;
+            }
+            if (Math.abs(rr - R) < half) m = pass ? -1 : 2;
+            else m = rr > R + half + 0.06 ? 1.3 * (rg - 0.66) + 0.1 * nm : -1;
+            break;
           }
           case 'continent': {
-            const e = Math.min(sx, sy, 1 - sx, 1 - sy), t = smooth(0.025, 0.16 - f * 0.12, e + g * 0.16);
-            v = v * 0.52 + t * 0.48 + f; break;
+            const q = pnorm(l, u, 3.2);
+            p = -(q + 0.24 * nl + 0.06 * nm);
+            for (const pl of t.pools) {
+              const d = Math.hypot(l - pl.x, u - pl.y) * (1 + 0.25 * nm);
+              if (d < pl.r) fw[k] = 1;
+            }
+            m = 1.7 * (rg - 0.66) + 0.25 * (0.6 - q);
+            break;
           }
           case 'desert': {
-            const e = noise.ridgedFbm(o * 0.035 + 50, i * 0.018 + 50, 4);
-            const t = noise.warpedFbm(o * 0.014 - 220, i * 0.014 + 330, 4, 0.85);
-            const n = smooth(0.76, 0.9, noise.warpedFbm(o * 0.026 + 1500, i * 0.026 - 1300, 4, 0.9));
-            v = v * 0.3 + 0.39 + e * 0.18 + t * 0.16 + f - n * 0.34; break;
+            const q = pnorm(l, u, 3.0);
+            p = -(q + 0.1 * nl + 0.03 * nm);
+            for (const pl of t.pools) {
+              const d = Math.hypot(l - pl.x, u - pl.y) * (1 + 0.2 * nm);
+              if (d < pl.r) fw[k] = 1; else if (d < pl.r * 2.7) tag[k] = TAG.OASIS;
+            }
+            // 岩石台地：稀疏的平顶高地
+            const mesa = noise.fbm(X * 4.2 + 300.5, Y * 4.2 - 120.7, 3);
+            m = (mesa - 0.5) * 6 - 0.15 + 0.3 * (rg - 0.66);
+            break;
           }
           case 'snowland': {
-            const e = noise.warpedFbm(o * 0.018 + 870, i * 0.018 - 510, 5, 0.95);
-            const t = smooth(0.6, 0.9, rg) * noise.fbm(o * 0.04 + 1700, i * 0.04 + 2100, 3);
-            v = v * 0.32 + e * 0.28 + 0.28 + rg * 0.16 + t * 0.12 + f; break;
+            const q = pnorm(l, u, 2.8);
+            // 峡湾：噪声零值线附近的细长洼地，深深切入海岸；内陆部分成为狭长冰湖
+            const fj = 1 - Math.abs(sn(noise.warpedFbm(X * 3.2 + 90.2, Y * 3.2 - 51.6, 4, 0.6)));
+            const fjord = Math.pow(Math.max(0, fj - 0.9) / 0.1, 0.7);
+            p = -(q + 0.14 * nl + 0.04 * nm + 0.6 * fjord * (0.3 + 0.7 * smooth(0.2, 0.8, q)));
+            m = 1.6 * (rg - 0.66) + 0.3 * (0.55 - q);
+            break;
           }
           case 'volcano': {
-            const a = Math.atan2(u, l);
-            const t = d + (nat.sampleWarped(Math.cos(a) * 1.9 + 310, Math.sin(a) * 1.9 - 470) - 0.5) * 0.24 + g * 0.22;
-            const n = Math.max(0, 1 - Math.abs(t - 0.31) * 5.6) * (0.68 + nat.ridged(o * 0.022 - 40, i * 0.022 + 29) * 0.32);
-            const crater = smooth(0.27, 0.07, t) * -0.7;
-            const f1 = Math.max(0, 1 - Math.abs(l + u * 0.28 - 0.02) * 15) * smooth(-0.08, 0.9, u);
-            const f2 = Math.max(0, 1 - Math.abs(l - u * 0.46 + 0.08) * 18) * smooth(-0.55, 0.58, -u);
-            v = v * 0.18 + n * 0.72 + 0.31 + crater - Math.max(f1, f2) * 0.34 + rg * 0.08; break;
+            const r = Math.hypot(a, b), th = Math.atan2(b, a);
+            const rw = r + 0.012 * nm;
+            p = -(r + 0.09 * nl + 0.035 * nm);
+            const crater = 0.095, coneOut = 0.215 + 0.015 * nm;
+            if (rw < crater) lava[k] = 1;
+            else {
+              for (const f of t.flows) {
+                if (rw > f.len) continue;
+                const meander = f.m * 0.16 * Math.sin(rw * 11 + f.ph) * smooth(0.12, 0.3, rw);
+                const ang = angDist(th, f.a + meander);
+                const hw = Math.max(1.3 * cellMin, 0.028 - 0.012 * clamp01((rw - crater) / (f.len - crater)));
+                const end = smooth(f.len - 0.06, f.len, rw);
+                if (ang * r < hw * (1 - 0.7 * end)) { lava[k] = 1; break; }
+              }
+            }
+            m = rw < coneOut ? 2 : 1.4 * (rg - 0.66) + 0.25 * smooth(0.36, 0.22, r);
+            if (r < 0.34) tag[k] = TAG.ASH;
+            break;
           }
           case 'labyrinth': {
-            const e = noise.ridgedFbm(o * 0.026 + 90, i * 0.026 - 140, 5);
-            const t = Math.abs(noise.warpedFbm(o * 0.017 - 720, i * 0.017 + 460, 5, 1.25) - 0.5);
-            const n = noise.warpedFbm(o * 0.01 + 210, i * 0.01 + 710, 4, 0.8);
-            v = 0.32 + e * 0.48 + n * 0.16 - smooth(0, 0.16, t) * 0.28 + f; break;
+            const wx = px + 0.11 * t.cwPx * sn(noise.fbm(X * 3.6 + 5.5, Y * 3.6 - 8.1, 3));
+            const wy = py + 0.11 * t.chPx * sn(noise.fbm(X * 3.6 - 12.3, Y * 3.6 + 2.6, 3));
+            const d = mazeWallDist(t, wx, wy), cellPx = Math.min(t.cwPx, t.chPx);
+            const wallHalf = Math.max(1.7 * st, 0.13 * cellPx);
+            const wl = 1 - Math.min(1, d / (0.5 * cellPx));
+            // 外围走廊先被水淹，迷宫核心总是完整的一块；墙体比走廊略晚淹没，低比例时迷宫轮廓依然清楚
+            p = 0.2 * wl + 0.8 * (1 - pnorm(l, u, 2.6)) + 0.05 * nm + 0.04 * nl;
+            // 墙芯是固定骨架；墙芯外侧一圈按「山地」档位决定是否加厚（多 → 墙更厚、走廊更窄；少 → 墙更薄）
+            m = d < wallHalf ? 2 : d < wallHalf * 1.7 ? 1 - (d - wallHalf) / (wallHalf * 0.7) * 0.5 : -1;
+            break;
           }
           case 'two_sides': {
-            const s = smooth(cw * 0.72, cw * 2.8, Math.abs(o - cc));
-            const c = noise.warpedFbm(o * 0.025 + 560, i * 0.025 - 220, 4, 0.7);
-            v = v * 0.28 + s * 0.52 + c * 0.18 + 0.08 + f; break;
+            let q, s;
+            if (fr.axis) { q = b / fr.E; s = a / fr.E; } else if (t.longAxisA) { q = l; s = u; } else { q = u; s = l; }
+            const cc = (fr.axis || mode === 'both') ? 0 : 0.022 * Math.sin(s * Math.PI * 1.3 + t.ph) + 0.018 * sn(noise.fbm(s * 2.3 + 17.1, 4.4, 3));
+            const across = fr.axis ? cellQ : (t.longAxisA ? cellL : cellU), along = fr.axis ? cellQ : (t.longAxisA ? cellU : cellL);
+            const hwc = Math.max(1.7 * across, 0.028 + 0.006 * sn(noise.fbm(s * 3.1 - 2.2, 9.9, 3)));
+            const crossing = t.cross.some(c => Math.abs(s - c) < Math.max(1.8 * along, 0.04));
+            const dq = Math.abs(q - cc);
+            if (dq < hwc) {
+              if (crossing) { p = 3; tag[k] = TAG.CROSSING; } else fw[k] = 1;
+            } else p = 1 - dq + 0.2 * nl + 0.05 * nm;
+            m = 1.5 * (rg - 0.66) + 0.2 * smooth(0.12, 0.3, dq) - 0.3 * smooth(0.8, 1.0, dq);
+            break;
           }
-          default: v = v * 0.5 + 0.3;
+          default: p = -Math.hypot(l, u) + 0.1 * nl;
         }
-        H[gy * gw + gx] = clamp01(v);
+        P[k] = p; M[k] = m;
       }
     }
-    return H;
+    return { P, M, B, fw, lava, tag };
   }
 
-  /** 各模板「原生海平面」——即 classify 里写死的水域判定阈值。
-   *  陆地比例只平移高度场，让这个原生阈值恰好切出目标水面比例，模板的等值线形态保持不变。 */
-  const NATIVE_SEA = { mountain_lake: 0.42, continent: 0.3, desert: 0.29, snowland: 0.27 };
-  const nativeSea = shape => NATIVE_SEA[shape] ?? 0.3;
-
-  /** 高度分位数：使「低于该值」的格子占比 ≈ waterFrac（不含河流 / 湖泊等结构性水域） */
-  function seaThreshold(H, gw, gh, need, waterFrac) {
-    const BINS = 512, hist = new Uint32Array(BINS + 1);
-    let total = 0;
-    for (let gy = 0; gy < gh; gy++) for (let gx = 0; gx < gw; gx++) {
-      if (need && !need(gx, gy)) continue;
-      hist[Math.min(BINS, (clamp01(H[gy * gw + gx]) * BINS) | 0)]++; total++;
+  /** 精确选格：在可选格（非结构水域、非岩浆）中按 P 从高到低取 targetN 格（镜像时按轨道大小加权）。
+   *  用 65536 桶直方图定位分界，桶内再排序，O(N)，2000×2000 也很快。返回 {chosen, tau}。 */
+  function selectLand(P, elig, n, targetN, src) {
+    const chosen = new Uint8Array(n);
+    const wgt = new Uint8Array(n);
+    for (let k = 0; k < n; k++) wgt[src ? src(k) : k]++;
+    let lo = Infinity, hi = -Infinity, total = 0;
+    for (let k = 0; k < n; k++) if (wgt[k] && elig[k]) { const v = P[k]; if (v < lo) lo = v; if (v > hi) hi = v; total += wgt[k]; }
+    if (!total) return { chosen, tau: Infinity };
+    if (targetN >= total) { for (let k = 0; k < n; k++) if (elig[k]) chosen[k] = 1; return { chosen, tau: -Infinity }; }
+    if (targetN <= 0) return { chosen, tau: Infinity };
+    const BINS = 65536, span = Math.max(1e-9, hi - lo), hist = new Float64Array(BINS);
+    const binOf = v => Math.min(BINS - 1, ((v - lo) / span * BINS) | 0);
+    for (let k = 0; k < n; k++) if (wgt[k] && elig[k]) hist[binOf(P[k])] += wgt[k];
+    let acc = 0, bin = BINS - 1;
+    for (; bin >= 0; bin--) { if (acc + hist[bin] >= targetN) break; acc += hist[bin]; }
+    const edge = [];
+    for (let k = 0; k < n; k++) {
+      if (!wgt[k] || !elig[k]) continue;
+      const bb = binOf(P[k]);
+      if (bb > bin) chosen[k] = 1; else if (bb === bin) edge.push(k);
     }
-    if (!total) return 0.3;
-    const want = clamp01(waterFrac) * total;
-    let acc = 0, bin = 0;
-    while (bin < BINS && acc + hist[bin] < want) acc += hist[bin++];
-    return clamp01((bin + 0.5) / BINS);
+    edge.sort((x, y) => P[y] - P[x] || x - y);
+    let tau = lo + (bin + 0.5) / BINS * span;
+    for (const k of edge) {
+      if (acc >= targetN) break;
+      // 镜像轨道最多 4 格：取「加入后误差更小」的一侧
+      if (acc + wgt[k] - targetN > targetN - acc) break;
+      chosen[k] = 1; acc += wgt[k]; tau = P[k];
+    }
+    if (src) for (let k = 0; k < n; k++) { const c = src(k); if (c !== k) chosen[k] = chosen[c]; }
+    return { chosen, tau };
   }
 
-  /** 火山岩浆阈值：按 t 场分位数求，使岩浆面积随陆地比例变化。
-   *  t 场的等值线是火山的同心环 / 熔岩流，按分位取阈值只缩放范围，不改变火山形态。 */
-  function lavaThreshold(ctx, w, h, st, gw, gh, need, lavaFrac) {
-    const { nat } = ctx;
-    const BINS = 256, SPAN = 1.6, hist = new Uint32Array(BINS + 1);
-    let total = 0;
-    for (let gy = 0; gy < gh; gy++) {
-      const i = gy * st;
-      for (let gx = 0; gx < gw; gx++) {
-        if (need && !need(gx, gy)) continue;
-        const s = gx * st;
-        const d = (s / w) * 2 - 1, f = (i / h) * 2 - 1, p = Math.sqrt(d * d + f * f);
-        const a = Math.atan2(f, d);
-        const t = p + (nat.sampleWarped(Math.cos(a) * 1.9 + 310, Math.sin(a) * 1.9 - 470) - 0.5) * 0.24;
-        hist[Math.min(BINS, Math.max(0, (t * BINS / SPAN) | 0))]++; total++;
+  /** 各模板的海岸材质 */
+  function beachType(shape) {
+    if (shape === 'snowland') return T.ICE;
+    if (shape === 'volcano') return T.STONE;
+    return T.SAND;
+  }
+  /** 低地纹理调色板：v 为相干噪声值（0～1，均值≈0.5、σ≈0.09），阈值按分位点取，避免整片同色 */
+  function lowlandType(shape, v, tg) {
+    if (shape === 'desert') return tg === TAG.OASIS ? (v < 0.5 ? T.SHORT_GRASS : T.LONG_GRASS) : v < 0.585 ? T.SAND : v < 0.635 ? T.DIRT : T.STONE;
+    if (shape === 'snowland') return v < 0.53 ? T.SNOW : v < 0.6 ? T.ICE : T.STONE;
+    if (shape === 'volcano') return tg === TAG.ASH ? (v < 0.47 ? T.STONE : T.DIRT) : v < 0.47 ? T.LONG_GRASS : v < 0.55 ? T.SHORT_GRASS : v < 0.61 ? T.DIRT : T.STONE;
+    return v < 0.45 ? T.SHORT_GRASS : v < 0.55 ? T.LONG_GRASS : v < 0.615 ? T.DIRT : T.STONE;
+  }
+  /** 「多」/「标准」/「少」山地 → 山地强度阈值 */
+  /** 山地的「离岸相对深度」权重：岛屿的山地应始终位于岛心，与岛的大小无关 */
+  const MOUNT_REL = { island: 1.3, peninsula: 0.35, continent: 0.35, snowland: 0.3 };
+  const MOUNT_THR = { island: 0.32, peninsula: 0.62, archipelago: 0.9, river: 0.72, mountain_lake: 0.2, continent: 0.32, desert: 0.62, snowland: 0.16, volcano: 0.45, labyrinth: 0.72, two_sides: 0.42 };
+
+  /**
+   * 由模板场得到最终地形类别（已镜像）。
+   * @param F 模板场；targetLand 目标陆地比例；src 对称源函数
+   */
+  function categoriesFromFields(F, shape, gw, gh, st, rough, targetLand, src) {
+    const n = gw * gh, { P, M, B, fw, lava, tag } = F;
+    const elig = new Uint8Array(n);
+    for (let k = 0; k < n; k++) elig[k] = fw[k] || lava[k] ? 0 : 1;
+    const targetN = Math.round(clamp01(targetLand) * n);
+    const { chosen, tau } = selectLand(P, elig, n, targetN, src);
+    // 抹掉完全孤立的单格陆地 / 单格水坑（4 邻域），海岸线更干净
+    {
+      const fix = [];
+      for (let y = 1; y < gh - 1; y++) for (let x = 1; x < gw - 1; x++) {
+        const k = y * gw + x;
+        if (!elig[k]) continue;
+        const c = chosen[k - 1] + chosen[k + 1] + chosen[k - gw] + chosen[k + gw];
+        if (chosen[k] ? c === 0 : c === 4) fix.push(k);
       }
+      for (const k of fix) chosen[k] ^= 1;
+      if (src) for (let k = 0; k < n; k++) { const c = src(k); if (c !== k) chosen[k] = chosen[c]; }
     }
-    if (!total) return 0.18;
-    const want = clamp01(lavaFrac) * total;
-    let acc = 0, bin = 0;
-    while (bin < BINS && acc + hist[bin] < want) acc += hist[bin++];
-    return (bin + 0.5) * SPAN / BINS;
+    // 岩浆只留在陆地内：P 低于海平面的岩浆格（熔岩流冲出海岸的部分）化为海水
+    const cats = new Uint8Array(n);
+    for (let k = 0; k < n; k++) {
+      if (lava[k]) cats[k] = P[k] >= tau || shape !== 'volcano' ? T.LAVA : T.WATER;
+      else cats[k] = chosen[k] ? T.SAND : T.WATER;
+    }
+    // 离岸距离（格）：岩浆不算水
+    const landMask = new Uint8Array(n);
+    for (let k = 0; k < n; k++) landMask[k] = cats[k] === T.WATER ? 0 : 1;
+    const toWater = chamferDistance(landMask, gw, gh, 0);
+    let maxD = 1;
+    for (let k = 0; k < n; k++) if (landMask[k] && toWater[k] > maxD && toWater[k] < 30000) maxD = toWater[k];
+    const rel = MOUNT_REL[shape] || 0;
+    const thr = (MOUNT_THR[shape] ?? 0.6) + (clamp01(rough) - 0.3) * 0.3;
+    const mountDepth = Math.max(2, 3 / st);  // 普通山地至少离岸 2 格（按预览步长折算，至少 2 格）
+    const wob = new PermNoise((F.seed ^ 0x7f4a7c15) >>> 0);
+    const beachCells = shape === 'snowland' ? 2.4 : shape === 'labyrinth' ? 1.2 : shape === 'archipelago' ? 1.5 : 1.9;
+    for (let k = 0; k < n; k++) {
+      if (cats[k] !== T.SAND) continue;
+      const c = src ? src(k) : k, cx = c % gw, cy = (c / gw) | 0;
+      const d = toWater[k] / 3, tg = tag[k];
+      const m = M[k] >= 2 ? M[k] : M[k] + rel * (Math.min(toWater[k], maxD) / maxD - 0.5);
+      if (m >= 2 || (m > thr && d >= mountDepth)) { cats[k] = T.MOUNTAIN; continue; }
+      if (tg === TAG.CROSSING) { cats[k] = T.SAND; continue; }
+      const jitter = (wob.fbm(cx * st * 0.08 + 1.3, cy * st * 0.08 - 2.1, 2) - 0.5) * 0.9;
+      if (d <= beachCells + jitter) { cats[k] = tg === TAG.OASIS ? T.LONG_GRASS : beachType(shape); continue; }
+      cats[k] = lowlandType(shape, B[k], tg);
+    }
+    if (src) for (let k = 0; k < n; k++) { const c = src(k); if (c !== k) cats[k] = cats[c]; }
+    return { cats: shallowShore(cats, gw, gh), tau };
   }
 
-  /** 山湖模板的湖面半径：椭圆湖面积占比 ≈ πR²/4，反解出目标水面比例对应的半径。
-   *  只缩放同心湖面，环形山脉与缺口结构不动，因此模板形态保持不变。 */
-  const lakeRadius = waterFrac => Math.min(2.2, Math.max(0.05, Math.sqrt(4 * clamp01(waterFrac) / Math.PI)));
-
-  /** 陆地占比（水与岩浆都算非陆地，与 build() 的 stats.landRatio 口径一致） */
-  function landFraction(cats, gw, gh, need) {
-    let land = 0, total = 0;
-    for (let gy = 0; gy < gh; gy++) for (let gx = 0; gx < gw; gx++) {
-      if (need && !need(gx, gy)) continue;
-      const t = cats[gy * gw + gx];
-      total++; if (!isWaterT(t) && t !== T.LAVA) land++;
-    }
-    return total ? land / total : 0.5;
-  }
-
-  function classify(ctx, H, w, h, shape, rough, st = 1, gw = w, gh = h, need = null, prog = null, lavaT = 0.18, lakeR = 0.24) {
-    const { noise, nat } = ctx;
-    const out = new Uint8Array(gw * gh);
-    const thr = 0.72 + rough * 0.15 + (shape === 'continent' ? 0.03 : 0);
-    for (let gy = 0; gy < gh; gy++) {
-      const i = gy * st;
-      if (prog && (gy & 31) === 0) prog(gy / gh);
-      const cc = shape === 'two_sides' ? channelCenter(noise, i, w, h) : 0;
-      const cw = shape === 'two_sides' ? channelHalfWidth(noise, i, w, h) : 0;
-      const crossing = shape === 'two_sides' ? isCrossingRow(noise, i, h) : false;
-      for (let gx = 0; gx < gw; gx++) {
-        if (need && !need(gx, gy)) continue;
-        const s = gx * st, k = gy * gw + gx, c = H[k];
-        const d = (s / w) * 2 - 1, f = (i / h) * 2 - 1, p = Math.sqrt(d * d + f * f);
-        const m = noise.warpedFbm(s * 0.024 + 1200, i * 0.024 - 800, 4, 0.8);
-        const hh = noise.fbm(s * 0.08 - 400, i * 0.08 + 900, 3);
-        const g = noise.ridgedFbm(s * 0.022 - 40, i * 0.022 + 29, 4);
-        const up = gy > 0 ? H[k - gw] : c, dn = gy < gh - 1 ? H[k + gw] : c, lf = gx > 0 ? H[k - 1] : c, rt = gx < gw - 1 ? H[k + 1] : c;
-        const slope = Math.max(Math.abs(c - up), Math.abs(c - dn), Math.abs(c - lf), Math.abs(c - rt));
-        // 水域判定沿用各模板的原生海平面阈值（高度场已按目标比例平移，阈值本身不动）
-        if (shape === 'volcano') {
-          const a = Math.atan2(f, d);
-          const t = p + (nat.sampleWarped(Math.cos(a) * 1.9 + 310, Math.sin(a) * 1.9 - 470) - 0.5) * 0.24;
-          const n = nat.ridged(s * 0.022 - 40, i * 0.022 + 29);
-          const flowA = Math.abs(d + f * 0.28 - 0.02) < 0.055 && f > -0.08, flowB = Math.abs(d - f * 0.46 + 0.08) < 0.045 && f < 0.55;
-          if (t < lavaT || ((flowA || flowB) && p < 0.82)) out[k] = T.LAVA;
-          else if (t < 0.29) out[k] = T.STONE;
-          else if (t < 0.48 && (c > 0.47 || n > 0.62)) out[k] = T.MOUNTAIN;
-          else if (t < 0.62 && (slope > 0.1 || n > 0.58)) out[k] = T.STONE;
-          else out[k] = m > 0.55 && hh > 0.4 ? T.SHORT_GRASS : T.LONG_GRASS;
-          continue;
-        }
-        if (shape === 'river') {
-          const e = (i / h) * 2 - 1;
-          const t = Math.max(0, 1 - Math.abs(e + 0.3) * 8), n = Math.max(0, 1 - Math.abs(e - 0.3) * 8);
-          if (Math.max(t, n) > 0.3 && c < 0.4) { out[k] = T.WATER; continue; }
-        }
-        if (shape === 'mountain_lake') {
-          const ex = d + 0.11, ey = f - 0.06;
-          const n = Math.sqrt((ex * 1.18) ** 2 + (ey * 0.86) ** 2) + (nat.sampleWarped(s * 0.018 + 500, i * 0.018 + 500) - 0.5) * 0.12;
-          // 湖泊半径由陆地比例决定：只缩放同心椭圆湖面，山脉环绕的结构保持原样
-          if (n < lakeR && c < 0.42) { out[k] = T.WATER; continue; }
-          const a = Math.atan2(ey, ex);
-          const gap = Math.max(1 - smooth(0.05, 0.34, angDist(a, -0.45)), 1 - smooth(0.04, 0.3, angDist(a, 2.55)));
-          const ring = Math.max(0, 1 - Math.abs(n - 0.42) * 4.2) * (0.82 + nat.cellular(s * 0.014 + 80, i * 0.014 - 60) * 0.18) * (1 - gap * 0.8);
-          if (ring > 0.58) out[k] = T.MOUNTAIN;
-          else if (ring > 0.3 && g > 0.46) out[k] = T.STONE;
-          else if (n < lakeR * 1.29 && c < 0.5) out[k] = T.SHALLOW;
-          else if (n < 0.58 && (slope > 0.11 || g > 0.63)) out[k] = T.STONE;
-          else out[k] = m > 0.54 ? T.SHORT_GRASS : T.LONG_GRASS;
-          continue;
-        }
-        if (shape === 'two_sides' && Math.abs(s - cc) <= cw) { out[k] = crossing ? T.SAND : T.WATER; continue; }
-        if (shape === 'continent') {
-          if (c < 0.3) out[k] = T.WATER;
-          else if (c < 0.37) out[k] = T.SAND;
-          else if (c > thr || (g > 0.78 && slope > 0.1)) out[k] = T.MOUNTAIN;
-          else if (slope > 0.16 && g > 0.58) out[k] = T.STONE;
-          else if (m < 0.3 && hh < 0.3 && slope < 0.08) out[k] = T.DIRT;
-          else out[k] = m > 0.52 ? T.SHORT_GRASS : T.LONG_GRASS;
-          continue;
-        }
-        if (shape === 'desert') {
-          const e = noise.warpedFbm(s * 0.026 + 1500, i * 0.026 - 1300, 4, 0.9);
-          const t = noise.ridgedFbm(s * 0.035 + 50, i * 0.018 + 50, 4);
-          if (c < 0.29) out[k] = T.WATER;
-          else if (c < 0.36) out[k] = T.SAND;
-          else if (e > 0.77 && c < 0.52) out[k] = e > 0.84 ? T.LONG_GRASS : T.SAND;
-          else if (c > thr || (t > 0.78 && slope > 0.1)) out[k] = T.MOUNTAIN;
-          else if (slope > 0.16 || hh < 0.25) out[k] = T.STONE;
-          else out[k] = T.SAND;
-          continue;
-        }
-        if (shape === 'snowland') {
-          const e = noise.warpedFbm(s * 0.018 + 870, i * 0.018 - 510, 5, 0.95);
-          if (c < 0.27) out[k] = T.WATER;
-          else if (c < 0.4 || (e > 0.68 && g < 0.72)) out[k] = T.ICE;
-          else if (c > thr) out[k] = T.MOUNTAIN;
-          else if (slope > 0.18 || (g > 0.74 && hh < 0.58)) out[k] = T.STONE;
-          else out[k] = T.SNOW;
-          continue;
-        }
-        out[k] = c < 0.3 ? T.WATER
-          : c < 0.38 ? T.SAND
-          : c < 0.58 ? (m < 0.42 || slope > 0.22 ? T.DIRT : (m > 0.52 && hh > 0.25 ? T.SHORT_GRASS : T.LONG_GRASS))
-          : c < thr ? (m < 0.4 || slope > 0.25 ? T.DIRT : (m > 0.54 ? T.SHORT_GRASS : T.LONG_GRASS))
-          : T.MOUNTAIN;
-      }
-    }
-    return out;
-  }
-
-  /** 原版 cleanupTerrainArtifacts：同水/陆属性的 8 邻域多数（≥6）覆盖孤立格 */
-  function cleanupArtifacts(src, w, h) {
-    const out = src.slice(), cnt = new Uint8Array(16);
-    for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) {
-      const k = y * w + x, t = src[k], tw = isWaterT(t);
-      cnt.fill(0);
-      let best = 0, bestN = 0;
-      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
-        if (!dx && !dy) continue;
-        const c = src[k + dy * w + dx];
-        if (isWaterT(c) === tw) { const n = ++cnt[c]; if (n > bestN) { bestN = n; best = c; } }
-      }
-      if (bestN >= 6 && best !== t) out[k] = best;
-    }
-    return out;
-  }
-  /** 原版 uE 中的浅水：与特定陆地 4 邻接的水 → 浅水 */
+  /** 与特定陆地 4 邻接的水 → 浅水（仅影响预览配色） */
   const SHORE_LAND = new Set([T.SAND, T.LONG_GRASS, T.SHORT_GRASS, T.DIRT, T.SNOW, T.ICE, T.STONE]);
   function shallowShore(src, w, h) {
     const out = src.slice();
@@ -594,78 +547,82 @@
     }
     return out;
   }
-  /** 原版 TE：两岸狭路的 3 处渡口（河道上铺沙） */
-  function twoSidesCrossings(noise, cats, w, h, st = 1, gw = w, gh = h) {
-    for (let gy = 0; gy < gh; gy++) {
-      const y = gy * st;
-      if (!isCrossingRow(noise, y, h)) continue;
-      const c = channelCenter(noise, y, w, h), r = channelHalfWidth(noise, y, w, h);
-      for (let x = Math.floor((c - r - 1) / st); x <= Math.ceil((c + r + 1) / st); x++) if (x >= 0 && x < gw) cats[gy * gw + x] = T.SAND;
-    }
+
+  /** 计算整图模板场（对称时只算源半区，再镜像） */
+  function computeFields(o, src, mode, need, prog) {
+    const W = o.width | 0, H = o.height | 0, st = Math.max(1, Math.floor(o.stride || 1));
+    const gw = Math.ceil(W / st), gh = Math.ceil(H / st), n = gw * gh;
+    const shape = SHAPE_MAP.has(o.shape) ? o.shape : 'island';
+    const seed = normSeed(o.seed ?? 42);
+    const F = templateFields(shape, W, H, st, gw, gh, seed, mode, need, prog);
+    if (src) for (const arr of [F.P, F.M, F.B, F.fw, F.lava, F.tag]) mirrorArray(arr, src);
+    F.seed = seed; F.shape = shape; F.gw = gw; F.gh = gh; F.st = st; F.n = n;
+    return F;
   }
 
   /**
-   * 生成 APK 同款逻辑地形。
+   * 生成逻辑地形类别（不含可对战化后处理，不镜像）。
    * @param {{shape:string,width:number,height:number,seed?:number,land?:number,rough?:number,stride?:number}} o
-   *   stride>1 时按步长在完整地图坐标上采样（用于大地图的快速预览），输出尺寸为 ceil(width/stride)×ceil(height/stride)
+   *   stride>1 时按步长在完整地图坐标上采样，输出尺寸为 ceil(width/stride)×ceil(height/stride)
    * @returns {Uint8Array} 取值见 T
    */
   function generateCategories(o) {
-    const w = o.width | 0, h = o.height | 0, shape = SHAPE_MAP.has(o.shape) ? o.shape : 'island';
-    const seed = normSeed(o.seed ?? 42);
-    const rough = clamp01(o.rough ?? 0.3);
-    const targetLand = clamp01(o.land ?? 0.5);
-    const ctx = { noise: new PermNoise(seed), nat: new NaturalNoise(seed + 7919, { warpAmplitude: 0.9 }) };
-    const st = Math.max(1, Math.floor(o.stride || 1)), gw = Math.ceil(w / st), gh = Math.ceil(h / st);
-    const need = o._need || null, prog = o._progress || null;
-    // 高度场始终按模板标准形态生成（land 固定 0.5 ⇒ 偏移 f = 0），
-    // 陆地比例只在后面对整场做一次平移，让模板原生海平面恰好切出目标水面比例。
-    // 平移是单调变换，所有等值线 / 海岸轮廓 / 山脊走向都保持模板原样。
-    const H0 = heightMap(ctx, w, h, shape, 0.5, st, gw, gh, need, prog && (f => prog('terrain', f * 0.5)));
-    const sea = nativeSea(shape);
-    const volcano = shape === 'volcano', lake = shape === 'mountain_lake';
-    let water = 1 - targetLand;
-    let shift = 0;
-    if (!volcano && !lake) shift = sea - seaThreshold(H0, gw, gh, need, water);
-    let lavaT = 0.18;
-    if (volcano) lavaT = lavaThreshold(ctx, w, h, st, gw, gh, need, water);
-    let lakeR = 0.24;
-    if (lake) lakeR = lakeRadius(water);
-    const pass = (cb) => {
-      const H = new Float64Array(H0.length);
-      for (let k = 0; k < H0.length; k++) H[k] = clamp01(H0[k] + shift);
-      return shallowShore(cleanupArtifacts(classify(ctx, H, w, h, shape, rough, st, gw, gh, need, cb, lavaT, lakeR), gw, gh), gw, gh);
-    };
-    let cats = pass(prog && (f => prog('terrain', 0.5 + f * 0.5)));
-    let actualLand = landFraction(cats, gw, gh, need);
-    if (lake) {
-      // 山湖：湖面被环形山脉截断，面积与半径不严格成正比，用二分域值稳定逼近目标陆地占比
-      let lo = 0.02, hi = 2.2;
-      for (let it = 0; it < 5 && Math.abs(actualLand - targetLand) > 0.015; it++) {
-        if (actualLand > targetLand) lo = lakeR; else hi = lakeR;
-        lakeR = (lo + hi) / 2;
-        cats = pass(null); actualLand = landFraction(cats, gw, gh, need);
-      }
-    } else if (Math.abs(actualLand - targetLand) > 0.025) {
-      // 校正一次：结构性水域（河流 / 两岸河道）、岩浆与碎岛清理会让实际占比偏离目标，
-      // 按偏差反推水位再算一遍
-      water = clamp01(1 - targetLand + (actualLand - targetLand));
-      if (volcano) lavaT = lavaThreshold(ctx, w, h, st, gw, gh, need, water);
-      else shift = sea - seaThreshold(H0, gw, gh, need, water);
-      cats = pass(null);
-    }
-    if (shape === 'two_sides') twoSidesCrossings(new PermNoise(seed), cats, w, h, st, gw, gh);
-    return cats;
+    o = { ...o, land: unit(o.land, 0.5), rough: unit(o.rough, 0.3) };
+    const F = computeFields(o, null, 'none', null, null);
+    return categoriesFromFields(F, F.shape, F.gw, F.gh, F.st, o.rough ?? 0.3, o.land ?? 0.5, null).cats;
   }
 
-  /* ================================================================ 第二部分：可对战化后处理（本项目新增）
-   * 原版模板是给「锈匠」的逻辑地形用的，直接交给本项目的引擎会有几个问题：
+  /* ================================================================ 第二部分：可对战化后处理
+   * 模板逻辑地形直接交给本项目的引擎会有几个问题：
    *   ① 不对称 —— 竞技地图一般要求镜像对称，出生点 / 资源的镜像也依赖地形对称；
    *   ② 碎岛、单格水坑、1～2 格宽的山体会被引擎渲染成破碎的悬崖；
-   *   ③ 山地在本引擎里是「带悬崖的高地」，原版没有坡道，高地上的出生点 / 资源会被困死；
-   *   ④ 双河等模板的河流把陆地完全隔开，地面部队无法交战；山脉还可能把一片空地围死。
+   *   ③ 山地在本引擎里是「带悬崖的高地」，没有坡道时高地上的出生点 / 资源会被困死；
+   *   ④ 被水隔开的大块陆地地面部队无法交战；山脉还可能把一片空地围死。
    * 这里逐项处理。所有修改都写入「对称源半区」再整体镜像，保证结果严格对称。 */
   const VIEW = Object.assign({ FORD: 13, RAMP: 14 }, T);
+
+
+  /* ================================ 距离场与镜像工具 */
+  function chamferDistance(mask, w, h, target) {
+    const n = w * h, INF = 30000, d = new Int16Array(n);
+    for (let k = 0; k < n; k++) d[k] = mask[k] === target ? 0 : INF;
+    // 3/4 chamfer 距离：比逐格搜索快很多，2000×2000 大地图仍为 O(N)。
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const k = y * w + x; let v = d[k];
+      if (x > 0) v = Math.min(v, d[k - 1] + 3);
+      if (y > 0) {
+        v = Math.min(v, d[k - w] + 3);
+        if (x > 0) v = Math.min(v, d[k - w - 1] + 4);
+        if (x + 1 < w) v = Math.min(v, d[k - w + 1] + 4);
+      }
+      d[k] = v;
+    }
+    for (let y = h - 1; y >= 0; y--) for (let x = w - 1; x >= 0; x--) {
+      const k = y * w + x; let v = d[k];
+      if (x + 1 < w) v = Math.min(v, d[k + 1] + 3);
+      if (y + 1 < h) {
+        v = Math.min(v, d[k + w] + 3);
+        if (x > 0) v = Math.min(v, d[k + w - 1] + 4);
+        if (x + 1 < w) v = Math.min(v, d[k + w + 1] + 4);
+      }
+      d[k] = v;
+    }
+    return d;
+  }
+
+  function hashCell(k, seed) {
+    let x = (k ^ Math.imul(seed | 0, 0x9e3779b1)) | 0;
+    x ^= x >>> 16; x = Math.imul(x, 0x7feb352d);
+    x ^= x >>> 15; x = Math.imul(x, 0x846ca68b); x ^= x >>> 16;
+    return x >>> 0;
+  }
+
+  function mirrorArray(arr, source) {
+    if (!source) return arr;
+    for (let k = 0; k < arr.length; k++) { const s = source(k); if (s !== k) arr[k] = arr[s]; }
+    return arr;
+  }
+
 
   function mulberry32(a) {
     return function () {
@@ -689,21 +646,28 @@
   /** 连通块标记。pred(k) 为真的格参与；conn8 为真用 8 邻接。返回 {label, sizes, border}（label 从 1 开始，0 = 不参与） */
   function label(pred, w, h, conn8) {
     const n = w * h, lab = new Int32Array(n), sizes = [0], border = [false], stack = new Int32Array(n);
+    // 先把谓词求值成掩码：泛洪时每格最多被 8 个邻居访问，直接调用闭包会重复求值 8 次
+    const m = new Uint8Array(n);
+    for (let k = 0; k < n; k++) m[k] = pred(k) ? 1 : 0;
     let id = 0;
     for (let s = 0; s < n; s++) {
-      if (lab[s] || !pred(s)) continue;
+      if (lab[s] || !m[s]) continue;
       id++; let top = 0, size = 0, onB = false;
       stack[top++] = s; lab[s] = id;
       while (top) {
         const k = stack[--top]; size++;
         const r = (k / w) | 0, c = k - r * w;
-        if (r === 0 || c === 0 || r === h - 1 || c === w - 1) onB = true;
-        for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
-          if ((!dr && !dc) || (!conn8 && dr && dc)) continue;
-          const rr = r + dr, cc = c + dc;
-          if (rr < 0 || cc < 0 || rr >= h || cc >= w) continue;
-          const q = rr * w + cc;
-          if (!lab[q] && pred(q)) { lab[q] = id; stack[top++] = q; }
+        const up = r > 0, dn = r < h - 1, lf = c > 0, rt = c < w - 1;
+        if (!up || !dn || !lf || !rt) onB = true;
+        if (up) { const q = k - w; if (!lab[q] && m[q]) { lab[q] = id; stack[top++] = q; } }
+        if (dn) { const q = k + w; if (!lab[q] && m[q]) { lab[q] = id; stack[top++] = q; } }
+        if (lf) { const q = k - 1; if (!lab[q] && m[q]) { lab[q] = id; stack[top++] = q; } }
+        if (rt) { const q = k + 1; if (!lab[q] && m[q]) { lab[q] = id; stack[top++] = q; } }
+        if (conn8) {
+          if (up && lf) { const q = k - w - 1; if (!lab[q] && m[q]) { lab[q] = id; stack[top++] = q; } }
+          if (up && rt) { const q = k - w + 1; if (!lab[q] && m[q]) { lab[q] = id; stack[top++] = q; } }
+          if (dn && lf) { const q = k + w - 1; if (!lab[q] && m[q]) { lab[q] = id; stack[top++] = q; } }
+          if (dn && rt) { const q = k + w + 1; if (!lab[q] && m[q]) { lab[q] = id; stack[top++] = q; } }
         }
       }
       sizes.push(size); border.push(onB);
@@ -748,37 +712,51 @@
   }
 
   /**
-   * 完整流程：原版分类 → 对称 → 清理 → 浅滩 → 高地整形 → 坡道 / 凿通道 → 引擎矩阵。
+   * 完整流程：模板场 → 精确比例选格 → 对称 → 清理 → 浅滩 → 高地整形 → 坡道 / 凿通道 → 引擎矩阵。
+   * prepareShape() 计算与比例无关的模板场（最耗时，只算一次）；finishShape() 按目标比例选格并做后处理，
+   * build() 可在同一组模板场上多次 finishShape() 以抵消后处理对比例的影响。
    * @returns {{width,height,data:Int32Array,view:Uint8Array,stats:object}}
    *   data：交给引擎 set_coastline_from_image（0 水 / 1 平地 / 2 高地 / -2 高地坡道）
    *   view：预览用类别（T 的取值 + FORD 浅滩 + RAMP 坡道）
    */
-  function buildOnce(o) {
+  const FIELD_CACHE_MAX = 160000, fieldCache = { key: '', F: null };
+  function prepareShape(o) {
     const st = Math.max(1, Math.floor(o.stride || 1));
     const w = Math.ceil((o.width | 0) / st), h = Math.ceil((o.height | 0) / st), n = w * h;
     const meta = SHAPE_MAP.get(o.shape) || SHAPES[0];
     const seed = normSeed(o.seed ?? 42);
-    const rng = mulberry32(seed ^ 0x5bd1e995);
     const src = mirrorSource(o.mirror || 'none', w, h);
     const prog = typeof o.onProgress === 'function' ? o.onProgress : null;
-    // 对称时只需计算「对称源半区 + 3 格边距」（分类 / 清理 / 浅水都只依赖 3 格内的邻居，结果与整图计算逐格相同），
-    // 其余格之后由镜像填充 —— Y 轴 / X 轴对称省一半时间，XY 双轴省 3/4。
-    const M = 3, mode = src ? o.mirror : 'none';
-    const need = mode === 'vertical' ? (x, y) => x <= (w - 1) / 2 + M
-      : mode === 'horizontal' ? (x, y) => y <= (h - 1) / 2 + M
-      : mode === 'both' ? (x, y) => x <= (w - 1) / 2 + M && y <= (h - 1) / 2 + M
-      : mode === 'diagonal1' ? (x, y) => x >= y - M
-      : mode === 'diagonal2' ? (x, y) => x + y <= w - 1 + M : null;
-    const cats = generateCategories({ ...o, shape: meta.id, seed, stride: st, _need: need, _progress: prog });
+    // 对称时模板场只需计算「对称源半区」（场是逐格独立的），其余格由镜像填充 —— 单轴省一半，双轴省 3/4。
+    const mode = src ? o.mirror : 'none', Mg = 1;
+    const need = mode === 'vertical' ? (x, y) => x <= (w - 1) / 2 + Mg
+      : mode === 'horizontal' ? (x, y) => y <= (h - 1) / 2 + Mg
+      : mode === 'both' ? (x, y) => x <= (w - 1) / 2 + Mg && y <= (h - 1) / 2 + Mg
+      : mode === 'diagonal1' ? (x, y) => x >= y - Mg
+      : mode === 'diagonal2' ? (x, y) => x + y <= w - 1 + Mg : null;
+    // 模板场与陆地比例 / 山地多少无关：预览尺寸（≤ 16 万格）缓存最近一组，拖动「陆地比例」滑块时只需重新选格，几乎即时。
+    // 大地图不缓存（2000×2000 的场约 60 MB，常驻 Worker 不划算）。
+    const key = `${meta.id}|${o.width | 0}|${o.height | 0}|${st}|${seed}|${mode}`;
+    let F = n <= FIELD_CACHE_MAX && fieldCache.key === key ? fieldCache.F : null;
+    if (!F) {
+      F = computeFields({ ...o, shape: meta.id, seed, stride: st }, src, mode, need, prog && (f => prog('terrain', f)));
+      if (n <= FIELD_CACHE_MAX) { fieldCache.key = key; fieldCache.F = F; }
+    }
+    return { st, w, h, n, meta, seed, src, mode, F, rough: clamp01(o.rough ?? 0.3), prog };
+  }
+
+  function finishShape(pr, targetLand) {
+    const { st, w, h, n, meta, seed, src, F, rough, prog } = pr;
+    const rng = mulberry32(seed ^ 0x5bd1e995);
     prog && prog('shape', 0);
+    const cats = categoriesFromFields(F, meta.id, w, h, st, rough, targetLand, src).cats;
     const sym = !!src;
     const canon = k => !src || src(k) === k;
     const mirror = arr => { if (src) for (let k = 0; k < n; k++) { const s = src(k); if (s !== k) arr[k] = arr[s]; } };
     const put = (arr, k, v) => { arr[src ? src(k) : k] = v; };
     const area = n;
-    const stats = { shape: meta.id, seed, mirror: sym ? o.mirror : 'none', islandsRemoved: 0, lakesFilled: 0, fords: 0, plateaus: 0, ramps: 0, channels: 0, connected: true };
+    const stats = { shape: meta.id, seed, mirror: sym ? pr.mode : 'none', islandsRemoved: 0, lakesFilled: 0, fords: 0, plateaus: 0, ramps: 0, channels: 0, connected: true };
 
-    mirror(cats);
     const buf = makeBfsBuf(n);
     const land = new Uint8Array(n), mount = new Uint8Array(n), gap = new Uint8Array(n), ford = new Uint8Array(n);
     for (let k = 0; k < n; k++) {
@@ -788,7 +766,7 @@
     }
 
     /* ① 碎岛 / 小水坑 */
-    const minIsland = Math.max(16, Math.round(area * 0.0012)), minLake = Math.max(12, Math.round(area * 0.0008));
+    const minIsland = meta.id === 'archipelago' ? Math.max(4, Math.round(area * 0.00012)) : Math.max(16, Math.round(area * 0.0012)), minLake = Math.max(12, Math.round(area * 0.0008));
     {
       const L = label(k => land[k] === 1, w, h, false);
       for (let k = 0; k < n; k++) if (L.label[k] && L.sizes[L.label[k]] < minIsland) { land[k] = 0; mount[k] = 0; }
@@ -798,10 +776,10 @@
       stats.lakesFilled = W.sizes.filter((s, i) => i && !W.border[i] && s < minLake).length;
     }
 
-    /* ② 浅滩：把被水隔开的大块陆地连起来（群岛 / 岛屿保留海战特色，不连） */
+    /* ② 浅滩：把被水隔开的大块陆地连起来（群岛 / 岛屿保留海战特色；双河靠河流分隔三块陆地，都不连） */
     if (meta.bridge) {
       const maxGap = Math.max(10, Math.round(Math.min(w, h) * 0.14));
-      const links = meta.id === 'river' ? 2 : 1;
+      const links = 1;
       for (let iter = 0; iter < 10; iter++) {
         const L = label(k => land[k] === 1, w, h, false);
         let landTotal = 0; for (let i = 1; i < L.sizes.length; i++) landTotal += L.sizes[i];
@@ -987,16 +965,27 @@
   }
 
   /**
-   * 对外生成入口：后处理（碎岛清理 / 连通浅滩 / 高地整形）会改变陆地占比，
-   * 因此在偏离目标超过 3% 时，把偏差按 0.55 的阻尼系数反馈给目标再生成一次
-   * （碎岛清理造成的损失随目标升高而减小，全量反馈会过冲；确定性流程，同种子结果稳定）。
+   * 对外生成入口：模板场只算一次；后处理（碎岛清理 / 填小湖 / 连通浅滩）会让陆地占比略有偏差，
+   * 偏差超过 0.6% 时把偏差反馈给选格目标再做一次后处理（最多 3 次，取最接近的一次；确定性流程，同种子结果稳定）。
    */
+  /** 数值参数归一：缺省 / NaN / 非数字时取默认值，再钳到 0～1 */
+  const unit = (v, def) => { const x = Number(v); return Number.isFinite(x) ? clamp01(x) : def; };
+
   function build(o) {
-    const targetLand = clamp01(o.land ?? 0.5);
-    let r = buildOnce(o);
-    const dev = targetLand - r.stats.landRatio;
-    if (Math.abs(dev) > 0.025) r = buildOnce({ ...o, land: clamp01(targetLand + dev * 0.85), _progress: null });
-    return r;
+    o = { ...o, land: unit(o.land, 0.5), rough: unit(o.rough, 0.3) };
+    const targetLand = o.land;
+    const pr = prepareShape(o);
+    let goal = targetLand, best = null;
+    for (let it = 0; it < 3; it++) {
+      const r = finishShape(pr, goal);
+      const dev = targetLand - r.stats.landRatio;
+      if (!best || Math.abs(dev) < Math.abs(targetLand - best.stats.landRatio)) best = r;
+      if (Math.abs(dev) <= 0.006) break;
+      goal = clamp01(goal + dev);
+      if (it === 0) pr.prog = null;
+    }
+    best.stats.targetLand = +targetLand.toFixed(3);
+    return best;
   }
 
   /** 预览：大地图按步长在原坐标上采样（噪声频率与地图坐标绑定，直接缩小尺寸生成会得到完全不同的形状） */
@@ -1026,7 +1015,7 @@
     return rgba;
   }
 
-  const API = { VERSION: '1.0', T, VIEW, SHAPES, SHAPE_MAP, normSeed, generateCategories, build, preview, paint, COLORS, mirrorSource };
+  const API = { VERSION: '1.2', T, VIEW, SHAPES, SHAPE_MAP, normSeed, generateCategories, build, preview, paint, COLORS, mirrorSource };
   root.TerrainShapes = API;
   if (typeof module !== 'undefined' && module.exports) module.exports = API;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

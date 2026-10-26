@@ -224,7 +224,8 @@ fn reveal(path: &Path) -> std::io::Result<()> {
     #[cfg(target_os = "macos")]
     {
         let mut cmd = Command::new("open");
-        if path.is_file() {
+        // 带扩展名的目录（.app 等包）在访达里是「文件」：一律用 -R 选中显示，而不是打开 / 运行它
+        if path.is_file() || path.extension().is_some() {
             cmd.arg("-R");
         }
         cmd.arg(path).spawn()?;
@@ -325,8 +326,22 @@ fn reset_export_dir(state: State<'_, AppState>) -> DirInfo {
 /// 在文件管理器中显示文件（path 为空时打开导出目录）
 #[tauri::command]
 fn open_path(path: Option<String>, state: State<'_, AppState>) -> Result<(), String> {
-    let p = path.map(PathBuf::from).filter(|p| p.exists()).unwrap_or_else(|| state.export_dir());
+    let export = state.export_dir();
+    // 3.24.0：只允许打开导出目录内的路径（前端只会传入刚保存的文件），其余一律退回导出目录本身——
+    // 纵深防御：即使网页被注入脚本，也不能借此让系统打开任意路径（例如 macOS 上 `open` 一个 .app 目录会直接运行它）
+    let p = path
+        .map(PathBuf::from)
+        .filter(|p| p.exists() && is_inside(p, &export))
+        .unwrap_or(export);
     reveal(&p).map_err(|e| format!("无法打开文件夹：{e}"))
+}
+
+/// `path` 是否位于 `dir` 之内（按规范化后的真实路径比较，`..` 与符号链接都无法绕过）
+fn is_inside(path: &Path, dir: &Path) -> bool {
+    match (fs::canonicalize(path), fs::canonicalize(dir)) {
+        (Ok(p), Ok(d)) => p.starts_with(&d),
+        _ => false,
+    }
 }
 
 /// 标题栏深 / 浅色跟随网页主题（对应 Android 的 setSystemBars）
@@ -503,6 +518,18 @@ mod tests {
         assert_eq!(safe_name("CON.tmx"), "_CON.tmx");
         assert!(safe_name("").starts_with("export_"));
         assert_eq!(safe_name(&"长".repeat(200)).chars().count(), 120);
+    }
+
+    #[test]
+    fn open_path_stays_inside_export_dir() {
+        let dir = std::env::temp_dir().join(format!("tmxmf_inside_{}", now_millis()));
+        fs::create_dir_all(dir.join("sub")).unwrap();
+        fs::write(dir.join("sub").join("a.tmx"), b"x").unwrap();
+        assert!(is_inside(&dir.join("sub").join("a.tmx"), &dir));
+        assert!(is_inside(&dir.join("sub").join("..").join("sub"), &dir));
+        assert!(!is_inside(&std::env::temp_dir(), &dir));
+        assert!(!is_inside(&dir.join("missing.tmx"), &dir));
+        let _ = fs::remove_dir_all(&dir);
     }
 
     #[test]

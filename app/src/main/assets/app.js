@@ -1,8 +1,21 @@
 /*
  * 铁锈战争地图生成器 · TMX MapForge Offline
- * 版本 3.22.1 —— 陆地占比改为「在模板原生形态上缩放」：高度场按模板标准形态生成后，
- *              只做一次单调平移，让各模板原生海平面恰好切出目标水面比例（等值线 / 海岸轮廓 / 山脊走向不变）；
- *              山湖改为缩放同心湖面半径、火山按岩浆场分位数取阈值，双河 / 两岸河道保留结构性水域。
+ * 版本 3.24.1 —— 全量审查：形态种子按生成器规则折叠（大数种子的配方码可还原同一张图）、配方码写入格式版本 2 并识别旧版形态码、
+ *              模板场与陆地比例完全无关并缓存（拖动比例滑块只重新选格）、迷宫 / 山湖响应「山地」档位、对角对称下河道 / 水道宽度修正、
+ *              小地图岛屿外缘海带收窄、build 参数 NaN 防护、连通块标记提速；PC 版 open_path 限定在导出目录内。
+ * 版本 3.24.0 —— 重写 11 套地形形态模板：每个模板定义与比例无关的「陆地优先级场」，陆地占比只决定取哪一条嵌套等值线
+ *              （按格数精确命中目标、陆地随比例单调扩张），模板骨架 / 山脉 / 纹理不随比例变化；各模板形态按名字重新设计
+ *              （迷宫为真正的迷宫墙、火山为火山锥 + 火口 + 对称熔岩流、两岸为居中水道 + 渡口等），方向性模板随对称方式定向。
+ * 版本 3.23.2 —— 修复结构性水域在比例缩放时被填平：双河 / 两岸的河道与中央水道改为与高度场同一条中心线、
+ *              任何陆地占比下都贯通（不再加浅滩、不再在空间不足时清空保护水域），双河三块陆地永不连通；
+ *              群岛 / 迷宫增加水域中轴骨架保护，高陆地档位的水面变成贯穿陆地的海峡 / 走廊而不是外框；
+ *              迷宫海岸改为岩岸并收窄沙滩带，避免密集水道把整片陆地涂成沙。
+ * 版本 3.23.1 —— 修复 3.23.0 形态学比例缩放在不同陆地占比下的质量问题：去掉岛屿 / 群岛的人工环形水道（「双海岸」与
+ *              沙地成片），边界同距格改用低频相干噪声整块取舍（海岸线不再被打成噪点 / 锯齿），新增连续沙滩环与按
+ *              噪声分位校准的低地材质调色板（消除整片同色平原），火山海岸维持径向判定、内部水量归零。
+ * 版本 3.23.0 —— 以 50% 标准模板为锚点，用有符号距离场对陆地边界等距膨胀 / 腐蚀，比例不再触发整张高度场重新取等高线。
+ * 版本 3.22.1 —— 历史版本：高度场单调平移对齐原生海平面，山湖缩放同心湖面半径、火山按岩浆场分位数取阈值；
+ *              此方案在极端比例下仍可能切换模板等高线，已由 3.23.0 的模板基准形态学调整取代。
  * 版本 3.22.0 —— 陆地占比对所有模板真正生效：海平面按目标水面比例取高度分位数校准、修正降序 smooth 被当成硬阶跃、
  *              并对碎岛清理等后处理造成的偏差做反馈重算（实测平均偏差 0.85%，最差 3.1%）。
  * 版本 3.21.0 —— 陆地占比统一支持 10～90（形态滑杆、偏好读取、项目 / 配方码载入与导出校验全部对齐）。
@@ -79,8 +92,8 @@
  *   Pointer    —— 统一手势状态机：平移 / 双指缩放 / 画笔 / 多边形 / 放置 / 拖动出生点 / 长按删除
  *   Project    —— IndexedDB 项目存储（可保存大体积 TMX），兼容旧版 localStorage 草稿
  */
-const APP_VERSION = '3.22.1';
-const PROJECT_FORMAT = 3221; // 3.22.1：仅记录写入版本（读取时不校验），按 主.次.修 编码，保持单调递增
+const APP_VERSION = '3.24.1';
+const PROJECT_FORMAT = 3241; // 3.24.1：仅记录写入版本（读取时不校验），旧项目仍可读取
 const $ = id => document.getElementById(id);
 const MAX_SPAWN_POINTS = 100; // 3.19.0：50 → 100（51～100 号槽位的指挥中心瓦片在导出时自动补进 TMX，见 extendCcTileset）
 const ENGINE_MAX_CC = 50;     // 3.19.0：WASM 引擎与内置蓝图只有 50 个指挥中心槽位；超出部分由 JS 智能布点补齐
@@ -5183,7 +5196,10 @@ const shapeActive = () => shapeState.id !== 'classic' && !!shapeMeta(shapeState.
 const randSeed = () => 1 + Math.floor(Math.random() * 999999);
 function shapeSeed() {
   const t = String($('shapeSeed')?.value ?? '').trim();
-  if (t !== '' && Number.isFinite(Number(t))) return Math.abs(Math.trunc(Number(t))) || 1;
+  // 3.24.0 修复：按生成器同一规则折叠到 [1, 2^31-2]（normSeed 对 2^31-1 以下的种子是恒等变换，旧种子不受影响）。
+  // 旧版直接返回原值：输入 5000000000 这类大数时，地图用 normSeed 折叠后的种子，配方码却按 u32 截断写入，
+  // 对方套用配方码得到的是另一张图；「当前地图种子」显示的也不是实际使用的种子。
+  if (t !== '' && Number.isFinite(Number(t))) { const v = Math.abs(Math.trunc(Number(t))) || 1; return window.TerrainShapes ? TerrainShapes.normSeed(v) : v % 2147483647 || 7; }
   if (!shapeState.previewSeed) shapeState.previewSeed = randSeed();
   return shapeState.previewSeed;
 }
@@ -6567,6 +6583,9 @@ const RECIPE_SYM = ['strict', 'balanced', 'soft'];
 const RECIPE_SLOT = ['alternate', 'grouped', 'engine'];
 const RECIPE_ROUGH = ['0', '0.3', '0.8'];
 const RECIPE_LEN = 29; // 27 字节参数 + 2 字节 CRC
+/* 3.24.0：首字节为配方格式版本。地形形态模板在 3.24.0 重写，旧版（版本 1）的形态配方码参数仍然可解，
+ * 但同一种子生成的轮廓与当年不同；写入版本 2 以便解码时识别并提示。字段布局两版完全相同。 */
+const RECIPE_VERSION = 2;
 const RECIPE_RE = /TMX1-([A-Za-z0-9_-]{39})/;
 const toB64Url = bytes => bytesToBase64(bytes).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 /** 3.19.0：由「一组生成参数 + 形态信息」组成配方数据。ms = 地图实际使用的形态（S.mapShape），为空时取界面上的形态设置 */
@@ -6594,7 +6613,7 @@ function encodeRecipe(d = recipeData()) {
   let o = 0;
   const u8 = x => { v.setUint8(o, x & 255); o += 1; }, u16 = x => { v.setUint16(o, x & 65535); o += 2; }, u32 = x => { v.setUint32(o, x >>> 0); o += 4; };
   const idx = (list, x, dft) => { const i = list.indexOf(String(x)); return i < 0 ? dft : i; };
-  u8(1); u16(d.w); u16(d.h);
+  u8(RECIPE_VERSION); u16(d.w); u16(d.h);
   u8((clamp(d.ts | 0, 1, 5) << 4) | idx(RECIPE_MIRRORS, d.mirror, 2));
   u8(d.hl); u8(d.ol); u8(d.pl); u16(d.rs);
   let g = 0; (Array.isArray(d.grid) ? d.grid : DEFAULT_GRID).flat().slice(0, 25).forEach((x, i) => { if (Number(x)) g |= 1 << i; }); u32(g);
@@ -6614,7 +6633,7 @@ function decodeRecipe(text) {
   if (b.length !== RECIPE_LEN) return { error: '配方码已损坏' };
   const v = new DataView(b.buffer, b.byteOffset, b.length);
   if ((crc32(b.subarray(0, RECIPE_LEN - 2)) & 65535) !== v.getUint16(RECIPE_LEN - 2)) return { error: '配方码校验失败：可能复制不完整或被改动过' };
-  if (b[0] !== 1) return { error: '这是更新版本生成的配方码，请升级 App 后再使用' };
+  if (b[0] < 1 || b[0] > RECIPE_VERSION) return { error: '这是更新版本生成的配方码，请升级 App 后再使用' };
   let o = 1;
   const u8 = () => v.getUint8(o++), u16 = () => { const x = v.getUint16(o); o += 2; return x; }, u32 = () => { const x = v.getUint32(o); o += 4; return x; };
   const d = { w: u16(), h: u16() };
@@ -6629,6 +6648,8 @@ function decodeRecipe(text) {
     && d.pl <= MAX_SPAWN_POINTS && d.rs <= MAX_RESOURCES && d.shape && d.land >= 10 && d.land <= 90 && d.rough && d.sym && d.slot
     && d.near.perSpawn >= 2 && d.near.perSpawn <= 4 && d.near.min >= 4 && d.near.max >= d.near.min;
   if (!ok) return { error: '配方码中的参数超出范围（可能来自不兼容的版本）' };
+  // 版本 1 = 3.24.0 之前生成：形态配方的参数照常套用，但地形轮廓算法已更新
+  d.legacyShape = b[0] < 2 && d.shape !== 'classic';
   return { data: d, code: 'TMX1-' + m[1] };
 }
 function recipeSummary(d) {
@@ -6688,7 +6709,7 @@ async function pasteRecipe(prefill = '') {
     const show = () => {
       const r = decodeRecipe(ta.value);
       pv.dataset.state = !ta.value.trim() ? '' : r.error ? 'bad' : 'ok';
-      pv.textContent = !ta.value.trim() ? '' : r.error ? r.error : `✓ ${recipeSummary(r.data)}`;
+      pv.textContent = !ta.value.trim() ? '' : r.error ? r.error : `✓ ${recipeSummary(r.data)}${r.data.legacyShape ? '（旧版配方码：地形形态算法已在 3.24.0 更新，参数一致但轮廓会与原图不同）' : ''}`;
     };
     ta.addEventListener('input', show); show();
     if (!prefill) ta.focus({ preventScroll: true });
@@ -6699,6 +6720,7 @@ async function pasteRecipe(prefill = '') {
   if (r.error) { toast(r.error, 'warn', 4200); return; }
   const full = applyRecipe(r.data);
   if (!full) toast('配方码里的地形形态在当前版本中不存在，已改用经典地形', 'warn', 4200);
+  else if (r.data.legacyShape) toast('这是 3.24.0 之前的配方码：地形形态算法已更新，同一种子的地形轮廓会与原图不同', 'warn', 5200);
   toast(`已套用配方：${recipeSummary(r.data)}`, 'success', 3600);
   if (k === 'gen') await generate();
 }
