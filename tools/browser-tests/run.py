@@ -41,7 +41,7 @@ window.__shareCalls=[];window.AndroidBridge={_list:[],_n:0,sessions:{},
 """
 
 async def new_page(browser, url, mock=False, w=1366, h=860, touch=False):
-    ctx = await browser.new_context(viewport={'width': w, 'height': h}, accept_downloads=True, has_touch=touch)
+    ctx = await browser.new_context(viewport={'width': w, 'height': h}, accept_downloads=True, has_touch=touch, locale='zh-CN')  # 3.26.0：界面会按系统语言自动选择，测试固定简体中文
     if mock: await ctx.add_init_script(MOCK_ANDROID)
     pg = await ctx.new_page()
     pg.errors = []
@@ -130,8 +130,10 @@ async def sec11(b, base):
     await pg.click('#themeToggle'); await pg.wait_for_timeout(400)
     r = await pg.evaluate("""(()=>{const m=document.getElementById('themeMenu'),g=[...m.querySelectorAll('.tm-grid')].map(x=>[...x.querySelectorAll('[data-theme-id]')]);
       const press=(el,k)=>{el.focus();el.dispatchEvent(new KeyboardEvent('keydown',{key:k,bubbles:true}));return document.activeElement.dataset.themeId};
-      return [press(g[1][3],'ArrowDown'), press(g[2][1],'ArrowUp'), press(g[0][2],'ArrowDown'), press(g[1][0],'ArrowUp'), g[2][0].dataset.themeId, g[1][4].dataset.themeId, g[1][2].dataset.themeId, g[0][0].dataset.themeId]})()""")
-    check('11f 主题面板 ↑↓：跨组保持同一列（3 / 5 / 2 个一组时不再落错列）（修复）', r[0] == r[4] and r[1] == r[5] and r[2] == r[6] and r[3] == r[7], str(r))
+      // 3.26.0：分组数量改为 6 / 8 / 2，按网格几何断言（与具体数量无关）：跨组保持同一列，目标列不存在时取最后一个
+      const id=(gi,i)=>g[gi][i].dataset.themeId, L0=g[0].length, L1=g[1].length, last0=Math.floor((L0-1)/3)*3, last1=Math.floor((L1-1)/3)*3;
+      return [press(g[0][last0+1],'ArrowDown'), id(1,1), press(g[1][2],'ArrowUp'), id(0,Math.min(last0+2,L0-1)), press(g[1][last1],'ArrowDown'), id(2,0), press(g[2][1],'ArrowUp'), id(1,Math.min(last1+1,L1-1)), press(g[1][1],'ArrowDown'), id(1,4)]})()""")
+    check('11f 主题面板 ↑↓：跨组保持同一列、组内移动一行（3.26.0 起按网格几何断言）', r[0] == r[1] and r[2] == r[3] and r[4] == r[5] and r[6] == r[7] and r[8] == r[9], str(r))
     await pg.keyboard.press('Escape'); await pg.wait_for_timeout(300)
     # 11g 焦点在方向菜单里时，字母快捷键不作用到画布
     # 桌面浏览器没有屏幕方向桥接，菜单默认隐藏：这里直接显示菜单并把焦点放进去（只验证键盘守卫）
@@ -153,8 +155,9 @@ async def sec11(b, base):
     # 11j 配方码：往返一致、校验防篡改、夹在聊天文字里可识别
     r = await pg.evaluate("""(()=>{const T=window.__tmx;const d=T.recipeData(),c=T.encodeRecipe(d),x=T.decodeRecipe('来试试这张图 '+c+' 很好玩');
       const bad=c.slice(0,-3)+(c.slice(-3,-2)==='A'?'B':'A')+c.slice(-2);const y=T.decodeRecipe(bad),z=T.decodeRecipe('TMX1-abc');
-      return {len:c.length,same:JSON.stringify(x.data)===JSON.stringify({...d,grid:d.grid.map(r=>r.map(Number))}),bad:!!y.error,trunc:!!z.error,code:x.code===c}})()""")
-    check('11j 配方码：往返一致 / 夹在聊天文字里可识别 / 改动一个字符即校验失败', r['same'] and r['bad'] and r['trunc'] and r['code'] and r['len'] <= 50, str(r))
+      const xd={...x.data};delete xd.legacyShape;delete xd.legacyFrom; // 3.24.1 起解码结果带旧码标记（3.26.0：当前码只有 legacyShape=false）
+      return {len:c.length,same:JSON.stringify(xd)===JSON.stringify({...d,grid:d.grid.map(r=>r.map(Number))}),noLegacy:x.data.legacyShape===false&&!('legacyFrom' in x.data),bad:!!y.error,trunc:!!z.error,code:x.code===c}})()""")
+    check('11j 配方码：往返一致 / 夹在聊天文字里可识别 / 改动一个字符即校验失败 / 当前码不带旧版标记', r['same'] and r['noLegacy'] and r['bad'] and r['trunc'] and r['code'] and r['len'] <= 50, str(r))
     # 11k 配方码：形态模式下对方套用后生成的地形完全一致
     await pg.evaluate("(()=>{const T=window.__tmx;T.selectShape('island');document.getElementById('shapeSeed').value='24680'})()")
     await gen(pg, w=120, players=4, mirror='vertical')
@@ -180,11 +183,14 @@ async def sec11(b, base):
     await pg.wait_for_function("window.__tmx.health.sig===''||true", timeout=1000)
     await pg.wait_for_timeout(2200)
     r2 = await pg.evaluate("[window.__tmx.health.score, window.__tmx.analyzeMap().score, document.querySelector('#healthBadge .hb-delta').textContent]")
-    await pg.click('#healthBadge'); await pg.wait_for_timeout(500)
+    await pg.click('#healthBadge')
+    # 3.26.0：体检弹窗异步打开，负载高时 500ms 内可能还没出现 —— 等它真正显示，避免 Esc 早于弹窗导致后续用例被遮挡
+    await pg.wait_for_function("!document.getElementById('modal').hidden && document.getElementById('modal').classList.contains('show')", timeout=15000)
     t = await pg.inner_text('#modalTitle')
     ok_delta = (r2[0] == r[0] and r2[2] == '') or (r2[0] != r[0] and r2[2] == ('▲' if r2[0] > r[0] else '▼') + str(abs(r2[0] - r[0])))
     check('11l 实时体检徽章：自动评分与体检一致，编辑后自动刷新并显示涨跌，点击打开体检', r[0] == r[1] == r[2] and r2[0] == r2[1] and ok_delta and t == '地图体检', f'{r} {r2} {t}')
-    await pg.keyboard.press('Escape'); await pg.wait_for_timeout(300)
+    await pg.keyboard.press('Escape')
+    await pg.wait_for_function("document.getElementById('modal').hidden", timeout=5000)
     # 11m 当前视图截图：下载 PNG
     async with pg.expect_download() as dl: await pg.click('#shotBtn')
     d = await dl.value; path = os.path.join(tempfile.gettempdir(), 'view_shot.png'); await d.save_as(path)
@@ -420,10 +426,167 @@ async def sec13(b, base):
     check('3.20.0 测试无页面错误', not pg.errors, str(pg.errors[:3]))
     await pg.context.close()
 
+
+async def sec14(b, base):
+    # —— 14. 3.26.0：第二十轮审查修复 + 新旧对比 + 形态种子画廊 + 6 套新主题 ——
+    pg = await new_page(b, base)
+    # 14a 出生点列表空状态文案与上限一致
+    r = await pg.evaluate("getComputedStyle(document.getElementById('spawnList'),'::before').content")
+    check('14a 出生点列表空状态写「最多支持 100 个」（与 MAX_SPAWN_POINTS 一致）（修复）', '100' in r and '50 个' not in r, r)
+    await pg.click('#animToggle')
+    await gen(pg, w=100, players=4, mirror='vertical')
+    sp1 = await pg.evaluate("JSON.stringify(window.__tmx.currentSpawns())")
+    # 14b 导入的 TMX 名称：重新生成后改回自动命名；用户改过的名称保持
+    async with pg.expect_download() as dl: await pg.evaluate("document.getElementById('export').click()")
+    d = await dl.value; path = os.path.join(tempfile.gettempdir(), 'imported_name.tmx'); await d.save_as(path)
+    await settle(pg)
+    await pg.set_input_files('#tmxFile', path); await pg.wait_for_timeout(800)
+    for _ in range(3):
+        if await pg.evaluate("!document.getElementById('modal').hidden && document.getElementById('modal').classList.contains('show')"):
+            await pg.click('#modal .modal-actions button:last-child'); await pg.wait_for_timeout(400)
+    await settle(pg)
+    n1 = await pg.evaluate("document.getElementById('mapName').value")
+    await gen(pg, w=100, players=4)
+    n2 = await pg.evaluate("document.getElementById('mapName').value")
+    check('14b 导入 TMX 后重新生成：名称改回自动命名，不再沿用导入文件名（修复）', n1 == 'imported_name' and n2 == '', f'{n1!r} {n2!r}')
+    await pg.set_input_files('#tmxFile', path); await pg.wait_for_timeout(800)
+    for _ in range(3):
+        if await pg.evaluate("!document.getElementById('modal').hidden && document.getElementById('modal').classList.contains('show')"):
+            await pg.click('#modal .modal-actions button:last-child'); await pg.wait_for_timeout(400)
+    await settle(pg)
+    await pg.fill('#mapName', '我的决战图'); await pg.dispatch_event('#mapName', 'change')
+    await gen(pg, w=100, players=4)
+    check('14c 用户改过的地图名称在重新生成后保持不变', await pg.evaluate("document.getElementById('mapName').value") == '我的决战图')
+    await pg.fill('#mapName', ''); await pg.dispatch_event('#mapName', 'change')
+    # 14d 新旧对比：生成两次后可对比；表格 7 行；换回上一张 = 找回第一张，且对比方向对调
+    # 地图指纹用「出生点 + 资源点集合」：同参数两次生成的出生点坐标可能恰好相同；资源点读回 TMX 后顺序不同，按集合比较
+    await gen(pg, w=100, players=4); spA = await pg.evaluate("JSON.stringify([window.__tmx.currentSpawns(), (window.__tmx.S.snapshot.resource_positions||[]).map(String).sort()])")
+    await gen(pg, w=100, players=4); spB = await pg.evaluate("JSON.stringify([window.__tmx.currentSpawns(), (window.__tmx.S.snapshot.resource_positions||[]).map(String).sort()])")
+    en = await pg.evaluate("!document.getElementById('cmpBtn').disabled")
+    await pg.keyboard.press('x')
+    await pg.wait_for_function("document.getElementById('modalTitle').textContent==='新旧对比' && document.getElementById('modal').classList.contains('show')", timeout=8000)
+    rows = await pg.evaluate("document.querySelectorAll('.cmp-table tbody tr').length")
+    # 拖动分界线：点在舞台 25% 处，--x 跟随
+    box = await pg.query_selector('#cmpStage'); bb = await box.bounding_box()
+    await pg.mouse.click(bb['x'] + bb['width'] * 0.25, bb['y'] + bb['height'] / 2); await pg.wait_for_timeout(150)
+    xv = await pg.evaluate("parseFloat(document.getElementById('cmpStage').style.getPropertyValue('--x'))")
+    await pg.click('#modal .modal-actions button:nth-child(2)'); await pg.wait_for_timeout(500); await settle(pg)
+    spC = await pg.evaluate("JSON.stringify([window.__tmx.currentSpawns(), (window.__tmx.S.snapshot.resource_positions||[]).map(String).sort()])")
+    prevAfter = await pg.evaluate("window.__tmx.cmp.prev && window.__tmx.cmp.prev.spawns")
+    check('14d 新旧对比：两次生成后按 X 打开、7 项指标、拖动分界线、「换回上一张」找回前一张', en and rows == 7 and 20 <= xv <= 30 and spC == spA and spC != spB and prevAfter == 4, f'{en} {rows} {xv} A={spC == spA} B={spC != spB} prev={prevAfter}')
+    # 14e 替换失败时摘要不提交（不会拿当前地图和它自己对比）
+    r = await pg.evaluate("""(async()=>{const T=window.__tmx;const before=T.cmp.prev;let threw=false;
+      try{await T.loadTmxBytes(new TextEncoder().encode('<not-a-map/>'),'bad.tmx')}catch{threw=true}
+      return [threw, T.cmp.prev===before]})()""")
+    check('14e 导入失败：对比摘要不被替换（pending 只在替换成功后提交）', r == [True, True], str(r))
+    # 14f 种子画廊：经典模式下提示而不打开
+    await pg.evaluate("window.__tmx.selectShape('classic')")
+    await pg.keyboard.press('g'); await pg.wait_for_timeout(400)
+    check('14f 经典模式下按 G：提示先选形态，不打开画廊', await pg.evaluate("document.getElementById('modal').hidden || document.getElementById('modalTitle').textContent.indexOf('种子画廊')<0"))
+    # 14g 种子画廊：6 张全部算完、第一张是当前种子；选第 4 张「固定此种子」；再「用它生成」后地图种子一致
+    await pg.evaluate("(()=>{const T=window.__tmx;T.selectShape('island');document.getElementById('shapeSeed').value='13579'})()")
+    await pg.keyboard.press('g')
+    await pg.wait_for_function("document.querySelectorAll('.gal-tile.ready').length===6", timeout=30000)
+    first = await pg.evaluate("document.querySelector('.gal-tile').dataset.seed")
+    tiles = await pg.query_selector_all('.gal-tile'); seed4 = await tiles[3].get_attribute('data-seed')
+    await tiles[3].click(); await pg.click('#modal .modal-actions button:nth-child(2)'); await pg.wait_for_timeout(400)
+    fixed = await pg.evaluate("document.getElementById('shapeSeed').value")
+    await pg.keyboard.press('g')
+    await pg.wait_for_function("document.querySelectorAll('.gal-tile.ready').length>=1", timeout=30000)
+    old = await pg.evaluate("document.querySelector('.gal-tile').dataset.seed")
+    await pg.click('#galReroll'); await pg.wait_for_function("document.querySelectorAll('.gal-tile.ready').length===6", timeout=30000)
+    seeds = await pg.evaluate("[...document.querySelectorAll('.gal-tile')].map(t=>t.dataset.seed)")
+    tiles = await pg.query_selector_all('.gal-tile'); seed6 = await tiles[5].get_attribute('data-seed')
+    await tiles[5].click(); await pg.click('#modal .modal-actions button:last-child'); await pg.wait_for_timeout(400)
+    if await pg.evaluate("!document.getElementById('modal').hidden && document.getElementById('modal').classList.contains('show')"):
+        await pg.click('#modal .modal-actions button:last-child')
+    await settle(pg)
+    ms = await pg.evaluate("String(window.__tmx.S.mapShape && window.__tmx.S.mapShape.seed)")
+    check('14g 种子画廊：首张为当前种子、固定种子、换一批保留已选并换新 5 个、「用它生成」种子一致', first == '13579' and fixed == seed4 and old == seed4 and seeds[0] == seed4 and len(set(seeds)) == 6 and ms == seed6, f'{first} {fixed}/{seed4} {seeds} {ms}/{seed6}')
+    # 14h 6 套新主题：data-theme / 色调 / 动态图层正确；亮强调色主题的主按钮用深色文字；雷暴暂停时闪电层不可见
+    # 按钮文字色有 0.18s 过渡：每套主题等过渡结束再读
+    await pg.add_style_tag(content='*,*::before,*::after{transition:none!important}')  # 只验证层叠结果，排除颜色过渡的中间值
+    r = await pg.evaluate("""(async()=>{const T=window.__tmx,out={};for(const id of ['sand','graphite','field','storm','firefly','sky']){T.applyTheme(id,false);await new Promise(r=>setTimeout(r,60));
+      const b=document.body;out[id]=[b.dataset.tone,b.dataset.fx||'',getComputedStyle(b).colorScheme,getComputedStyle(document.getElementById('generate')).color]}return out})()""")
+    ok = (r['sand'][:3] == ['light', '', 'light'] and r['graphite'][:3] == ['dark', '', 'dark'] and r['field'][:3] == ['dark', '', 'dark']
+          and r['storm'][:2] == ['dark', 'storm'] and r['firefly'][:2] == ['dark', 'firefly'] and r['sky'][:3] == ['light', 'sky', 'light']
+          and r['graphite'][3] == 'rgb(42, 23, 0)' and r['field'][3] == 'rgb(20, 32, 6)' and r['storm'][3] == 'rgb(11, 16, 48)' and r['firefly'][3] == 'rgb(19, 36, 10)' and r['sky'][3] == 'rgb(255, 255, 255)')
+    check('14h 新主题：砂岩 / 石墨 / 战地（静态）与雷暴 / 萤林 / 晴空（动态）的色调、动态图层、主按钮文字色', ok, str(r))
+    r = await pg.evaluate("""(()=>{const T=window.__tmx;T.applyTheme('storm',false);T.setFxEnabled(false);const o=getComputedStyle(document.querySelector('.fx-b')).opacity;T.setFxEnabled(true);return o})()""")
+    check('14i 雷暴：关闭动态背景时闪电层强制不可见（不会停在亮屏那一帧）', r == '0', r)
+    # 14j 主题面板点选：圆形揭示过渡结束后清理状态、主题已切换并保存
+    await pg.evaluate("window.__tmx.openThemeMenu()"); await pg.wait_for_timeout(400)
+    await pg.click('#themeMenu [data-theme-id="firefly"]'); await pg.wait_for_timeout(1500)
+    r = await pg.evaluate("[document.body.dataset.theme, localStorage.getItem('tmx_theme'), document.documentElement.classList.contains('vt-theme')]")
+    check('14j 主题面板选「萤林」：圆形揭示过渡结束、主题生效并保存', r == ['firefly', 'firefly', False], str(r))
+    await pg.keyboard.press('Escape')
+    check('14z 第 14 节无页面错误', not pg.errors, str(pg.errors[:3]))
+
+
+async def sec15(b, base):
+    # —— 15. 3.26.0：界面多语言（简 / 繁 / EN / FR / DE / 日 / 한 / RU / ES） ——
+    pg = await new_page(b, base)
+    TXT = "document.body.innerText"
+    zh0 = await pg.evaluate(TXT)
+    st = await pg.evaluate("[window.I18N.lang, document.documentElement.lang, document.getElementById('generate').innerText.trim()]")
+    check('15a 中文系统默认简体中文', st == ['zh-CN', 'zh-CN', '生成地图'], str(st))
+    # 15b 菜单：9 种语言、选英文后菜单关闭并保存
+    await pg.click('#langToggle'); await pg.wait_for_timeout(350)
+    n = await pg.evaluate("document.querySelectorAll('#langMenu [data-lang]').length")
+    await pg.click('#langMenu [data-lang="en"]'); await pg.wait_for_timeout(400)
+    r = await pg.evaluate("[window.I18N.lang, document.documentElement.lang, localStorage.getItem('tmx_lang'), document.getElementById('langMenu').classList.contains('show'), document.getElementById('generate').innerText.trim(), document.title, document.querySelector('#langToggle .lang-badge').textContent]")
+    check('15b 语言菜单列出 9 种语言；选 English 后界面 / 标题 / 角标切换并保存，菜单关闭', n == 9 and r[0] == 'en' and r[1] == 'en' and r[2] == 'en' and not r[3] and r[4] == 'Generate map' and r[5].startswith('Rusted Warfare') and r[6] == 'EN', f'{n} {r}')
+    # 15c 切换语言后功能照常：生成地图、动态状态与提示被翻译、命令面板标题被翻译
+    await pg.click('#animToggle')
+    await gen(pg, w=100, players=4)
+    r = await pg.evaluate("[document.getElementById('status').textContent, document.getElementById('stats').textContent]")
+    await pg.keyboard.press('Control+k'); await pg.wait_for_timeout(300)
+    await pg.fill('#cmdkInput', 'compare'); await pg.wait_for_timeout(200)
+    ck = await pg.evaluate("document.querySelector('#cmdkList .cmdk-item')?.innerText || ''")
+    await pg.keyboard.press('Escape')
+    check('15c 英文界面：生成正常，状态 / 统计 / 命令面板为英文', r[0].startswith('Map generated') and 'spawns' in r[1] and 'resources' in r[1] and 'Compare' in ck, f'{r} {ck!r}')
+    # 15d 繁體中文：词组 + 逐字转换（导出→匯出、默认→預設、地图→地圖）
+    await pg.evaluate("window.I18N.set('zh-TW')"); await pg.wait_for_timeout(300)
+    tw = await pg.evaluate(TXT)
+    check('15d 繁體中文：整页简体字转为繁体（地圖 / 匯出 / 預設），html lang = zh-Hant', '生成地圖' in tw and '匯出' in tw and '預設' in tw and '地图' not in tw and await pg.evaluate("document.documentElement.lang") == 'zh-Hant')
+    # 15e 其余 6 种语言都能切换且主按钮已翻译；切回简体中文后文字与原文一致
+    labels = {}
+    for L in ['fr', 'de', 'ja', 'ko', 'ru', 'es']:
+        await pg.evaluate(f"window.I18N.set('{L}')"); await pg.wait_for_timeout(150)
+        labels[L] = await pg.evaluate("document.getElementById('generate').innerText.trim()")
+    ok = labels == {'fr': 'Générer la carte', 'de': 'Karte generieren', 'ja': 'マップ生成', 'ko': '맵 생성', 'ru': 'Создать карту', 'es': 'Generar mapa'}
+    await pg.evaluate("window.I18N.set('zh-CN')"); await pg.wait_for_timeout(300)
+    gen_zh = await pg.evaluate("document.getElementById('generate').innerText.trim()")
+    check('15e 法 / 德 / 日 / 韩 / 俄 / 西均可切换，切回简体中文后还原原文', ok and gen_zh == '生成地图' and (await pg.evaluate("document.title")).startswith('铁锈战争'), str(labels))
+    # 15f 持久化：重新加载后保持所选语言；Esc 关闭语言菜单
+    await pg.evaluate("window.I18N.set('ko')")
+    await pg.reload(); await pg.wait_for_function("window.I18N && document.getElementById('runtime').textContent.length > 0", timeout=30000)
+    await pg.wait_for_timeout(600)
+    kl = await pg.evaluate("[window.I18N.lang, document.getElementById('generate').innerText.trim()]")
+    await pg.click('#langToggle'); await pg.wait_for_timeout(300)
+    await pg.keyboard.press('Escape'); await pg.wait_for_timeout(300)
+    closed = not await pg.evaluate("document.getElementById('langMenu').classList.contains('show')")
+    check('15f 重新加载后保持韩语；Esc 关闭语言菜单', kl == ['ko', '맵 생성'] and closed, str(kl))
+    await pg.evaluate("window.I18N.set('zh-CN')")
+    check('15g 第 15 节无页面错误', not pg.errors, str(pg.errors[:3]))
+    # 15h 首次启动按系统语言自动选择（日语系统 → 日本語；未保存过选择）
+    ctx = await b.new_context(viewport={'width': 1280, 'height': 800}, locale='ja-JP')
+    jp = await ctx.new_page(); await jp.goto(base)
+    await jp.wait_for_function("window.I18N && document.getElementById('generate')", timeout=30000); await jp.wait_for_timeout(500)
+    r = await jp.evaluate("[window.I18N.lang, document.getElementById('generate').innerText.trim()]")
+    check('15h 首次启动按系统语言自动选择（ja-JP → 日本語）', r == ['ja', 'マップ生成'], str(r))
+    await ctx.close()
+
 async def main():
     srv = serve(); base = f'http://127.0.0.1:{srv.server_address[1]}/index.html?debug'
     async with async_playwright() as p:
         b = await p.chromium.launch(args=['--no-sandbox'])
+        if os.environ.get('ONLY') == '15':
+            await sec15(b, base); await b.close(); srv.shutdown()
+            print('SECTION 15 ' + ('PASSED' if not FAILED else f'FAILED ({len(FAILED)}): {FAILED}')); sys.exit(1 if FAILED else 0)
+        if os.environ.get('ONLY') == '14':
+            await sec14(b, base); await b.close(); srv.shutdown()
+            print('SECTION 14 ' + ('PASSED' if not FAILED else f'FAILED ({len(FAILED)}): {FAILED}')); sys.exit(1 if FAILED else 0)
         if os.environ.get('ONLY') == '13':
             await sec13(b, base); await b.close(); srv.shutdown()
             print('\nALL BROWSER TESTS PASSED' if not FAILED else f'\nBROWSER TESTS FAILED ({len(FAILED)}): {FAILED}'); sys.exit(0 if not FAILED else 1)
@@ -603,7 +766,7 @@ async def main():
 
         # —— 10. 3.16.0 动态主题 ——
         # 10a 旧版下标存储迁移：3.15.0 保存的 '1' = 青岚
-        ctx = await b.new_context(viewport={'width': 1280, 'height': 760})
+        ctx = await b.new_context(viewport={'width': 1280, 'height': 760}, locale='zh-CN')
         await ctx.add_init_script("if(!sessionStorage.getItem('__seeded')){localStorage.setItem('tmx_theme','1');sessionStorage.setItem('__seeded','1')}")
         pg = await ctx.new_page(); pg.errors = []
         pg.on('pageerror', lambda e: pg.errors.append(str(e)))
@@ -617,7 +780,7 @@ async def main():
         st = await pg.evaluate("""(()=>{const c=document.getElementById('map'),x=c.getContext('2d').getImageData(2,2,1,1).data;
           return {open:document.getElementById('themeMenu').classList.contains('show'),theme:document.body.dataset.theme,fx:document.body.dataset.fx,
           saved:localStorage.getItem('tmx_theme'),alpha:x[3],fxShown:getComputedStyle(document.querySelector('.theme-fx')).display}})()""")
-        check('主题面板列出 10 个选项（8 套主题 + 跟随系统 + 昼夜流转）', n_items == 10, str(n_items))
+        check('主题面板列出 16 个选项（14 套主题 + 跟随系统 + 昼夜流转；3.26.0 新增 6 套）', n_items == 16, str(n_items))
         check('选「极光」：面板保持打开、存储为 id、显示动态图层、画布空白处透明', st['open'] and st['theme'] == 'aurora' and st['fx'] == 'aurora' and st['saved'] == 'aurora' and st['alpha'] == 0 and st['fxShown'] == 'block', str(st))
         await pg.keyboard.press('Escape'); await pg.wait_for_timeout(300)
         check('Esc 关闭主题面板', not await pg.evaluate("document.getElementById('themeMenu').classList.contains('show')"))
@@ -629,7 +792,7 @@ async def main():
         check('樱雾：data-tone=light，color-scheme 为 light', await pg.evaluate("document.body.dataset.tone==='light' && getComputedStyle(document.body).colorScheme==='light'"))
         # 10d 昼夜流转时间表与跟随系统
         cyc = await pg.evaluate("[0,4,5,6,7,12,16,17,18,19,22,23].map(h=>window.__tmx.resolveTheme('cycle',new Date(2026,0,1,h)))")
-        check('昼夜流转：深夜星云 / 清晨樱雾 / 白天亮白 / 傍晚熔岩 / 入夜极光', cyc == ['nebula','nebula','sakura','sakura','light','light','light','ember','ember','aurora','aurora','nebula'], str(cyc))
+        check('昼夜流转（3.26.0）：深夜星云 / 清晨樱雾 / 上午晴空 / 午后亮白 / 傍晚熔岩 / 入夜萤林 / 夜晚极光', cyc == ['nebula','nebula','sakura','sakura','sky','light','light','ember','ember','firefly','aurora','nebula'], str(cyc))
         await pg.evaluate("window.__tmx.applyTheme('system', true)")
         sysv = await pg.evaluate("[localStorage.getItem('tmx_theme'), document.body.dataset.theme]")
         check('选「跟随系统」= 删除存储项（之后随系统深浅色变化）', sysv[0] is None and sysv[1] in ('dark', 'light'), str(sysv))
@@ -653,6 +816,8 @@ async def main():
         await sec11(b, base)
         await sec12(b, base)
         await sec13(b, base)
+        await sec14(b, base)
+        await sec15(b, base)
         await b.close()
     srv.shutdown()
     print('\nALL BROWSER TESTS PASSED' if not FAILED else f'\nBROWSER TESTS FAILED ({len(FAILED)}): {FAILED}')

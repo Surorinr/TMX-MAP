@@ -3801,7 +3801,7 @@ checksum = "fd3ca314f692efd6c868f8408f53fe444634a845f96c028b97d35f6a1f79f0ee"
 
 [[package]]
 name = "tmx-mapforge-desktop"
-version = "3.25.0"
+version = "3.26.0"
 dependencies = [
  "rfd",
  "serde",

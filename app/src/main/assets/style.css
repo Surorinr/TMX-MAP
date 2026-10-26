@@ -189,7 +189,7 @@ body[data-tone="light"] .mini-status em,body[data-tone="light"] .footer-note em{
 .v3-tools{margin-top:8px}
 .spawn-list{display:grid;gap:6px;margin-top:10px;max-height:260px;overflow:auto;padding:2px 2px 2px 0;scrollbar-width:thin;scrollbar-color:var(--line-2) transparent}
 .spawn-list::-webkit-scrollbar{width:6px}.spawn-list::-webkit-scrollbar-thumb{background:var(--line-2);border-radius:6px}
-.spawn-list:empty::before{content:'生成地图后，这里会显示全部出生点；最多支持 50 个';display:block;padding:18px 10px;text-align:center;color:var(--faint);border:1px dashed var(--line-2);border-radius:10px;font-size:12px}
+.spawn-list:empty::before{content:'生成地图后，这里会显示全部出生点；最多支持 100 个';display:block;padding:18px 10px;text-align:center;color:var(--faint);border:1px dashed var(--line-2);border-radius:10px;font-size:12px}
 .spawn-row{display:grid;grid-template-columns:30px 1fr 84px 28px;align-items:center;gap:7px;padding:6px 7px;border:1px solid var(--line);border-radius:10px;background:var(--card-2);cursor:pointer;transition:border-color .18s,background .18s,transform .18s;animation:rowIn .3s ease both;animation-delay:var(--d,0ms)}
 @keyframes rowIn{from{opacity:0;transform:translateX(-8px)}to{opacity:1;transform:none}}
 .spawn-row:hover{border-color:var(--line-2);transform:translateX(2px)}
@@ -1716,3 +1716,269 @@ label.dim select{pointer-events:none}
 .gauge.gauge-pop{animation:gaugePop .6s var(--ease-spring)}
 @keyframes gaugePop{0%{transform:scale(1)}30%{transform:scale(1.18) rotate(-6deg)}60%{transform:scale(.96)}100%{transform:none}}
 @media (prefers-reduced-motion: reduce){.gauge.gauge-pop,.map-panel.spots-on .legend-spots{animation:none!important}.tune-btn svg{transition:none}}
+
+/* =====================================================================
+ * 3.26.0：新增 3 套静态主题（砂岩 / 石墨 / 战地）与 3 套动态主题（雷暴 / 萤林 / 晴空）
+ * 配色约束：
+ *  · 每套主题的强调色与已有主题明显区分：砂岩 = 陶土橙、石墨 = 琥珀、战地 = 军绿、雷暴 = 电光靛 + 闪电黄、萤林 = 萤光黄绿、晴空 = 天蓝 + 日光橙；
+ *  · 强调色偏亮的主题（石墨 / 战地 / 雷暴 / 萤林）把主按钮与激活态文字改为深色 --accent-ink，对比度 ≥ 4.5；
+ *  · 动态图层沿用 3.16.0 的约束：只动 transform / opacity，不用 filter:blur，Android WebView 上由合成器完成；
+ *  · 雷暴的闪电：每 9 秒一次柔和双闪（峰值不透明度 0.55，远低于光敏警告阈值，且每秒不超过 3 次），
+ *    「减少动态效果」或关闭「动态背景」时闪电层强制不可见，绝不会停在一帧亮屏上。
+ * ===================================================================== */
+body[data-theme="sand"] {
+  --bg: #f5efe4; --bg-grad: radial-gradient(1100px 640px at 78% -12%, #fffaf1 0%, #f5efe4 60%, #ece2d0 100%);
+  --panel: #f8f3ea; --panel-2: #f0e8da; --card: #fffcf6; --card-2: #faf5ec;
+  --line: #e5d9c4; --line-2: #d6c6aa; --text: #2e2418; --text-2: #4f4232; --muted: #7e6d57; --faint: #a8977e;
+  --input: #fffdf8; --btn: #fffcf6; --btn-2: #f3ebdd; --btn-hover: #efe3cf;
+  --accent: #b5572a; --accent-2: #5b8a3a; --gold: #a87400; --glass: rgba(255, 251, 244, .9); --shadow: 0 10px 30px rgba(90,60,20,.14); --canvas-bg: #e9dfcd;
+  --topbar: linear-gradient(90deg, #fffaf2, #f6eee0, #fffaf2);
+  color-scheme: light;
+}
+body[data-theme="sand"] .map-panel::before{background:radial-gradient(120% 90% at 50% 45%,transparent 64%,rgba(110,70,30,.13) 100%)}
+body[data-theme="graphite"] {
+  --bg: #111214; --bg-grad: radial-gradient(1100px 640px at 78% -12%, #202226 0%, #111214 55%, #0b0c0d 100%);
+  --panel: #16171a; --panel-2: #1b1c20; --card: #1e2024; --card-2: #18191c;
+  --line: #2c2f35; --line-2: #3a3e46; --text: #eceef1; --text-2: #c3c7ce; --muted: #8b919b; --faint: #5f6570;
+  --input: #0f1012; --btn: #23252a; --btn-2: #1d1f23; --btn-hover: #2d3036;
+  --accent: #f0a43a; --accent-2: #4fc3f7; --accent-ink: #2a1700; --glass: rgba(20, 21, 24, .88); --canvas-bg: #0a0b0c;
+  --topbar: linear-gradient(90deg, #141518, #1c1e22 55%, #141518);
+  color-scheme: dark;
+}
+body[data-theme="field"] {
+  --bg: #0e120b; --bg-grad: radial-gradient(1100px 640px at 78% -12%, #1f2a16 0%, #0e120b 55%, #090c07 100%);
+  --panel: #12170e; --panel-2: #171d12; --card: #1b2215; --card-2: #151b10;
+  --line: #2c3622; --line-2: #3c4a2e; --text: #eef2e4; --text-2: #c9d1b6; --muted: #93a07c; --faint: #66724f;
+  --input: #0c1009; --btn: #202a18; --btn-2: #1a2214; --btn-hover: #2a3720;
+  --accent: #9ccc65; --accent-2: #d9bf6a; --accent-ink: #142006; --gold: #e8c95c; --glass: rgba(18, 23, 14, .88); --canvas-bg: #080b06;
+  --topbar: linear-gradient(90deg, #12170e, #1b2414 55%, #12170e);
+  color-scheme: dark;
+}
+body[data-theme="storm"] {
+  --bg: #0b0f17; --bg-grad: radial-gradient(1100px 640px at 78% -12%, #1c2538 0%, #0b0f17 55%, #070a10 100%);
+  --panel: #0f141e; --panel-2: #131a26; --card: #17202e; --card-2: #111823;
+  --line: #26324a; --line-2: #34445f; --text: #e9eef8; --text-2: #bcc6d8; --muted: #8090ab; --faint: #56637c;
+  --input: #0a0e15; --btn: #1a2333; --btn-2: #151d2b; --btn-hover: #222e43;
+  --accent: #8c9eff; --accent-2: #ffe066; --accent-ink: #0b1030; --glass: rgba(13, 18, 28, .88); --canvas-bg: #070a10;
+  --topbar: linear-gradient(90deg, #0d121c, #161e2d 55%, #0d121c);
+  --fx-bar: linear-gradient(100deg, transparent 0%, rgba(140,158,255,.16) 20%, rgba(255,224,102,.10) 30%, transparent 48%, rgba(170,190,255,.12) 72%, transparent 100%);
+  color-scheme: dark;
+}
+body[data-theme="firefly"] {
+  --bg: #07110d; --bg-grad: radial-gradient(1100px 640px at 78% -12%, #11301f 0%, #07110d 55%, #050c09 100%);
+  --panel: #0a1712; --panel-2: #0d1d16; --card: #10231a; --card-2: #0c1b14;
+  --line: #1c3a2c; --line-2: #285040; --text: #e8f6ee; --text-2: #b5d6c4; --muted: #76a08a; --faint: #4d7562;
+  --input: #06100c; --btn: #10271d; --btn-2: #0c2018; --btn-hover: #153526;
+  --accent: #c5e86c; --accent-2: #5ad19a; --accent-ink: #13240a; --gold: #f2dc6b; --glass: rgba(8, 22, 16, .88); --canvas-bg: #040c08;
+  --topbar: linear-gradient(90deg, #0a1712, #0f2419 55%, #0a1712);
+  --fx-bar: linear-gradient(100deg, transparent 0%, rgba(197,232,108,.15) 22%, rgba(90,209,154,.10) 34%, transparent 52%, rgba(220,255,150,.10) 74%, transparent 100%);
+  color-scheme: dark;
+}
+body[data-theme="sky"] {
+  --bg: #eef6fd; --bg-grad: radial-gradient(1100px 640px at 78% -12%, #ffffff 0%, #eef6fd 60%, #e1edf9 100%);
+  --panel: #f3f8fd; --panel-2: #e8f1fa; --card: #ffffff; --card-2: #f6fafe;
+  --line: #d2e3f2; --line-2: #b9d1e8; --text: #14283d; --text-2: #2f4a64; --muted: #5b7690; --faint: #8aa2b8;
+  --input: #ffffff; --btn: #ffffff; --btn-2: #ecf4fb; --btn-hover: #e1edf8;
+  --accent: #0e83c4; --accent-2: #f08c1c; --gold: #b97700; --glass: rgba(255, 255, 255, .9); --shadow: 0 10px 30px rgba(30,80,130,.15); --canvas-bg: #d8e9f8;
+  --topbar: linear-gradient(90deg, #ffffff, #eaf5fe, #ffffff);
+  --fx-bar: linear-gradient(100deg, transparent 0%, rgba(14,131,196,.10) 20%, rgba(255,190,90,.14) 34%, transparent 52%, rgba(120,190,240,.12) 72%, transparent 100%);
+  color-scheme: light;
+}
+/* 亮强调色主题：主按钮 / 激活态改用深色文字（白字在琥珀、萤光绿上对比度不足 2.5） */
+body:is([data-theme="graphite"],[data-theme="field"],[data-theme="storm"],[data-theme="firefly"]) .primary{color:var(--accent-ink);text-shadow:none}
+body:is([data-theme="graphite"],[data-theme="field"],[data-theme="storm"],[data-theme="firefly"]) ::selection{color:var(--accent-ink)}
+
+/* ---------- 雷暴：翻滚的云团 + 两层斜雨 + 偶发闪电 ---------- */
+body[data-fx="storm"] .fx-a{left:-30%;top:-28%;width:160%;height:70%;border-radius:50%;
+  background:radial-gradient(30% 45% at 25% 60%,rgba(60,74,104,.55),transparent 70%),radial-gradient(28% 40% at 60% 55%,rgba(48,60,88,.6),transparent 70%),radial-gradient(26% 38% at 88% 62%,rgba(70,84,118,.5),transparent 70%);
+  animation:fxCloudRoll 38s ease-in-out infinite alternate}
+@keyframes fxCloudRoll{0%{transform:translateX(-6%) scaleY(.92)}100%{transform:translateX(6%) scaleY(1.08)}}
+body[data-fx="storm"] .fx-b{inset:0;opacity:0;mix-blend-mode:screen;
+  background:radial-gradient(70% 55% at 62% 8%,rgba(205,215,255,.55),rgba(150,170,255,.18) 45%,transparent 75%);animation:fxFlash 9s linear infinite 1.5s}
+@keyframes fxFlash{0%,86%{opacity:0}87%{opacity:.85}88.2%{opacity:.12}89.6%{opacity:.6}93%,100%{opacity:0}}
+body[data-fx="storm"] .fx-c{inset:0;will-change:auto}
+body[data-fx="storm"] .fx-c::before{left:-60px;right:-60px;top:-200px;bottom:0;background-size:200px 200px;opacity:.55;
+  background-image:radial-gradient(.7px 9px at 20px 30px,rgba(190,210,255,.9) 50%,transparent),radial-gradient(.7px 11px at 90px 120px,rgba(190,210,255,.8) 50%,transparent),
+    radial-gradient(.6px 8px at 150px 60px,rgba(190,210,255,.85) 50%,transparent),radial-gradient(.7px 10px at 60px 170px,rgba(190,210,255,.75) 50%,transparent),radial-gradient(.6px 9px at 180px 180px,rgba(190,210,255,.8) 50%,transparent);
+  animation:fxRainA .85s linear infinite}
+body[data-fx="storm"] .fx-c::after{left:-60px;right:-60px;top:-140px;bottom:0;background-size:140px 140px;opacity:.35;
+  background-image:radial-gradient(.5px 6px at 30px 20px,rgba(200,215,255,.9) 50%,transparent),radial-gradient(.5px 7px at 100px 90px,rgba(200,215,255,.8) 50%,transparent),radial-gradient(.5px 6px at 70px 120px,rgba(200,215,255,.8) 50%,transparent);
+  animation:fxRainB 1.25s linear infinite}
+@keyframes fxRainA{from{transform:translate(0,0) skewX(-14deg)}to{transform:translate(-50px,200px) skewX(-14deg)}}
+@keyframes fxRainB{from{transform:translate(0,0) skewX(-14deg)}to{transform:translate(-35px,140px) skewX(-14deg)}}
+body.fx-off[data-fx="storm"] .fx-b{opacity:0!important}
+
+/* ---------- 萤林：林间薄雾 + 月光 + 两群游走明灭的萤火虫 ---------- */
+body[data-fx="firefly"] .fx-a{left:-20%;bottom:-18%;width:140%;height:48%;border-radius:50%;
+  background:radial-gradient(50% 40% at 50% 60%,rgba(120,200,160,.16),rgba(90,170,130,.06) 60%,transparent 75%);animation:fxMistDrift 26s ease-in-out infinite alternate}
+@keyframes fxMistDrift{0%{transform:translateX(-8%) scaleX(1)}100%{transform:translateX(8%) scaleX(1.12)}}
+body[data-fx="firefly"] .fx-b{right:-12%;top:-22%;width:60%;height:70%;border-radius:50%;
+  background:radial-gradient(closest-side,rgba(225,255,205,.13),rgba(180,230,170,.05) 55%,transparent);animation:fxMoonBreath 11s ease-in-out infinite alternate}
+@keyframes fxMoonBreath{0%{transform:scale(.94);opacity:.7}100%{transform:scale(1.06);opacity:1}}
+body[data-fx="firefly"] .fx-c{inset:0;will-change:auto}
+body[data-fx="firefly"] .fx-c::before,body[data-fx="firefly"] .fx-c::after{inset:-80px}
+body[data-fx="firefly"] .fx-c::before{background-size:260px 260px;
+  background-image:radial-gradient(circle 7px at 40px 60px,rgba(232,255,140,.95) 0 1.4px,rgba(210,255,110,.32) 2.6px,transparent 7px),radial-gradient(circle 6px at 180px 30px,rgba(232,255,140,.9) 0 1.2px,rgba(210,255,110,.3) 2.4px,transparent 6px),
+    radial-gradient(circle 8px at 120px 170px,rgba(240,255,160,.95) 0 1.6px,rgba(210,255,110,.3) 3px,transparent 8px),radial-gradient(circle 6px at 230px 210px,rgba(232,255,140,.85) 0 1.2px,rgba(210,255,110,.28) 2.4px,transparent 6px);
+  animation:fxFlyA 17s ease-in-out infinite alternate}
+body[data-fx="firefly"] .fx-c::after{background-size:190px 190px;
+  background-image:radial-gradient(circle 6px at 30px 140px,rgba(232,255,140,.9) 0 1.2px,rgba(210,255,110,.3) 2.4px,transparent 6px),radial-gradient(circle 7px at 140px 60px,rgba(240,255,160,.95) 0 1.4px,rgba(210,255,110,.3) 2.6px,transparent 7px),
+    radial-gradient(circle 5px at 90px 20px,rgba(232,255,140,.8) 0 1px,rgba(210,255,110,.25) 2px,transparent 5px);
+  animation:fxFlyB 12s ease-in-out infinite alternate}
+@keyframes fxFlyA{0%{transform:translate(0,0);opacity:.35}22%{opacity:.95}45%{transform:translate(34px,-26px);opacity:.45}70%{opacity:1}100%{transform:translate(-22px,-58px);opacity:.55}}
+@keyframes fxFlyB{0%{transform:translate(0,0);opacity:.9}30%{opacity:.3}55%{transform:translate(-28px,22px);opacity:.85}80%{opacity:.25}100%{transform:translate(18px,-30px);opacity:.8}}
+
+/* ---------- 晴空：暖阳光晕 + 远近两层缓慢飘过的云 ---------- */
+body[data-fx="sky"] .fx-a{right:-14%;top:-30%;width:62%;height:78%;border-radius:50%;
+  background:radial-gradient(closest-side,rgba(255,220,130,.62),rgba(255,200,110,.22) 50%,transparent);animation:fxSunGlow 10s ease-in-out infinite alternate}
+@keyframes fxSunGlow{0%{transform:scale(.92);opacity:.8}100%{transform:scale(1.08);opacity:1}}
+body[data-fx="sky"] .fx-b{left:0;top:4%;width:200%;height:42%;background-size:50% 100%;opacity:.9;
+  background-image:radial-gradient(9% 22% at 12% 50%,rgba(255,255,255,.95) 60%,transparent 62%),radial-gradient(12% 30% at 20% 42%,rgba(255,255,255,.95) 60%,transparent 62%),radial-gradient(9% 20% at 28% 54%,rgba(255,255,255,.92) 60%,transparent 62%),
+    radial-gradient(7% 16% at 66% 34%,rgba(255,255,255,.85) 60%,transparent 62%),radial-gradient(10% 22% at 72% 28%,rgba(255,255,255,.88) 60%,transparent 62%),radial-gradient(7% 15% at 79% 36%,rgba(255,255,255,.82) 60%,transparent 62%);
+  animation:fxCloudSail 90s linear infinite}
+@keyframes fxCloudSail{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+body[data-fx="sky"] .fx-c{left:0;top:38%;width:200%;height:60%;background-size:50% 100%;opacity:.55;will-change:transform;
+  background-image:radial-gradient(6% 12% at 18% 40%,#fff 60%,transparent 62%),radial-gradient(8% 16% at 24% 34%,#fff 60%,transparent 62%),radial-gradient(5% 10% at 30% 42%,#fff 60%,transparent 62%),
+    radial-gradient(6% 12% at 58% 70%,#fff 60%,transparent 62%),radial-gradient(8% 15% at 64% 64%,#fff 60%,transparent 62%);
+  animation:fxCloudSail 140s linear infinite reverse}
+
+/* ---------- 色板预览 ---------- */
+.tm-sw[data-sw="sand"]{background:linear-gradient(145deg,#fffaf1,#ece2d0);--sw-a:#b5572a;--sw-b:#5b8a3a;border-color:rgba(0,0,0,.1)}
+.tm-sw[data-sw="graphite"]{background:linear-gradient(145deg,#2a2c31,#0f1012);--sw-a:#f0a43a;--sw-b:#4fc3f7}
+.tm-sw[data-sw="field"]{background:linear-gradient(145deg,#26321b,#0c1009);--sw-a:#9ccc65;--sw-b:#d9bf6a}
+.tm-sw[data-sw="storm"]{background:linear-gradient(180deg,#232d44,#070a10);--sw-a:#8c9eff;--sw-b:#ffe066}
+.tm-sw[data-sw="storm"] i{inset:-20px 0 0 -10px;opacity:.7;background-image:radial-gradient(.6px 5px at 6px 8px,#c4d2ff 50%,transparent),radial-gradient(.6px 5px at 15px 16px,#c4d2ff 50%,transparent);background-size:20px 20px;animation:fxRainSw .7s linear infinite}
+.tm-sw[data-sw="storm"]::before{inset:0;opacity:0;background:radial-gradient(80% 70% at 60% 0,rgba(220,228,255,.75),transparent 70%);animation:fxFlash 4.5s linear infinite}
+@keyframes fxRainSw{from{transform:translate(0,0) skewX(-14deg)}to{transform:translate(-6px,20px) skewX(-14deg)}}
+.tm-sw[data-sw="firefly"]{background:radial-gradient(120% 90% at 70% 0,#173b28,#050c09 70%);--sw-a:#c5e86c;--sw-b:#5ad19a}
+.tm-sw[data-sw="firefly"] i{inset:-10px;background-image:radial-gradient(circle 4px at 12px 14px,#eaff8c 0 1px,rgba(210,255,110,.4) 1.8px,transparent 4px),radial-gradient(circle 4px at 40px 26px,#eaff8c 0 1px,rgba(210,255,110,.4) 1.8px,transparent 4px),radial-gradient(circle 3px at 58px 10px,#eaff8c 0 .8px,transparent 3px);animation:fxFlyB 4s ease-in-out infinite alternate}
+.tm-sw[data-sw="sky"]{background:linear-gradient(180deg,#bfe0fa,#eef6fd);--sw-a:#0e83c4;--sw-b:#f08c1c;border-color:rgba(0,0,0,.08)}
+.tm-sw[data-sw="sky"] i{left:0;width:200%;top:4px;height:20px;background-size:50% 100%;background-image:radial-gradient(14% 40% at 30% 55%,#fff 60%,transparent 64%),radial-gradient(18% 55% at 42% 45%,#fff 60%,transparent 64%),radial-gradient(12% 36% at 54% 58%,#fff 60%,transparent 64%);animation:fxCloudSail 9s linear infinite}
+.tm-sw[data-sw="sky"]::before{right:4px;top:3px;width:14px;height:14px;border-radius:50%;background:radial-gradient(circle,#ffd772 45%,rgba(255,200,90,.35) 60%,transparent 72%)}
+@media (prefers-reduced-motion: reduce){
+  body[data-fx="storm"] .fx-b,.tm-sw[data-sw="storm"]::before{opacity:0!important}
+  .tm-sw i,.tm-sw::before{animation:none!important}
+}
+
+/* =====================================================================
+ * 3.26.0：新旧对比 / 形态种子画廊 / 主题圆形揭示过渡
+ * ===================================================================== */
+.prev-row{grid-template-columns:1fr auto}
+.cmp-btn,.gallery-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.cmp-btn svg,.gallery-btn svg{width:16px;height:16px;flex:none;transition:transform .35s var(--ease-spring)}
+@media (hover:hover){.cmp-btn:not(:disabled):hover svg{transform:scaleX(-1)}.gallery-btn:hover svg{transform:rotate(90deg) scale(1.05)}}
+.shape-tools{grid-template-columns:1fr 1fr}
+
+/* —— 新旧对比 —— */
+.cmp-stage{position:relative;width:100%;max-height:min(56vh,520px);margin:2px auto 0;border-radius:14px;overflow:hidden;touch-action:none;cursor:ew-resize;user-select:none;-webkit-user-select:none;
+  background:repeating-conic-gradient(color-mix(in srgb,var(--line) 70%,transparent) 0 25%,transparent 0 50%) 0 0/16px 16px,var(--card-2);border:1px solid var(--line);
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.04),0 8px 24px rgba(0,0,0,.18)}
+.cmp-img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;image-rendering:pixelated;pointer-events:none}
+.cmp-prev{clip-path:inset(0 calc(100% - var(--x)) 0 0)}
+.cmp-stage.intro .cmp-prev{transition:clip-path .8s var(--ease-out)}
+.cmp-stage.intro .cmp-handle{transition:left .8s var(--ease-out)}
+.cmp-handle{position:absolute;top:0;bottom:0;left:var(--x);width:0;pointer-events:none}
+.cmp-handle::before{content:"";position:absolute;top:0;bottom:0;left:-1px;width:2px;background:#fff;box-shadow:0 0 0 1px rgba(0,0,0,.25),0 0 12px rgba(0,0,0,.35)}
+.cmp-handle i{position:absolute;top:50%;left:0;width:34px;height:34px;margin:-17px 0 0 -17px;border-radius:50%;background:var(--accent);border:2px solid #fff;
+  box-shadow:0 4px 14px rgba(0,0,0,.35);transition:transform .2s var(--ease-spring)}
+.cmp-handle i::before,.cmp-handle i::after{content:"";position:absolute;top:50%;width:0;height:0;margin-top:-5px;border:5px solid transparent}
+.cmp-handle i::before{left:4px;border-right-color:#fff}
+.cmp-handle i::after{right:4px;border-left-color:#fff}
+.cmp-stage.dragging .cmp-handle i{transform:scale(1.15)}
+.cmp-tag{position:absolute;top:8px;padding:3px 9px;border-radius:999px;font-size:11.5px;font-weight:700;color:#fff;background:rgba(0,0,0,.5);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);pointer-events:none}
+.cmp-tag.l{left:8px}.cmp-tag.r{right:8px;background:color-mix(in srgb,var(--accent) 78%,#000)}
+.cmp-range{width:100%;margin:10px 0 2px;accent-color:var(--accent)}
+.cmp-verdict{margin:6px 0 8px;font-size:13px;color:var(--text-2);animation:rise .4s var(--ease-out) both .35s}
+.cmp-verdict b{color:var(--accent)}
+.cmp-table{width:100%;border-collapse:separate;border-spacing:0;font-size:12.5px;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.cmp-table th,.cmp-table td{padding:6px 9px;text-align:center;border-bottom:1px solid var(--line)}
+.cmp-table tr:last-child th,.cmp-table tr:last-child td{border-bottom:0}
+.cmp-table thead th{background:var(--card-2);color:var(--muted);font-weight:700;font-size:11.5px}
+.cmp-table tbody th{text-align:left;color:var(--muted);font-weight:600;white-space:nowrap}
+.cmp-table tbody tr{animation:rise .32s var(--ease-out) both}
+.cmp-table tbody tr:nth-child(2){animation-delay:.03s}.cmp-table tbody tr:nth-child(3){animation-delay:.06s}.cmp-table tbody tr:nth-child(4){animation-delay:.09s}
+.cmp-table tbody tr:nth-child(5){animation-delay:.12s}.cmp-table tbody tr:nth-child(6){animation-delay:.15s}.cmp-table tbody tr:nth-child(7){animation-delay:.18s}
+.cmp-d{font-weight:700;color:var(--faint);white-space:nowrap}
+.cmp-d.g{color:var(--ok)}.cmp-d.b{color:var(--danger)}.cmp-d.n{color:var(--accent)}
+body[data-tone="light"] .cmp-d.g{color:#11885c}body[data-tone="light"] .cmp-d.b{color:#c23b3b}
+.cmp-note{margin-top:8px!important}
+
+/* —— 形态种子画廊 —— */
+.gal-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:4px}
+@media (max-width:560px){.gal-grid{grid-template-columns:repeat(2,1fr);gap:8px}}
+.gal-tile{all:unset;box-sizing:border-box;display:grid;gap:6px;padding:7px;border-radius:14px;cursor:pointer;background:var(--card-2);border:1.5px solid var(--line);
+  transition:border-color .2s ease,background .2s ease,transform .22s var(--ease-spring),box-shadow .2s ease;animation:galIn .38s var(--ease-out) both;animation-delay:var(--d,0ms)}
+@keyframes galIn{from{opacity:0;transform:translateY(10px) scale(.96)}to{opacity:1;transform:none}}
+@media (hover:hover){.gal-tile:hover{transform:translateY(-2px);border-color:color-mix(in srgb,var(--accent) 45%,var(--line-2));box-shadow:0 8px 20px rgba(0,0,0,.18)}}
+.gal-tile:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.gal-tile:active{transform:scale(.97)}
+.gal-tile.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,var(--card-2));box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 22%,transparent)}
+.gal-cv{position:relative;display:grid;place-items:center;aspect-ratio:1;border-radius:10px;overflow:hidden;background:var(--canvas-bg)}
+.gal-cv canvas{max-width:100%;max-height:100%;width:100%;height:auto;object-fit:contain;image-rendering:pixelated;opacity:0;transform:scale(1.04);transition:opacity .35s ease,transform .45s var(--ease-out)}
+.gal-tile.ready canvas{opacity:1;transform:none}
+.gal-spin{position:absolute;width:22px;height:22px;border-radius:50%;border:2.5px solid color-mix(in srgb,var(--accent) 25%,transparent);border-top-color:var(--accent);animation:spin .8s linear infinite}
+.gal-tile:not(.loading) .gal-spin{display:none}
+.gal-meta{display:grid;gap:1px;padding:0 2px}
+.gal-meta b{font-size:12.5px;color:var(--text);font-variant-numeric:tabular-nums}
+.gal-meta small{font-size:10.5px;color:var(--muted)}
+.gal-tile.on .gal-meta b{color:var(--accent)}
+.gal-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px}
+.gal-reroll{display:inline-flex;align-items:center;gap:6px}
+.gal-reroll svg{width:16px;height:16px}
+.gal-reroll svg.spin{animation:galSpin .55s var(--ease-out)}
+@keyframes galSpin{to{transform:rotate(360deg)}}
+.gal-pick{font-size:12.5px;color:var(--muted)}
+.gal-pick b{color:var(--accent);font-variant-numeric:tabular-nums}
+
+/* —— 主题切换：圆形揭示（View Transitions） —— */
+html.vt-theme::view-transition-old(root),html.vt-theme::view-transition-new(root){animation:none;mix-blend-mode:normal}
+html.vt-theme::view-transition-new(root){animation:vtReveal .6s cubic-bezier(.2,.8,.2,1) both}
+@keyframes vtReveal{from{clip-path:circle(0 at var(--vt-x,50%) var(--vt-y,0))}to{clip-path:circle(var(--vt-r,150vmax) at var(--vt-x,50%) var(--vt-y,0))}}
+
+@media (prefers-reduced-motion: reduce){
+  .gal-tile,.cmp-table tbody tr,.cmp-verdict,.gal-reroll svg.spin{animation:none!important}
+  .gal-tile,.gal-cv canvas,.cmp-stage.intro .cmp-prev,.cmp-stage.intro .cmp-handle,.cmp-handle i{transition:none!important}
+}
+
+/* =====================================================================
+ * 3.26.0：界面语言菜单 + 多语言排版适配
+ * ===================================================================== */
+.lang-wrap{position:relative;display:flex}
+#langToggle{position:relative}
+#langToggle[aria-expanded="true"]{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 22%,transparent)}
+.lang-badge{position:absolute;right:2px;bottom:2px;min-width:15px;height:13px;padding:0 3px;border-radius:7px;font:800 8.5px/13px system-ui,sans-serif;text-align:center;
+  color:var(--accent-ink);background:var(--accent);box-shadow:0 0 0 2px var(--btn);transition:transform .3s var(--ease-spring)}
+body.lang-swap .lang-badge{animation:langPop .45s var(--ease-spring)}
+@keyframes langPop{0%{transform:scale(.4)}60%{transform:scale(1.25)}100%{transform:none}}
+.lang-menu{width:220px}
+.lang-menu [data-lang]{all:unset;box-sizing:border-box;width:100%;display:grid;grid-template-columns:30px 1fr 16px;align-items:center;gap:8px;padding:8px 10px;border-radius:10px;cursor:pointer;
+  color:var(--text-2);font-size:13.5px;opacity:0;transform:translateY(6px);transition:background .16s ease,color .16s ease}
+.lang-menu.show [data-lang]{animation:omIn .3s var(--ease-out) forwards}
+.lang-menu [data-lang] b{display:grid;place-items:center;height:22px;border-radius:6px;font-size:11px;font-weight:800;color:var(--muted);background:var(--card-2);border:1px solid var(--line)}
+.lang-menu [data-lang]:hover,.lang-menu [data-lang]:focus-visible{background:color-mix(in srgb,var(--accent) 10%,transparent);color:var(--text)}
+.lang-menu [data-lang]:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.lang-menu [data-lang].current{color:var(--text);font-weight:700;background:color-mix(in srgb,var(--accent) 12%,transparent)}
+.lang-menu [data-lang].current b{color:var(--accent-ink);background:var(--accent);border-color:var(--accent)}
+.lang-menu [data-lang].current i{width:14px;height:14px;border-radius:50%;background:var(--accent) no-repeat center/9px 9px;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'%3E%3Cpath d='M1.8 5.2l2.1 2 4.3-4.6' fill='none' stroke='%23fff' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");animation:checkPop .3s var(--ease-spring)}
+/* 切换语言时内容轻微淡入，避免文字长度变化造成的「跳动」感 */
+body.lang-swap .sidebar,body.lang-swap .topbar,body.lang-swap .status-bar{animation:langFade .4s var(--ease-out)}
+@keyframes langFade{from{opacity:.55}to{opacity:1}}
+/* 西文 / 俄文更长：按钮文字允许在词间换行（break-word 不影响网格列的最小宽度计算，
+ * 不能用 anywhere —— 那会让列宽缩到一个字母、按钮变成竖排），底部操作区字号略收、去掉中文用的字距 */
+body:is([data-lang="en"],[data-lang="fr"],[data-lang="de"],[data-lang="ru"],[data-lang="es"]) .sidebar button{white-space:normal;line-height:1.2;overflow-wrap:break-word;hyphens:auto}
+body:is([data-lang="en"],[data-lang="fr"],[data-lang="de"],[data-lang="ru"],[data-lang="es"]) .primary{letter-spacing:0;font-size:14px;line-height:1.15}
+body:is([data-lang="en"],[data-lang="fr"],[data-lang="de"],[data-lang="ru"],[data-lang="es"]) .action-card button:not(.primary){font-size:12.5px}
+/* 底部操作区的列宽改为按比例分配（原来是 1fr auto auto：列宽随文字长度伸缩，西文长词会把「生成地图」挤成一条竖缝） */
+body:is([data-lang="en"],[data-lang="fr"],[data-lang="de"],[data-lang="ru"],[data-lang="es"]) .gen-row{grid-template-columns:minmax(0,1.35fr) minmax(0,1fr) minmax(0,1fr)}
+body:is([data-lang="en"],[data-lang="fr"],[data-lang="de"],[data-lang="ru"],[data-lang="es"]) .action-row.four{grid-template-columns:minmax(0,1fr) minmax(0,1.6fr) minmax(0,.7fr) minmax(0,1.2fr)}
+body:is([data-lang="en"],[data-lang="fr"],[data-lang="de"],[data-lang="ru"],[data-lang="es"]) .gen-row button,
+body:is([data-lang="en"],[data-lang="fr"],[data-lang="de"],[data-lang="ru"],[data-lang="es"]) .action-row button{min-width:0;padding-left:6px;padding-right:6px}
+/* 「<b>拖动</b>平移」这类中文紧排在西文 / 韩文里需要词间空格 */
+body:is([data-lang="en"],[data-lang="fr"],[data-lang="de"],[data-lang="ru"],[data-lang="es"],[data-lang="ko"]) .legend b{margin-right:.28em}
+body:not([data-lang^="zh"]) .tm-grid [data-theme-id] b{font-size:11px;text-align:center;line-height:1.15}
+@media (prefers-reduced-motion: reduce){body.lang-swap .lang-badge,body.lang-swap .sidebar,body.lang-swap .topbar,body.lang-swap .status-bar,.lang-menu.show [data-lang]{animation:none!important;opacity:1;transform:none}}
+/* 西文 / 俄文的形态名称在 4 列小格里放不下：缩小字号、允许两行，并统一缩小底部操作区字号 */
+body:is([data-lang="en"],[data-lang="fr"],[data-lang="de"],[data-lang="ru"],[data-lang="es"]) .shape-tile .shape-name{font-size:10.5px;line-height:1.15;text-align:center;white-space:normal;overflow-wrap:break-word;max-width:100%}
+body:is([data-lang="de"],[data-lang="ru"],[data-lang="fr"]) .gen-row button:not(.primary),
+body:is([data-lang="de"],[data-lang="ru"],[data-lang="fr"]) .action-row button{font-size:11.5px}

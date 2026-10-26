@@ -79,7 +79,7 @@
         <label><span>山地</span><select id="shapeRough"><option value="0.8">少</option><option value="0.3" selected>标准</option><option value="0">多</option></select></label>
         <label class="span2"><span>形态种子</span><span class="seed-row"><input id="shapeSeed" type="number" inputmode="numeric" placeholder="留空 = 每次生成后自动换新"><button id="shapeDice" type="button" class="dice-btn" title="换一个种子" aria-label="换一个种子"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="4"/><circle cx="8.5" cy="8.5" r="1.3" fill="currentColor"/><circle cx="15.5" cy="15.5" r="1.3" fill="currentColor"/><circle cx="12" cy="12" r="1.3" fill="currentColor"/></svg></button></span><small id="shapeSeedHint"></small></label>
       </div>
-      <div class="toolrow"><button id="shapeRecSize" type="button">使用推荐尺寸</button></div>
+      <div class="toolrow shape-tools"><button id="shapeRecSize" type="button">使用推荐尺寸</button><button id="shapeGallery" type="button" class="gallery-btn" title="一次预览 6 个种子的轮廓，挑一个固定或直接生成（G）"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="3.5" width="7" height="7" rx="1.6"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.6"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.6"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.6"/></svg>种子画廊</button></div>
     </div>
     <label class="switch-row"><span>选择形态时自动套用推荐主题 / 对称 / 层级</span><button id="shapeAuto" class="switch on" role="switch" aria-checked="true" type="button"><i></i></button></label>
     </div></div>
@@ -212,7 +212,7 @@
     <div class="toolrow quad"><button id="tmxImport">导入 TMX/项目</button><button id="undoGlobal">全局撤销</button><button id="redoGlobal">全局重做</button><button id="autoSaveToggle" class="active">自动保存：开</button></div>
     <input id="tmxFile" type="file" accept=".tmx,.xml,.json,application/json,text/xml" hidden>
     <label class="switch-row"><span>生成过程动画</span><button id="animToggle" class="switch on" role="switch" aria-checked="true"><i></i></button></label>
-    <div class="toolrow prev-row"><button id="projectPrev" type="button" disabled title="重新生成前会自动备份；再点一次可换回">上一张地图 ⇄</button></div>
+    <div class="toolrow prev-row"><button id="projectPrev" type="button" disabled title="重新生成前会自动备份；再点一次可换回">上一张地图 ⇄</button><button id="cmpBtn" type="button" class="cmp-btn" disabled title="新旧对比：拖动分界线对照上一张与当前地图（X）"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><path d="M12 2.5v19"/><path d="M8.5 10l-2 2 2 2M15.5 10l2 2-2 2"/></svg>对比</button></div>
     <div class="toolrow hist-btns"><button id="histSave" type="button" title="把当前地图（含 TMX 与缩略图）保存为一个历史快照">保存快照</button><button id="histOpen" type="button" title="查看 / 恢复 / 删除历史快照">历史版本</button></div>
     <div class="export-loc" id="exportLocRow" hidden>
       <div class="export-loc-head"><span>导出位置</span><small id="exportLocTag">默认</small></div>
@@ -325,6 +325,7 @@
 <script src="desktop-bridge.js"></script>
 <!-- 3.8.0：地形形态算法（主线程只用到模板列表与配色；计算在 shape-worker.js 中进行） -->
 <script src="terrain-shapes.js"></script>
+<script src="i18n.js"></script><!-- 3.26.0：界面多语言（简 / 繁 / EN / FR / DE / 日 / 한 / RU / ES） -->
 <script type="module" src="app.js"></script>
 </body>
 </html>

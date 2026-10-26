@@ -1,0 +1,190 @@
+打开编辑面板|Open editor panel|Ouvrir le panneau|Bearbeitung öffnen|編集パネルを開く|편집 패널 열기|Открыть редактор|Abrir panel
+引擎状态（异常时点击可重启引擎）|Engine status (click to restart if it fails)|État du moteur (cliquer pour redémarrer)|Engine-Status (bei Fehler zum Neustart klicken)|エンジン状態（異常時はクリックで再起動）|엔진 상태 (오류 시 클릭해 재시작)|Состояние движка (щёлкните для перезапуска)|Estado del motor (pulsa para reiniciar)
+命令面板（Ctrl+K）|Command palette (Ctrl+K)|Palette de commandes (Ctrl+K)|Befehlspalette (Strg+K)|コマンドパレット（Ctrl+K）|명령 팔레트 (Ctrl+K)|Палитра команд (Ctrl+K)|Paleta de comandos (Ctrl+K)
+命令面板：搜索任意功能（Ctrl+K）|Command palette: search any feature (Ctrl+K)|Palette : rechercher une fonction (Ctrl+K)|Befehlspalette: Funktion suchen (Strg+K)|コマンドパレット：機能を検索（Ctrl+K）|명령 팔레트: 기능 검색 (Ctrl+K)|Палитра: поиск функции (Ctrl+K)|Paleta: buscar función (Ctrl+K)
+选择主题|Choose theme|Choisir un thème|Thema wählen|テーマを選択|테마 선택|Выбрать тему|Elegir tema
+界面主题|Theme|Thème|Thema|テーマ|테마|Тема|Tema
+屏幕方向：自动旋转|Orientation: auto-rotate|Orientation : rotation auto|Ausrichtung: automatisch|画面の向き：自動回転|화면 방향: 자동 회전|Ориентация: авто|Orientación: automática
+快捷键与帮助|Shortcuts & help|Raccourcis et aide|Tastenkürzel & Hilfe|ショートカットとヘルプ|단축키 및 도움말|Клавиши и справка|Atajos y ayuda
+地图编辑面板|Map editor panel|Panneau d’édition|Kartenbearbeitung|マップ編集パネル|맵 편집 패널|Панель редактора карты|Panel de edición
+关闭编辑面板|Close editor panel|Fermer le panneau|Bearbeitung schließen|編集パネルを閉じる|편집 패널 닫기|Закрыть редактор|Cerrar panel
+自动：[p人数]铁锈地图_时间|Auto: [p players]RW_map_time|Auto : [p joueurs]carte_heure|Auto: [p Spieler]Karte_Zeit|自動：[p人数]マップ_時刻|자동: [p인원]맵_시간|Авто: [p игроков]карта_время|Auto: [p jugadores]mapa_hora
+随机起一个地图名|Random map name|Nom aléatoire|Zufälliger Kartenname|マップ名をランダム生成|무작위 맵 이름|Случайное название|Nombre aleatorio
+随机起名（按主题 / 形态 / 人数）|Random name (by theme / shape / players)|Nom aléatoire (thème / forme / joueurs)|Zufallsname (Thema / Form / Spieler)|ランダム命名（テーマ・形状・人数）|무작위 이름 (테마/형태/인원)|Случайное имя (тема / форма / игроки)|Nombre aleatorio (tema / forma / jugadores)
+所见即所得：生成时使用与预览相同的种子（点击预览直接生成）|WYSIWYG: generation uses the preview’s seed (click the preview to generate)|Fidèle à l’aperçu : même graine (cliquez l’aperçu pour générer)|WYSIWYG: gleicher Seed wie Vorschau (Vorschau anklicken zum Generieren)|プレビューと同じシードで生成（プレビューをクリックで生成）|미리보기와 같은 시드로 생성 (미리보기 클릭 시 생성)|Как в превью: тот же сид (щёлкните превью)|Igual que la vista previa (pulsa para generar)
+形态预览，点击生成地图|Shape preview — click to generate|Aperçu de forme — cliquer pour générer|Formvorschau — klicken zum Generieren|形状プレビュー（クリックで生成）|형태 미리보기, 클릭해 생성|Превью формы — нажмите для генерации|Vista previa — pulsa para generar
+只改变陆地的多少：陆地与模板的参照水体（外海 / 中央湖 / 火山 / 中央水道 / 河道等）此消彼长，山脉位置与地表纹理保持不变|Changes only the amount of land: land trades off against the shape’s water (sea, lake, crater, channel, rivers); mountains and texture stay put|Ne change que la quantité de terre face à l’eau de la forme ; montagnes et texture inchangées|Ändert nur die Landmenge gegenüber dem Wasser der Form; Berge und Textur bleiben|陸地の量だけを変更（海・湖・火口・水路・川と増減）。山の位置と地表は不変|육지 양만 바뀌며 산맥 위치와 지표는 유지됩니다|Меняет только долю суши относительно воды; горы и текстура не меняются|Solo cambia la cantidad de tierra frente al agua; montañas y textura se mantienen
+留空 = 每次生成后自动换新|Blank = new seed after each generation|Vide = nouvelle graine à chaque génération|Leer = neuer Seed nach jeder Generierung|空欄 = 生成ごとに新しいシード|비우면 생성할 때마다 새 시드|Пусто — новый сид каждый раз|Vacío = nueva semilla cada vez
+换一个种子|New seed|Nouvelle graine|Neuer Seed|別のシード|다른 시드|Другой сид|Otra semilla
+一次预览 6 个种子的轮廓，挑一个固定或直接生成（G）|Preview 6 seeds at once, then fix one or generate (G)|Prévisualiser 6 graines puis fixer ou générer (G)|6 Seeds vorschauen, dann festlegen oder generieren (G)|6 つのシードを一度に比較し、固定または生成（G）|시드 6개를 한 번에 보고 고정하거나 생성 (G)|6 сидов сразу: закрепить или создать (G)|Ver 6 semillas a la vez y fijar o generar (G)
+我的参数方案|My parameter presets|Mes réglages|Meine Parameter-Vorlagen|マイパラメータープリセット|내 매개변수 프리셋|Мои пресеты параметров|Mis ajustes de parámetros
+选择已保存的参数方案|Choose a saved preset|Choisir un réglage enregistré|Gespeicherte Vorlage wählen|保存済みプリセットを選択|저장된 프리셋 선택|Выбрать сохранённый пресет|Elegir un ajuste guardado
+把当前参数保存为方案|Save current options as a preset|Enregistrer les paramètres actuels|Aktuelle Optionen als Vorlage speichern|現在の設定をプリセットとして保存|현재 설정을 프리셋으로 저장|Сохранить текущие параметры|Guardar ajustes actuales
+删除所选方案|Delete selected preset|Supprimer le réglage choisi|Ausgewählte Vorlage löschen|選択したプリセットを削除|선택한 프리셋 삭제|Удалить выбранный пресет|Eliminar ajuste elegido
+把整套参数（含地形形态与种子）编成一串短码，发到群里，对方粘贴即可还原|Packs all options (incl. shape and seed) into a short code to share; pasting it restores them|Code court regroupant tous les paramètres (forme et graine incluses) à partager|Kurzer Code mit allen Optionen (inkl. Form und Seed) zum Teilen|全パラメーター（形状・シード含む）を短いコードに。貼り付けで復元|모든 설정(형태·시드 포함)을 짧은 코드로 만들어 공유|Все параметры (с формой и сидом) в короткий код для обмена|Todos los ajustes (forma y semilla) en un código corto para compartir
+粘贴别人分享的配方码，一键套用参数（也可以在画布区直接 Ctrl+V）|Paste a shared recipe code to apply it (or press Ctrl+V on the canvas)|Collez un code partagé pour l’appliquer (ou Ctrl+V sur la carte)|Geteilten Code einfügen und anwenden (oder Strg+V auf der Karte)|共有されたコードを貼り付けて適用（キャンバスで Ctrl+V でも可）|공유된 코드를 붙여넣어 적용 (캔버스에서 Ctrl+V도 가능)|Вставьте код, чтобы применить (или Ctrl+V на холсте)|Pega un código para aplicarlo (o Ctrl+V en el lienzo)
+选择作为玩家 1 起始槽位的出生点|Choose the spawn for player 1’s slot|Choisir le départ du joueur 1|Startpunkt für Spieler 1 wählen|プレイヤー 1 のスロットにする出撃地点|플레이어 1 슬롯이 될 시작 지점 선택|Старт для игрока 1|Elegir el inicio del jugador 1
+在当前布局附近微调出生点、提高公平度；对称与近家资源保持不变（O）|Nudge spawns to improve fairness; symmetry and home resources are kept (O)|Ajuste les départs pour plus d’équité ; symétrie et ressources conservées (O)|Startpunkte für mehr Fairness anpassen; Symmetrie und Ressourcen bleiben (O)|出撃地点を微調整して公平度を向上。対称と拠点資源は維持（O）|시작 지점을 미세 조정해 공정도 향상, 대칭·기지 자원 유지 (O)|Подвинуть старты ради честности; симметрия и ресурсы сохраняются (O)|Ajusta inicios para más equidad; se conservan simetría y recursos (O)
+检查出生点连通性、领地与资源平衡（D）|Check connectivity, territory and resource balance (D)|Vérifier connexité, territoires et ressources (D)|Verbindung, Gebiet und Ressourcen prüfen (D)|連結性・領地・資源バランスを診断（D）|연결성, 영역, 자원 균형 진단 (D)|Проверить связность, территорию и ресурсы (D)|Revisar conectividad, territorio y recursos (D)
+按当前出生点，为每个出生点周边补足近家资源点；导入的地图不会自动触发，需要在这里手动执行一次|Add home resources around every spawn; imported maps need this run manually once|Ajoute des ressources autour de chaque départ ; à lancer à la main pour une carte importée|Ressourcen um jeden Startpunkt ergänzen; bei importierten Karten einmal manuell ausführen|各出撃地点の周辺に資源を補充。読込マップは手動で一度実行|각 시작 지점 주변에 자원 보충, 가져온 맵은 수동 실행 필요|Добавить ресурсы у каждого старта; для импорта запустите вручную|Añade recursos junto a cada inicio; en mapas importados ejecútalo a mano
+图层|Layers|Calques|Ebenen|レイヤー|레이어|Слои|Capas
+按行走距离显示双方领地（T）|Show territory by walking distance (T)|Territoires selon la distance à pied (T)|Gebiete nach Laufweg (T)|歩行距離で領地を表示（T）|이동 거리 기준 영역 표시 (T)|Территория по пути пешком (T)|Territorio por distancia a pie (T)
+每位玩家到最近敌人的最短行走路线（L）|Shortest walking route from each player to the nearest enemy (L)|Chemin le plus court vers l’ennemi le plus proche (L)|Kürzester Weg zum nächsten Gegner (L)|各プレイヤーから最寄りの敵への最短ルート（L）|각 플레이어에서 가장 가까운 적까지 최단 경로 (L)|Кратчайший путь к ближайшему врагу (L)|Ruta más corta al enemigo más cercano (L)
+选中出生点时显示 10–20 格近家资源范围圈（N）|Show the 10–20 tile home ring for the selected spawn (N)|Cercle de 10–20 cases autour du départ choisi (N)|10–20-Felder-Ring um gewählten Startpunkt (N)|選択した出撃地点の 10–20 マス圏を表示（N）|선택한 시작 지점의 10–20칸 범위 (N)|Круг 10–20 клеток у выбранного старта (N)|Anillo de 10–20 casillas del inicio elegido (N)
+检查地形 / 出生点 / 资源是否与镜像位置一致（Y）|Check terrain / spawns / resources against their mirror (Y)|Comparer terrain / départs / ressources au miroir (Y)|Gelände / Starts / Ressourcen mit Spiegel prüfen (Y)|地形・出撃地点・資源が鏡像と一致するか確認（Y）|지형/시작 지점/자원의 대칭 일치 확인 (Y)|Сверить рельеф / старты / ресурсы с зеркалом (Y)|Comparar terreno / inicios / recursos con el espejo (Y)
+落点热力：哪里放下一个出生点最宽敞（K）|Hotspot heatmap: where the next spawn has the most room (K)|Carte de chaleur : où placer le prochain départ (K)|Heatmap: wo der nächste Startpunkt am meisten Platz hat (K)|ヒートマップ：次の出撃地点に最も広い場所（K）|히트맵: 다음 시작 지점에 가장 넓은 곳 (K)|Тепловая карта: где больше места для старта (K)|Mapa de calor: dónde hay más espacio (K)
+留空 = 随机|Blank = random|Vide = aléatoire|Leer = zufällig|空欄 = ランダム|비우면 무작위|Пусто — случайно|Vacío = aleatorio
+重新生成前会自动备份；再点一次可换回|Backed up automatically before regenerating; click again to swap back|Sauvegardée avant chaque génération ; recliquez pour revenir|Vor dem Neugenerieren gesichert; erneut klicken zum Zurücktauschen|再生成前に自動バックアップ。もう一度で戻せます|다시 생성 전 자동 백업, 다시 누르면 되돌림|Сохраняется перед генерацией; нажмите снова, чтобы вернуть|Se guarda antes de regenerar; pulsa otra vez para volver
+新旧对比：拖动分界线对照上一张与当前地图（X）|Compare: drag the divider between the previous and current map (X)|Comparer : glissez le séparateur entre l’ancienne et la nouvelle carte (X)|Vergleich: Trennlinie zwischen alter und neuer Karte ziehen (X)|比較：境界線をドラッグして前と今のマップを比べる（X）|비교: 구분선을 끌어 이전/현재 맵 비교 (X)|Сравнение: двигайте разделитель (X)|Comparar: arrastra el divisor entre ambos mapas (X)
+把当前地图（含 TMX 与缩略图）保存为一个历史快照|Save the current map (TMX and thumbnail) as a snapshot|Enregistrer la carte (TMX et vignette) dans l’historique|Aktuelle Karte (TMX und Vorschaubild) als Snapshot speichern|現在のマップ（TMX と縮小画像）を履歴に保存|현재 맵(TMX·썸네일)을 스냅샷으로 저장|Сохранить карту (TMX и миниатюру) в историю|Guardar el mapa (TMX y miniatura) en el historial
+查看 / 恢复 / 删除历史快照|View / restore / delete snapshots|Voir / restaurer / supprimer les instantanés|Snapshots ansehen / laden / löschen|履歴の表示・復元・削除|스냅샷 보기/복원/삭제|Просмотр / восстановление / удаление снимков|Ver / restaurar / eliminar instantáneas
+择优生成：一次生成多张候选地图，自动体检评分后挑一张（Ctrl+Shift+Enter）|Best-of: generate several candidates, score them and pick one (Ctrl+Shift+Enter)|Meilleure : plusieurs candidates notées, choisissez-en une (Ctrl+Maj+Entrée)|Beste aus: mehrere Kandidaten bewerten und einen wählen (Strg+Umschalt+Enter)|ベスト生成：複数候補を診断・採点して選ぶ（Ctrl+Shift+Enter）|최적 생성: 여러 후보를 평가해 선택 (Ctrl+Shift+Enter)|Лучшая: несколько кандидатов с оценкой (Ctrl+Shift+Enter)|Mejor de: varios candidatos puntuados (Ctrl+Mayús+Intro)
+惊喜生成：随机一套参数并立即生成（好玩）|Surprise: random options, generated right away|Surprise : paramètres aléatoires, génération immédiate|Überraschung: zufällige Optionen, sofort generiert|おまかせ：ランダムな設定ですぐ生成|서프라이즈: 무작위 설정으로 바로 생성|Сюрприз: случайные параметры сразу|Sorpresa: ajustes aleatorios al instante
+导出 TMX 地图与同名 _map.png 小地图（Ctrl+E）|Export the TMX map and its _map.png minimap (Ctrl+E)|Exporter le TMX et sa mini-carte _map.png (Ctrl+E)|TMX und _map.png-Minikarte exportieren (Strg+E)|TMX と同名 _map.png を書き出し（Ctrl+E）|TMX와 같은 이름의 _map.png 내보내기 (Ctrl+E)|Экспорт TMX и миникарты _map.png (Ctrl+E)|Exportar TMX y minimapa _map.png (Ctrl+E)
+打包 TMX + 小地图 + 说明.txt（含槽位表与体检摘要）|Bundle TMX + minimap + readme (slot table and check-up)|Archive TMX + mini-carte + notice (emplacements et bilan)|Paket aus TMX + Minikarte + Info (Slots und Check)|TMX＋ミニマップ＋説明（スロット表と診断）をまとめる|TMX+미니맵+설명(슬롯표·진단) 묶기|Архив TMX + миникарта + описание|Paquete TMX + minimapa + notas
+另存为：自定义文件名、导出内容与保存位置（Ctrl+Shift+S）|Save as: file name, contents and location (Ctrl+Shift+S)|Enregistrer sous : nom, contenu, emplacement (Ctrl+Maj+S)|Speichern unter: Name, Inhalt, Ort (Strg+Umschalt+S)|名前を付けて保存：名前・内容・場所（Ctrl+Shift+S）|다른 이름으로: 파일명·내용·위치 (Ctrl+Shift+S)|Сохранить как: имя, состав, место (Ctrl+Shift+S)|Guardar como: nombre, contenido y lugar (Ctrl+Mayús+S)
+小地图样式|Minimap style|Style de mini-carte|Minikarten-Stil|ミニマップのスタイル|미니맵 스타일|Стиль миникарты|Estilo del minimapa
+导出带体检数据的分享海报|Export a share poster with check-up data|Exporter une affiche avec le bilan|Teilbares Poster mit Check-Daten|診断データ入りの共有ポスター|진단 데이터가 담긴 공유 포스터|Постер с данными проверки|Póster con datos de revisión
+地图健康度|Map health|Santé de la carte|Kartengesundheit|マップ健全度|맵 건강도|Здоровье карты|Salud del mapa
+地图画布|Map canvas|Canevas de la carte|Kartenfläche|マップキャンバス|맵 캔버스|Холст карты|Lienzo del mapa
+画布工具|Canvas tools|Outils|Werkzeuge|キャンバスツール|캔버스 도구|Инструменты|Herramientas
+平移 / 选择（拖动出生点可移动）|Pan / select (drag spawns to move)|Déplacer / choisir (glisser un départ)|Verschieben / auswählen (Startpunkte ziehen)|移動 / 選択（出撃地点はドラッグで移動）|이동/선택 (시작 지점 드래그로 이동)|Сдвиг / выбор (тяните старты)|Mover / elegir (arrastra inicios)
+画笔：绘制墙体/缺口|Brush: draw walls / gaps|Pinceau : murs / brèches|Pinsel: Mauern / Lücken|ブラシ：壁 / 切れ目を描画|브러시: 벽/틈 그리기|Кисть: стены / проходы|Pincel: muros / huecos
+放置出生点|Place spawns|Placer des départs|Startpunkte setzen|出撃地点を配置|시작 지점 배치|Ставить старты|Colocar inicios
+放置资源点|Place resources|Placer des ressources|Ressourcen setzen|資源を配置|자원 배치|Ставить ресурсы|Colocar recursos
+视图控制|View controls|Commandes de vue|Ansicht|表示コントロール|보기 제어|Вид|Controles de vista
+放大 (+)|Zoom in (+)|Zoom avant (+)|Vergrößern (+)|拡大 (+)|확대 (+)|Приблизить (+)|Acercar (+)
+放大|Zoom in|Zoom avant|Vergrößern|拡大|확대|Приблизить|Acercar
+缩小 (-)|Zoom out (-)|Zoom arrière (-)|Verkleinern (-)|縮小 (-)|축소 (-)|Отдалить (-)|Alejar (-)
+缩小|Zoom out|Zoom arrière|Verkleinern|縮小|축소|Отдалить|Alejar
+1:1 像素 (0)|1:1 pixels (0)|Pixels 1:1 (0)|1:1 Pixel (0)|等倍 (0)|1:1 픽셀 (0)|1:1 пиксели (0)|Píxeles 1:1 (0)
+一比一|1:1|1:1|1:1|等倍|1:1|1:1|1:1
+测距 (U)：量直线与步行距离|Measure (U): straight-line and walking distance|Mesurer (U) : à vol d’oiseau et à pied|Messen (U): Luftlinie und Laufweg|計測 (U)：直線距離と歩行距離|거리 측정 (U): 직선·이동 거리|Линейка (U): по прямой и пешком|Medir (U): en línea recta y a pie
+测距|Measure|Mesurer|Messen|計測|거리 측정|Линейка|Medir
+专注模式 (Z)：收起侧栏和顶栏，画布铺满|Focus mode (Z): hide side and top bars|Mode focus (Z) : masquer les barres|Fokusmodus (Z): Leisten ausblenden|集中モード (Z)：サイドバーと上部を隠す|집중 모드 (Z): 사이드바·상단바 숨김|Фокус (Z): скрыть панели|Modo enfoque (Z): ocultar barras
+专注模式|Focus mode|Mode focus|Fokusmodus|集中モード|집중 모드|Режим фокуса|Modo enfoque
+出生点巡视 (. / ,)：飞到下一个出生点并显示玩家数据；Shift+点击 = 上一个|Spawn tour (. / ,): fly to the next spawn with its stats; Shift+click = previous|Visite (. / ,) : aller au départ suivant ; Maj+clic = précédent|Rundgang (. / ,): zum nächsten Startpunkt; Umschalt+Klick = vorheriger|出撃地点巡回 (. / ,)：次へ移動しデータ表示。Shift+クリックで前へ|시작 지점 순회 (. / ,): 다음 지점으로 이동, Shift+클릭=이전|Обход стартов (. / ,): к следующему; Shift+щелчок — назад|Recorrido (. / ,): ir al siguiente; Mayús+clic = anterior
+出生点巡视|Spawn tour|Visite des départs|Startpunkt-Rundgang|出撃地点巡回|시작 지점 순회|Обход стартов|Recorrido de inicios
+保存当前视图截图（含已开启的图层）|Save a screenshot of the view (with active layers)|Capture de la vue (avec calques actifs)|Screenshot der Ansicht (mit Ebenen)|現在の表示をスクリーンショット（レイヤー込み）|현재 화면 스크린샷 저장 (레이어 포함)|Снимок вида (со слоями)|Captura de la vista (con capas)
+保存当前视图截图|Save screenshot|Capture d’écran|Screenshot speichern|スクリーンショット保存|스크린샷 저장|Сохранить снимок|Guardar captura
+适应画布 (F)|Fit to view (F)|Ajuster à la vue (F)|Einpassen (F)|全体表示 (F)|화면에 맞춤 (F)|Вписать (F)|Ajustar a la vista (F)
+地图小地图|Map minimap|Mini-carte|Minikarte|ミニマップ|미니맵|Миникарта|Minimapa
+快捷操作|Quick actions|Actions rapides|Schnellaktionen|クイック操作|빠른 작업|Быстрые действия|Acciones rápidas
+导出 TMX 与小地图|Export TMX and minimap|Exporter TMX et mini-carte|TMX und Minikarte exportieren|TMX とミニマップを書き出し|TMX와 미니맵 내보내기|Экспорт TMX и миникарты|Exportar TMX y minimapa
+退出专注模式|Exit focus mode|Quitter le mode focus|Fokusmodus beenden|集中モードを終了|집중 모드 종료|Выйти из фокуса|Salir del modo enfoque
+命令面板|Command palette|Palette de commandes|Befehlspalette|コマンドパレット|명령 팔레트|Палитра команд|Paleta de comandos
+搜索功能：导出、测距、体检、历史…（支持拼音首字母）|Search: export, measure, check-up, history…|Rechercher : export, mesure, bilan, historique…|Suchen: Export, Messen, Check, Verlauf…|機能を検索：書き出し、計測、診断、履歴…|기능 검색: 내보내기, 측정, 진단, 기록…|Поиск: экспорт, линейка, проверка, история…|Buscar: exportar, medir, revisión, historial…
+命令|Commands|Commandes|Befehle|コマンド|명령|Команды|Comandos
+主题|Theme|Thème|Thema|テーマ|테마|Тема|Tema
+分析|Analysis|Analyse|Analyse|分析|분석|Анализ|Análisis
+地图|Map|Carte|Karte|マップ|맵|Карта|Mapa
+导出|Export|Export|Export|書き出し|내보내기|Экспорт|Exportar
+系统|System|Système|System|システム|시스템|Система|Sistema
+视图|View|Vue|Ansicht|表示|보기|Вид|Vista
+项目|Project|Projet|Projekt|プロジェクト|프로젝트|Проект|Proyecto
+择优生成（多张候选自动评分）|Best-of generation (scored candidates)|Génération « meilleure » (candidates notées)|Beste aus mehreren (bewertet)|ベスト生成（複数候補を自動採点）|최적 생성 (후보 자동 평가)|Лучшая из нескольких (с оценкой)|Mejor de varios (puntuados)
+惊喜生成（随机一套好玩的参数）|Surprise me (fun random options)|Surprise (paramètres aléatoires)|Überrasch mich (Zufallsoptionen)|おまかせ生成（楽しいランダム設定）|서프라이즈 생성 (재미있는 무작위 설정)|Сюрприз (случайные параметры)|Sorpréndeme (ajustes aleatorios)
+形态种子画廊：一次预览 6 个种子，挑一个生成|Shape seed gallery: preview 6 seeds and pick one|Galerie de graines : 6 aperçus, choisissez-en un|Seed-Galerie: 6 Vorschauen, eine wählen|シードギャラリー：6 種を比べて 1 つ選ぶ|시드 갤러리: 6개 미리보고 하나 선택|Галерея сидов: 6 вариантов, выберите один|Galería de semillas: 6 vistas, elige una
+导入 TMX / 项目文件|Import TMX / project file|Importer un TMX / projet|TMX / Projekt importieren|TMX / プロジェクトを読込|TMX/프로젝트 파일 가져오기|Импорт TMX / проекта|Importar TMX / proyecto
+导出 TMX + 小地图|Export TMX + minimap|Exporter TMX + mini-carte|TMX + Minikarte exportieren|TMX＋ミニマップを書き出し|TMX + 미니맵 내보내기|Экспорт TMX + миникарта|Exportar TMX + minimapa
+导出 ZIP（TMX + 小地图 + 说明）|Export ZIP (TMX + minimap + notes)|Exporter ZIP (TMX + mini-carte + notice)|ZIP exportieren (TMX + Minikarte + Info)|ZIP 書き出し（TMX＋ミニマップ＋説明）|ZIP 내보내기 (TMX+미니맵+설명)|Экспорт ZIP (TMX + миникарта + описание)|Exportar ZIP (TMX + minimapa + notas)
+另存为…（改名 / 选内容 / 选位置）|Save as… (name / contents / location)|Enregistrer sous… (nom / contenu / lieu)|Speichern unter… (Name / Inhalt / Ort)|名前を付けて保存…（名前・内容・場所）|다른 이름으로… (이름/내용/위치)|Сохранить как… (имя / состав / место)|Guardar como… (nombre / contenido / lugar)
+复制配方码（分享整套参数）|Copy recipe code (share all options)|Copier le code recette|Rezeptcode kopieren|レシピコードをコピー（設定を共有）|레시피 코드 복사 (설정 공유)|Копировать код рецепта|Copiar código de receta
+使用配方码…|Use recipe code…|Utiliser un code…|Rezeptcode verwenden…|レシピコードを使う…|레시피 코드 사용…|Применить код…|Usar código…
+预览 / 复制小地图图片|Preview / copy minimap image|Aperçu / copier la mini-carte|Minikarte ansehen / kopieren|ミニマップ画像のプレビュー / コピー|미니맵 이미지 미리보기/복사|Миникарта: просмотр / копия|Ver / copiar minimapa
+生成分享海报|Create share poster|Créer une affiche|Poster erstellen|共有ポスターを作成|공유 포스터 만들기|Создать постер|Crear póster
+导出项目文件（.json）|Export project file (.json)|Exporter le projet (.json)|Projektdatei exportieren (.json)|プロジェクトを書き出し（.json）|프로젝트 파일 내보내기 (.json)|Экспорт проекта (.json)|Exportar proyecto (.json)
+测距 + 地形剖面|Measure + terrain profile|Mesure + profil|Messen + Geländeprofil|計測＋地形断面|거리 측정 + 지형 단면|Линейка + профиль|Medir + perfil del terreno
+显示 / 隐藏领地图层|Show / hide territory|Afficher / masquer les territoires|Gebiete ein / aus|領地レイヤーの表示切替|영역 표시/숨기기|Показать / скрыть территорию|Mostrar / ocultar territorio
+显示 / 隐藏接敌路线|Show / hide enemy routes|Afficher / masquer les routes|Gegnerwege ein / aus|接敵ルートの表示切替|적 경로 표시/숨기기|Показать / скрыть пути|Mostrar / ocultar rutas
+显示 / 隐藏近家资源范围|Show / hide home range|Afficher / masquer la zone proche|Basisbereich ein / aus|拠点範囲の表示切替|기지 범위 표시/숨기기|Показать / скрыть зону базы|Mostrar / ocultar zona base
+对称检查（标出不对称的地形 / 出生点 / 资源）|Symmetry check (mark mismatched terrain / spawns / resources)|Contrôle de symétrie|Symmetrie-Prüfung|対称チェック（非対称箇所を表示）|대칭 검사 (비대칭 표시)|Проверка симметрии|Comprobar simetría
+公平度一键微调（保持对称与近家资源）|One-click fairness tune (keeps symmetry and home resources)|Ajustement d’équité en un clic|Fairness mit einem Klick verbessern|公平度をワンタップ調整（対称・資源は維持）|공정도 원클릭 조정 (대칭·자원 유지)|Подстроить честность в один клик|Ajustar equidad en un clic
+落点热力：哪里放下一个出生点最宽敞|Hotspot heatmap: roomiest place for the next spawn|Carte de chaleur des emplacements|Platzierungs-Heatmap|配置ヒートマップ：次の出撃地点に最適な場所|배치 히트맵: 다음 시작 지점 최적 위치|Тепловая карта мест|Mapa de calor de ubicaciones
+对称修复：补齐缺失的镜像出生点|Symmetry fix: add missing mirrored spawns|Réparer la symétrie : ajouter les départs manquants|Symmetrie reparieren: fehlende Startpunkte ergänzen|対称修復：欠けた鏡像地点を補う|대칭 복구: 누락된 대칭 시작 지점 추가|Исправить симметрию: добавить старты|Reparar simetría: añadir inicios
+出生点巡视：下一个|Spawn tour: next|Visite : suivant|Rundgang: nächster|巡回：次へ|순회: 다음|Обход: следующий|Recorrido: siguiente
+出生点巡视：上一个|Spawn tour: previous|Visite : précédent|Rundgang: vorheriger|巡回：前へ|순회: 이전|Обход: предыдущий|Recorrido: anterior
+出生点槽位映射表|Spawn slot table|Table des emplacements|Startpunkt-Slot-Tabelle|出撃スロット対応表|시작 지점 슬롯표|Таблица слотов|Tabla de ranuras
+智能重新布置出生点|Smart re-place spawns|Replacer les départs|Startpunkte neu setzen|出撃地点をスマート再配置|시작 지점 스마트 재배치|Умно переставить старты|Recolocar inicios
+按队伍重排玩家槽位|Reorder slots by team|Réordonner par équipe|Slots nach Team ordnen|チーム順にスロットを並べ替え|팀별 슬롯 재정렬|Слоты по командам|Reordenar por equipo
+补齐近家资源点|Fill home resources|Compléter les ressources proches|Basisressourcen ergänzen|拠点資源を補充|기지 자원 보충|Дополнить ресурсы у базы|Completar recursos cercanos
+1:1 像素|1:1 pixels|Pixels 1:1|1:1 Pixel|等倍表示|1:1 픽셀|1:1 пиксели|Píxeles 1:1
+专注模式（收起侧栏，画布铺满）|Focus mode (full canvas)|Mode focus (carte plein écran)|Fokusmodus (volle Fläche)|集中モード（キャンバスを全面表示）|집중 모드 (캔버스 전체)|Фокус (холст на весь экран)|Modo enfoque (lienzo completo)
+显示 / 隐藏网格|Show / hide grid|Afficher / masquer la grille|Raster ein / aus|グリッドの表示切替|격자 표시/숨기기|Показать / скрыть сетку|Mostrar / ocultar cuadrícula
+选择主题…|Choose theme…|Choisir un thème…|Thema wählen…|テーマを選択…|테마 선택…|Выбрать тему…|Elegir tema…
+下一个主题|Next theme|Thème suivant|Nächstes Thema|次のテーマ|다음 테마|Следующая тема|Siguiente tema
+开 / 关动态背景|Toggle animated background|Fond animé oui / non|Animierter Hintergrund an / aus|動く背景のオン / オフ|움직이는 배경 켜기/끄기|Анимированный фон вкл / выкл|Fondo animado sí / no
+切换「快速生成 / 分步编辑」|Switch Quick / Step-by-step|Basculer Rapide / Pas à pas|Schnell / Schrittweise wechseln|クイック / ステップ編集を切替|빠른 생성/단계별 편집 전환|Быстро / По шагам|Cambiar Rápido / Paso a paso
+保存项目到本机|Save project on this device|Enregistrer le projet sur l’appareil|Projekt auf dem Gerät speichern|プロジェクトを端末に保存|프로젝트를 기기에 저장|Сохранить проект на устройстве|Guardar proyecto en el dispositivo
+恢复项目草稿|Restore project draft|Restaurer le brouillon|Projektentwurf laden|下書きを復元|프로젝트 초안 복원|Восстановить черновик|Restaurar borrador
+保存当前地图为历史快照|Save map as a snapshot|Enregistrer dans l’historique|Karte als Snapshot speichern|マップを履歴に保存|맵을 스냅샷으로 저장|Сохранить снимок карты|Guardar mapa en historial
+版本历史|Version history|Historique des versions|Versionsverlauf|バージョン履歴|버전 기록|История версий|Historial de versiones
+找回上一张地图|Restore previous map|Revenir à la carte précédente|Vorherige Karte wiederherstellen|前のマップに戻す|이전 맵 복원|Вернуть предыдущую карту|Recuperar mapa anterior
+新旧对比：与上一张地图左右对照|Compare with the previous map|Comparer avec la carte précédente|Mit der vorherigen Karte vergleichen|前のマップと並べて比較|이전 맵과 나란히 비교|Сравнить с предыдущей картой|Comparar con el mapa anterior
+新建项目|New project|Nouveau projet|Neues Projekt|新規プロジェクト|새 프로젝트|Новый проект|Nuevo proyecto
+重新启动本地引擎|Restart local engine|Redémarrer le moteur|Lokale Engine neu starten|ローカルエンジンを再起動|로컬 엔진 재시작|Перезапустить движок|Reiniciar motor local
+深空|Deep Space|Espace profond|Tiefraum|深宇宙|딥 스페이스|Глубокий космос|Espacio profundo
+青岚|Teal Mist|Brume sarcelle|Petrolnebel|青嵐|청록 안개|Бирюзовая дымка|Bruma turquesa
+亮白|Bright|Clair|Hell|ライト|라이트|Светлая|Clara
+砂岩|Sandstone|Grès|Sandstein|砂岩|사암|Песчаник|Arenisca
+石墨|Graphite|Graphite|Graphit|グラファイト|그래파이트|Графит|Grafito
+战地|Battlefield|Champ de bataille|Schlachtfeld|戦場|전장|Поле боя|Campo de batalla
+极光|Aurora|Aurore|Polarlicht|オーロラ|오로라|Сияние|Aurora
+熔岩|Lava|Lave|Lava|溶岩|용암|Лава|Lava
+星云|Nebula|Nébuleuse|Nebel|星雲|성운|Туманность|Nebulosa
+深潮|Deep Tide|Marée profonde|Tiefsee|深海|심해|Глубина|Marea profunda
+樱雾|Sakura Mist|Brume de cerisier|Kirschblütennebel|桜霞|벚꽃 안개|Сакура|Bruma de cerezo
+雷暴|Thunderstorm|Orage|Gewitter|雷雨|뇌우|Гроза|Tormenta
+萤林|Firefly Forest|Forêt des lucioles|Glühwürmchenwald|蛍の森|반딧불 숲|Лес светлячков|Bosque de luciérnagas
+晴空|Clear Sky|Ciel clair|Klarer Himmel|晴天|맑은 하늘|Ясное небо|Cielo despejado
+跟随系统|System|Système|System|システムに従う|시스템 설정|Как в системе|Sistema
+昼夜流转|Day & night|Jour et nuit|Tag & Nacht|昼夜の移ろい|낮과 밤|День и ночь|Día y noche
+动态|Animated|Animés|Animiert|ダイナミック|동적|Анимированные|Animados
+自动|Automatic|Automatiques|Automatisch|自動|자동|Автоматические|Automáticos
+静态配色|static colors|couleurs fixes|statische Farben|静的配色|정적 색상|статичные цвета|colores estáticos
+带动态背景|animated background|fond animé|animierter Hintergrund|動く背景|움직이는 배경|анимированный фон|fondo animado
+随系统 / 时间变化|follows system / time|selon système / heure|nach System / Uhrzeit|システム / 時刻で変化|시스템/시간에 따라|по системе / времени|según sistema / hora
+动态背景|Animated background|Fond animé|Animierter Hintergrund|動く背景|움직이는 배경|Анимированный фон|Fondo animado
+关闭后停在静止画面，更省电|Off = still image, saves battery|Désactivé = image fixe, économise la batterie|Aus = Standbild, spart Akku|オフで静止画、省電力|끄면 정지 화면, 배터리 절약|Выкл — статичный кадр, экономия батареи|Desactivado = imagen fija, ahorra batería
+岛屿|Island|Île|Insel|島|섬|Остров|Isla
+半岛|Peninsula|Péninsule|Halbinsel|半島|반도|Полуостров|Península
+群岛|Archipelago|Archipel|Archipel|群島|군도|Архипелаг|Archipiélago
+双河|Twin Rivers|Deux rivières|Zwei Flüsse|二つの川|두 강|Две реки|Dos ríos
+山湖|Mountain Lake|Lac de montagne|Bergsee|山上湖|산정 호수|Горное озеро|Lago de montaña
+大陆|Continent|Continent|Kontinent|大陸|대륙|Материк|Continente
+沙漠|Desert|Désert|Wüste|砂漠|사막|Пустыня|Desierto
+雪原|Snowfield|Plaine enneigée|Schneefeld|雪原|설원|Снежная равнина|Campo nevado
+火山|Volcano|Volcan|Vulkan|火山|화산|Вулкан|Volcán
+迷宫|Labyrinth|Labyrinthe|Labyrinth|迷宮|미로|Лабиринт|Laberinto
+两岸狭路|Two Shores|Deux rives|Zwei Ufer|両岸の隘路|양안 협로|Два берега|Dos orillas
+陆地|land|terre|Land|陸地|육지|суша|tierra
+高地|highland|hauteurs|Hochland|高地|고지|высоты|tierras altas
+陆块|landmasses|masses|Landmassen|陸塊|육괴|массивы|masas
+新旧对比|Compare maps|Comparer les cartes|Karten vergleichen|新旧比較|신구 비교|Сравнение карт|Comparar mapas
+上一张|Previous|Précédente|Vorherige|前|이전|Предыдущая|Anterior
+当前|Current|Actuelle|Aktuell|現在|현재|Текущая|Actual
+变化|Change|Écart|Änderung|変化|변화|Изменение|Cambio
+尺寸|Size|Taille|Größe|サイズ|크기|Размер|Tamaño
+陆地占比|Land share|Part de terre|Landanteil|陸地の割合|육지 비율|Доля суши|Tierra
+健康度|Health|Santé|Gesundheit|健全度|건강도|Здоровье|Salud
+相同|Same|Identique|Gleich|同じ|같음|Без изменений|Igual
+关闭|Close|Fermer|Schließen|閉じる|닫기|Закрыть|Cerrar
+换回上一张|Swap back|Revenir à l’ancienne|Zurücktauschen|前に戻す|이전으로 되돌리기|Вернуть предыдущую|Volver al anterior
+保留当前|Keep current|Garder l’actuelle|Aktuelle behalten|現在のまま|현재 유지|Оставить текущую|Mantener actual
+拖动画面上的分界线（或下方滑块）左右对照；▲▼ 绿色表示变好、红色表示变差。|Drag the divider (or slider) to compare; green ▲▼ = better, red = worse.|Glissez le séparateur (ou le curseur) ; ▲▼ vert = mieux, rouge = moins bien.|Trennlinie (oder Regler) ziehen; grün ▲▼ = besser, rot = schlechter.|境界線（または下のスライダー）をドラッグして比較。緑＝改善、赤＝悪化。|구분선(또는 슬라이더)을 끌어 비교, 초록=개선, 빨강=악화.|Тяните разделитель (или ползунок); зелёный ▲▼ — лучше, красный — хуже.|Arrastra el divisor (o el control); verde ▲▼ = mejor, rojo = peor.
+换一批|Shuffle|Nouvelles graines|Neue Auswahl|別の候補|다시 뽑기|Ещё варианты|Otra tanda
+固定此种子|Fix this seed|Fixer cette graine|Seed festlegen|このシードに固定|이 시드로 고정|Закрепить сид|Fijar semilla
+用它生成|Generate with it|Générer avec|Damit generieren|これで生成|이걸로 생성|Создать с ним|Generar con ella
+计算中…|Computing…|Calcul…|Berechne…|計算中…|계산 중…|Расчёт…|Calculando…
+语言|Language|Langue|Sprache|言語|언어|Язык|Idioma
+界面语言|Interface language|Langue de l’interface|Oberflächensprache|表示言語|인터페이스 언어|Язык интерфейса|Idioma de la interfaz
+本地运行 · 无网络依赖|Running locally · no network needed|Exécution locale · sans réseau|Läuft lokal · kein Netz nötig|ローカル実行・ネット不要|로컬 실행 · 네트워크 불필요|Локально · без сети|Ejecución local · sin red
+本地地图生成引擎已就绪|Local map engine ready|Moteur local prêt|Lokale Karten-Engine bereit|ローカル生成エンジン準備完了|로컬 맵 엔진 준비 완료|Локальный движок готов|Motor local listo
+重新生成地图？|Regenerate the map?|Régénérer la carte ?|Karte neu generieren?|マップを再生成しますか？|맵을 다시 생성할까요?|Пересоздать карту?|¿Regenerar el mapa?
+先导出当前地图|Export current map first|Exporter d’abord|Erst aktuelle Karte exportieren|先に書き出す|먼저 현재 맵 내보내기|Сначала экспорт|Exportar primero
+备份并重新生成|Back up & regenerate|Sauvegarder et régénérer|Sichern & neu generieren|バックアップして再生成|백업 후 다시 생성|Сохранить и пересоздать|Respaldar y regenerar
+覆盖并重新生成|Overwrite & regenerate|Écraser et régénérer|Überschreiben & neu generieren|上書きして再生成|덮어쓰고 다시 생성|Перезаписать и создать|Sobrescribir y regenerar
+快捷键与操作说明|Shortcuts & controls|Raccourcis et commandes|Tastenkürzel & Bedienung|ショートカットと操作|단축키 및 조작법|Клавиши и управление|Atajos y controles
+对比上一张|Compare previous|Comparer|Vergleichen|前と比較|이전과 비교|Сравнить|Comparar
+找回上一张|Restore previous|Revenir|Zurückholen|前に戻す|이전 복원|Вернуть|Recuperar
+已取消生成|Generation cancelled|Génération annulée|Generierung abgebrochen|生成をキャンセルしました|생성이 취소됨|Генерация отменена|Generación cancelada

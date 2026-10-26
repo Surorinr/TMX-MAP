@@ -1,5 +1,8 @@
 /*
  * 铁锈战争地图生成器 · TMX MapForge Offline
+ * 版本 3.26.0 —— 第二十轮审查：修复导入后新地图沿用导入文件名、配方码旧版标记误报、出生点上限文案；新增「新旧对比」
+ *              （X）、「形态种子画廊」（G）、主题圆形揭示过渡、6 套新主题（砂岩 / 石墨 / 战地 · 雷暴 / 萤林 / 晴空）、
+ *              9 种界面语言（i18n.js：简 / 繁 / EN / FR / DE / 日 / 한 / RU / ES）。
  * 版本 3.25.0 —— 地形形态的「陆地比例」按参照物调节：山湖 = 陆地 ↔ 中央湖（陆地少湖大，四周一圈陆地，环形山沿湖岸）、
  *              火山 = 周围陆地 ↔ 火山（非陆地全为岩浆，火口与熔岩流随比例缩放，火山锥沿火口）、两岸狭路 = 两岸 ↔ 中央水道
  *              （两岸延伸到图边，中间渡口始终相通）；群岛海峡与外缘海同步收放（高比例仍有贯通海峡、贴边岛不被切半）；
@@ -96,8 +99,8 @@
  *   Pointer    —— 统一手势状态机：平移 / 双指缩放 / 画笔 / 多边形 / 放置 / 拖动出生点 / 长按删除
  *   Project    —— IndexedDB 项目存储（可保存大体积 TMX），兼容旧版 localStorage 草稿
  */
-const APP_VERSION = '3.25.0';
-const PROJECT_FORMAT = 3250; // 3.25.0：仅记录写入版本（读取时不校验），旧项目仍可读取
+const APP_VERSION = '3.26.0';
+const PROJECT_FORMAT = 3260; // 3.26.0：仅记录写入版本（读取时不校验），旧项目仍可读取（项目结构本轮无变化）
 const $ = id => document.getElementById(id);
 const MAX_SPAWN_POINTS = 100; // 3.19.0：50 → 100（51～100 号槽位的指挥中心瓦片在导出时自动补进 TMX，见 extendCcTileset）
 const ENGINE_MAX_CC = 50;     // 3.19.0：WASM 引擎与内置蓝图只有 50 个指挥中心槽位；超出部分由 JS 智能布点补齐
@@ -152,21 +155,30 @@ const THEMES = [
   { id: 'dark', name: '深空', group: '经典', bar: '#0b1220', tone: 'dark', desc: '默认深色，长时间编辑不刺眼' },
   { id: 'teal', name: '青岚', group: '经典', bar: '#071a21', tone: 'dark', desc: '青绿冷色调的深色主题' },
   { id: 'light', name: '亮白', group: '经典', bar: '#f4f7fb', tone: 'light', desc: '强光环境 / 投屏演示更清楚' },
+  /* 3.26.0：新增三套静态主题 */
+  { id: 'sand', name: '砂岩', group: '经典', bar: '#f8f3ea', tone: 'light', desc: '暖色纸张质感的亮色主题，陶土橙点缀，白天久看不累' },
+  { id: 'graphite', name: '石墨', group: '经典', bar: '#141518', tone: 'dark', desc: '中性炭灰 + 琥珀强调色，不偏色，看地图配色最准' },
+  { id: 'field', name: '战地', group: '经典', bar: '#12170e', tone: 'dark', desc: '军绿与卡其的深色主题，铁锈战争的战场味道' },
   { id: 'aurora', name: '极光', group: '动态', bar: '#08151f', tone: 'dark', fx: true, desc: '星空下缓缓摆动的极光带，星点闪烁' },
   { id: 'ember', name: '熔岩', group: '动态', bar: '#1a0d09', tone: 'dark', fx: true, desc: '底部呼吸的熔岩光晕与不断上升的火星' },
   { id: 'nebula', name: '星云', group: '动态', bar: '#110a22', tone: 'dark', fx: true, desc: '缓慢旋转的紫粉星云，偶尔有流星划过' },
   { id: 'tide', name: '深潮', group: '动态', bar: '#051c27', tone: 'dark', fx: true, desc: '海底交错的光纹、摇曳的光束与上浮气泡' },
-  { id: 'sakura', name: '樱雾', group: '动态', bar: '#fffafc', tone: 'light', fx: true, desc: '浅粉薄雾与斜斜飘落的花瓣（亮色）' }
+  { id: 'sakura', name: '樱雾', group: '动态', bar: '#fffafc', tone: 'light', fx: true, desc: '浅粉薄雾与斜斜飘落的花瓣（亮色）' },
+  /* 3.26.0：新增三套动态主题 */
+  { id: 'storm', name: '雷暴', group: '动态', bar: '#0d121c', tone: 'dark', fx: true, desc: '翻滚的云团与斜雨，偶尔一道柔和的闪电（不刺眼）' },
+  { id: 'firefly', name: '萤林', group: '动态', bar: '#0a1712', tone: 'dark', fx: true, desc: '月下林间薄雾，成群萤火虫游走明灭' },
+  { id: 'sky', name: '晴空', group: '动态', bar: '#f3f8fd', tone: 'light', fx: true, desc: '暖阳光晕与远近两层缓缓飘过的白云（亮色）' }
 ];
 const THEME_AUTO = [
   { id: 'system', name: '跟随系统', group: '自动', desc: '跟随系统深浅色：浅色用「亮白」，深色用「深空」' },
-  { id: 'cycle', name: '昼夜流转', group: '自动', desc: '按本机时间自动换：清晨樱雾 · 白天亮白 · 傍晚熔岩 · 入夜极光 · 深夜星云' }
+  { id: 'cycle', name: '昼夜流转', group: '自动', desc: '按本机时间自动换：清晨樱雾 · 上午晴空 · 午后亮白 · 傍晚熔岩 · 入夜萤林 · 夜晚极光 · 深夜星云' }
 ];
 const THEME_CHOICES = [...THEMES, ...THEME_AUTO];
 const LEGACY_THEME_ORDER = ['dark', 'teal', 'light'];
 const THEME_FX_KEY = 'tmx_theme_fx'; // '0' = 关闭动态背景（停在静止画面）
 /* 昼夜流转时间表：[起始小时, 主题, 时段名]，按起始小时升序 */
-const THEME_CYCLE = [[0, 'nebula', '深夜'], [5, 'sakura', '清晨'], [7, 'light', '白天'], [17, 'ember', '傍晚'], [19, 'aurora', '入夜'], [23, 'nebula', '深夜']];
+/* 3.26.0：加入晴空（上午）与萤林（入夜），午后仍用静态的亮白 */
+const THEME_CYCLE = [[0, 'nebula', '深夜'], [5, 'sakura', '清晨'], [7, 'sky', '上午'], [12, 'light', '午后'], [17, 'ember', '傍晚'], [19, 'firefly', '入夜'], [21, 'aurora', '夜晚'], [23, 'nebula', '深夜']];
 /* 引擎侧依赖已有状态的操作：导入地图或引擎重启后不能直接执行 */
 const ENGINE_STATEFUL = new Set([
   'run_height_ocean', 'draw_brush_walls', 'undo_brush', 'redo_brush', 'clear_brush_walls',
@@ -313,7 +325,9 @@ function toast(msg, type = 'info', ms = 2800, opts = {}) {
 }
 
 /* ------------------------------------------------------------------ UI 基础：状态栏 / 运行时 */
-function setStatus(s) { const el = $('status'); if (el.textContent !== s) { el.textContent = s; el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); } }
+/* 3.26.0：界面可切换语言后，#status 的文字会被 i18n.js 翻译；逻辑判断一律用原文 statusRaw，不读界面文字 */
+let statusRaw = '';
+function setStatus(s) { const el = $('status'); if (statusRaw !== s || !el.textContent) { statusRaw = s; el.textContent = s; el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); } }
 function setRuntime(text, level = 'ok') {
   $('runtime').textContent = text;
   $('runtimePill').dataset.level = level;
@@ -1609,6 +1623,16 @@ async function restorePrevious() {
     finally { busy(false); }
   });
 }
+/* 3.26.0 修复：导入 TMX 时会把文件名填进「地图名称」（方便原样导出）。旧版之后点「生成地图」得到的是一张全新的地图，
+ * 导出时却仍叫导入的那个名字（如导入 rt.tmx → 新生成的地图也导出为 rt.tmx），在群里互传时很容易和原图混淆、
+ * 甚至在导出目录里被当成同一张图。现在：名称仍是导入时代填的原值（用户没改过）时，新生成 / 择优采用后改回自动命名；
+ * 用户自己改过名称则视为用户的选择，保持不动。 */
+function releaseImportedName() {
+  const n = S.importedName; S.importedName = null;
+  if (!n || $('mapName').value !== n) return;
+  $('mapName').value = ''; flashInput('mapName'); queuePrefs();
+  toast(`新地图已改回自动命名（不再沿用导入文件的名称「${n}」）`, 'info', 3600);
+}
 async function generate() {
   if (!guard()) return;
   if (hasManualWork()) {
@@ -1625,6 +1649,7 @@ async function generateNow() {
     stopAnimation();
     normalizeParamInputs();
     const p = params(), area = p.width * p.height;
+    stageCompare(); // 3.26.0：新旧对比——替换前先记下当前地图的摘要（成功才提交）
     const backedUp = await backupCurrent();
     const kept = captureEditorState(); // 3.17.0
     resetEditorState();
@@ -1660,11 +1685,12 @@ async function generateNow() {
         }
       }
       S.mapRecipe = recipeFrom(p, S.mapShape); // 3.19.0：记下这张地图「生成时」的整套参数，配方码以它为准
+      releaseImportedName(); commitCompare();
       const sec = ((performance.now() - t0) / 1000).toFixed(1);
       setStatus(`地图生成完成（${sec}s）`);
       if (shapeInfo) setStatus(`「${shapeInfo.label}」地图生成完成（${sec}s · 种子 ${shapeInfo.seed}${shapeSummary(shapeInfo.stats) ? ' · ' + shapeSummary(shapeInfo.stats) : ''}）`);
       toast(`${shapeInfo ? `「${shapeInfo.label}」` : ''}地图生成完成 · ${p.width}×${p.height} · 出生点 ${currentSpawns().length}${S.lastOptimized ? ` · 已自动优化布局（公平度 +${S.lastOptimized}）` : ''}`, 'success', 3400,
-        backedUp ? { action: { label: '找回上一张', fn: () => restorePrevious() } } : {});
+        cmp.prev ? { action: { label: '对比上一张', fn: () => showCompare() } } : backedUp ? { action: { label: '找回上一张', fn: () => restorePrevious() } } : {});
       S.lastOptimized = 0;
       pulseMap();
       pushHistorySnapshot('自动生成').catch(() => {}); // 3.11.0：每次生成自动入历史（失败仅记日志，不打断流程）
@@ -1674,7 +1700,7 @@ async function generateNow() {
       const how = restoreAfterAbort(kept);
       if (how === 'rolledback') toast(kept.snapshot ? '生成未完成，已丢弃中间结果，画布恢复为生成前的地图' : '生成未完成，已丢弃中间结果', 'info', 4200);
       if (e.cancelled) { setStatus('已取消生成'); if (shapeActive() && how !== 'rolledback') toast('已取消生成，当前画布保持不变', 'info'); }
-      else if (!/^操作失败/.test($('status').textContent)) { setStatus('生成失败：' + e.message); toast('生成失败：' + e.message, 'error', 4200); }
+      else if (!/^操作失败/.test(statusRaw)) { setStatus('生成失败：' + e.message); toast('生成失败：' + e.message, 'error', 4200); }
     } finally { busy(false); }
   });
 }
@@ -3090,6 +3116,7 @@ async function parseTmx(bytes) {
   };
 }
 async function loadTmxBytes(bytes, name, { fromProject = false } = {}) {
+  stageCompare(); // 3.26.0：导入 / 恢复项目 / 找回上一张 / 恢复历史版本都经过这里：替换前记下摘要，替换成功再提交
   const t = await parseTmx(bytes);
   // 3.7.0：读取悬崖 / 水域瓦片属性 —— 导入地图也能显示悬崖、精确体检；非标准瓦片地图用 water 属性修正水域
   let mk = null;
@@ -3123,11 +3150,13 @@ async function loadTmxBytes(bytes, name, { fromProject = false } = {}) {
     $('players').value = n; syncPresetFromPlayers();
     if (t.mirroring !== 'none') $('mirror').value = t.mirroring;
     $('mapName').value = String(name || '').replace(/\.(tmx|xml)$/i, '');
+    S.importedName = $('mapName').value || null; // 3.26.0：记下「导入时代填」的名称，之后新生成的地图不再沿用（见 releaseImportedName）
     updateMirrorHint();
-  }
+  } else S.importedName = null; // 项目自带的名称是用户起的，不属于「导入代填」
   setExportEnabled(true);
   S.view.fitted = false;
   setSnapshot(snap, { fit: true, fade: true });
+  commitCompare();
   updateDirtyNote();
   return t;
 }
@@ -4862,6 +4891,7 @@ async function exportCandidatesZip(ranked, btn) {
 }
 async function adoptCandidate(c, editable) {
   await locked(async () => {
+    stageCompare(); // 3.26.0
     const backedUp = await backupCurrent();
     const prev = S.snapshot;
     resetEditorState();
@@ -4885,6 +4915,7 @@ async function adoptCandidate(c, editable) {
     attachCliffMask(c.snap, c.tmx);
     if (c.shapeSeed != null) afterShapeGenerated(c.shapeSeed, c.shapeStats);
     S.mapRecipe = c.params ? recipeFrom(c.params, S.mapShape) : null; // 3.19.0
+    releaseImportedName(); commitCompare();
     updateDirtyNote(); queueAutoSave(); pulseMap();
     pushHistorySnapshot('择优采用').catch(() => {}); // 3.11.0：择优采用也入历史
     setStatus(`已采用择优方案（综合 ${c.score} · 体检 ${c.health} · 公平度 ${c.fair}）`);
@@ -5826,7 +5857,7 @@ async function resetAll({ keepParams = false } = {}) {
     $('heightLevels').value = DEFAULTS.heightLevels; $('oceanLevels').value = DEFAULTS.oceanLevels;
     $('players').value = DEFAULTS.players; $('resources').value = DEFAULTS.resources; $('mirror').value = DEFAULTS.mirror;
     $('gamePreset').value = DEFAULTS.preset; $('symmetryStrength').value = DEFAULTS.symmetryStrength; $('slotOrder').value = DEFAULTS.slotOrder; onTeamModeChange({ quiet: true });
-    $('mapName').value = ''; $('seed').value = ''; $('wallMagnetism').value = 0; $('magnetText').textContent = '0';
+    $('mapName').value = ''; S.importedName = null; clearCompare(); $('seed').value = ''; $('wallMagnetism').value = 0; $('magnetText').textContent = '0';
     renderGrid();
     savePrefs();
   }
@@ -6048,7 +6079,7 @@ function themeWash(fromEl) {
 function buildThemeMenu() {
   const m = $('themeMenu'); if (!m || m.dataset.built) return;
   m.dataset.built = '1';
-  const groups = [['经典', ''], ['动态', '带动态背景'], ['自动', '随系统 / 时间变化']];
+  const groups = [['经典', '静态配色'], ['动态', '带动态背景'], ['自动', '随系统 / 时间变化']];
   let delay = 0;
   m.innerHTML = '<div class="om-head">界面主题</div>' + groups.map(([g, note]) => `<div class="tm-group">${g}${note ? `<em>${note}</em>` : ''}</div><div class="tm-grid">` +
     THEME_CHOICES.filter(t => t.group === g).map(t => `<button type="button" role="menuitemradio" aria-checked="false" data-theme-id="${t.id}" style="animation-delay:${(delay++ * 0.025).toFixed(3)}s" title="${t.desc}"><span class="tm-sw" data-sw="${t.id}"><i></i></span><b>${t.name}</b></button>`).join('') +
@@ -6058,7 +6089,7 @@ function buildThemeMenu() {
   m.addEventListener('click', e => {
     const it = e.target.closest('[data-theme-id]');
     if (it) { // 面板保持打开，方便连续试几套
-      if (it.dataset.themeId !== S.themeChoice) { themeWash(it); applyTheme(it.dataset.themeId, true); }
+      if (it.dataset.themeId !== S.themeChoice) applyThemeAnimated(it.dataset.themeId, it); // 3.26.0：圆形揭示过渡
       return;
     }
     if (e.target.closest('#themeFxToggle')) { const on = !fxEnabled(); setFxEnabled(on); toast(on ? '动态背景：开' : '动态背景：已暂停'); }
@@ -6290,6 +6321,8 @@ function showHelp() {
       <div><kbd>Y</kbd></div><div>对称检查：标出与镜像位置成片不一致的地形（红 = 陆地 / 水域，橙 = 墙体 / 悬崖；引擎平滑留下的 1～2 格边缘误差会被忽略）以及没有镜像对应点的出生点 / 资源点</div>
       <div><kbd>O</kbd></div><div>公平度一键微调：在当前布局附近移动出生点提高公平度，对称地图仍保持对称，近家资源不受影响（可撤销）</div>
       <div><kbd>K</kbd></div><div>落点热力：暖色 = 宽敞、冷色 = 拥挤，准星为最佳落点，可一键放置</div>
+      <div><kbd>X</kbd></div><div>新旧对比：拖动分界线对照上一张与当前地图，查看健康度 / 公平度等指标的变化，不满意可一键换回</div>
+      <div><kbd>G</kbd></div><div>形态种子画廊：同一套参数一次预览 6 个种子的轮廓，挑中后固定种子或直接生成</div>
       <div><kbd>,</kbd> / <kbd>.</kbd></div><div>出生点巡视：飞到上一个 / 下一个出生点，并显示该玩家的领地、资源与接敌数据</div>
       <div><kbd>Ctrl</kbd>+<kbd>V</kbd></div><div>在画布区粘贴配方码（TMX1-…）：直接打开「使用配方码」</div>
       <div><kbd>[</kbd> / <kbd>]</kbd></div><div>画笔变小 / 变大</div>
@@ -6364,6 +6397,8 @@ const CMDS = [
   { id: 'generate', g: '地图', t: '生成地图', k: 'Ctrl+Enter', kw: 'scdt generate shengcheng', run: () => generate() },
   { id: 'bestof', g: '地图', t: '择优生成（多张候选自动评分）', k: 'Ctrl+Shift+Enter', kw: 'zy best of zeyou houxuan', run: () => generateBestOf() },
   { id: 'surprise', g: '地图', t: '惊喜生成（随机一套好玩的参数）', kw: 'jx surprise random suiji jingxi', run: clickId('surprise') },
+  { id: 'lang', g: '系统', t: '切换界面语言（Language）', kw: 'yy qhyy language lang yuyan english 繁體 日本語 한국어', run: () => window.I18N?.openMenu() },
+  { id: 'gallery', g: '地图', t: '形态种子画廊：一次预览 6 个种子，挑一个生成', k: 'G', kw: 'zzhl gallery seed zhongzi hualang xingtai', run: () => showSeedGallery() },
   { id: 'name', g: '地图', t: '随机起一个地图名', kw: 'qm name mingzi suiji qiming', run: () => rollMapName(true) },
   { id: 'import', g: '地图', t: '导入 TMX / 项目文件', kw: 'dr import daoru tmx json', run: clickId('tmxImport') },
   { id: 'export', g: '导出', t: '导出 TMX + 小地图', k: 'Ctrl+E', kw: 'dc export daochu png', map: 1, run: () => exportPair() },
@@ -6404,6 +6439,7 @@ const CMDS = [
   { id: 'snap', g: '项目', t: '保存当前地图为历史快照', kw: 'kz snapshot kuaizhao lishi', map: 1, run: clickId('histSave') },
   { id: 'history', g: '项目', t: '版本历史', kw: 'ls history lishi banben', run: () => showHistory() },
   { id: 'prev', g: '项目', t: '找回上一张地图', kw: 'zh previous zhaohui shangyizhang', run: () => restorePrevious() },
+  { id: 'compare', g: '项目', t: '新旧对比：与上一张地图左右对照', k: 'X', kw: 'db xjdb compare duibi shangyizhang qianhou', map: 1, run: () => showCompare() },
   { id: 'new', g: '项目', t: '新建项目', kw: 'xj new xinjian', run: () => newProject() },
   { id: 'engine', g: '系统', t: '重新启动本地引擎', kw: 'yq engine restart yinqing chongqi', run: () => Engine.manualRestart() },
   { id: 'help', g: '系统', t: '快捷键与帮助', k: '?', kw: 'bz help bangzhu kuaijiejian', run: () => showHelp() }
@@ -6664,7 +6700,8 @@ function decodeRecipe(text) {
   if (!ok) return { error: '配方码中的参数超出范围（可能来自不兼容的版本）' };
   // 版本 1 = 3.24.0 之前生成（全部形态）；版本 2 = 3.24.x 生成（3.25.0 重做的六个模板）：参数照常套用，但地形轮廓算法已更新
   d.legacyShape = d.shape !== 'classic' && (b[0] < 2 || (b[0] < 3 && RECIPE_SHAPES_V3.includes(d.shape)));
-  d.legacyFrom = b[0] < 2 ? '3.24.0' : '3.25.0';
+  // 3.26.0：只有旧码才带 legacyFrom（旧版对所有码都写 '3.25.0'，当前码的解码结果因此多出一个误导性的版本字段）
+  if (d.legacyShape) d.legacyFrom = b[0] < 2 ? '3.24.0' : '3.25.0';
   return { data: d, code: 'TMX1-' + m[1] };
 }
 function recipeSummary(d) {
@@ -7552,6 +7589,8 @@ function bindControls() {
   $('slotTable').onclick = () => showSlotTable();
   $('mapDoctor').onclick = () => showMapDoctor();
   $('projectPrev').onclick = () => restorePrevious();
+  $('cmpBtn').onclick = () => showCompare();           // 3.26.0
+  $('shapeGallery').onclick = () => showSeedGallery(); // 3.26.0
   $('userPreset').onchange = () => { const v = $('userPreset').value; $('presetDel').disabled = !v; if (v) applyUserPreset(v); };
   $('presetSave').onclick = () => saveUserPreset();
   $('presetDel').onclick = () => deleteUserPreset();
@@ -7681,8 +7720,9 @@ function bindKeyboard() {
     if (cmdk.open) { if (e.key === 'Escape') { e.preventDefault(); closeCmdk(); } return; }
     if (e.key === '/' && !typing && !mod && !modalOpen()) { e.preventDefault(); openCmdk(); return; }
     // 3.16.0：焦点在主题面板里时，字母快捷键不作用到画布；3.17.0 修复：屏幕方向菜单同样处理（旧版按 D / T / L 会作用到画布）
-    if (e.key !== 'Escape' && e.target.closest?.('#themeMenu,#orientMenu')) return;
+    if (e.key !== 'Escape' && e.target.closest?.('#themeMenu,#orientMenu,#langMenu')) return;
     if (e.key === 'Escape') {
+      if (window.I18N?.closeMenu?.()) { $('langToggle')?.focus(); return; } // 3.26.0：语言菜单
       if (closeThemeMenu()) { $('themeToggle')?.focus(); return; } // 3.16.0
       if (closeOrientMenu()) { $('orientToggle')?.focus(); return; }
       if (closeModal('cancel')) return;
@@ -7729,6 +7769,8 @@ function bindKeyboard() {
     else if (k === 'y') setSymmetryLayer(!S.layers.symmetry); // 3.19.0：对称检查
     else if (k === 'o') tuneFairness();                        // 3.20.0：公平度一键微调
     else if (k === 'k') setSpotLayer(!S.layers.spots);        // 3.20.0：落点热力
+    else if (k === 'x') showCompare();                         // 3.26.0：新旧对比
+    else if (k === 'g') showSeedGallery();                     // 3.26.0：形态种子画廊
     else if (k === '.' || k === '>') tourSpawn(1);            // 3.19.0：出生点巡视
     else if (k === ',' || k === '<') tourSpawn(-1);
     else if (S.mode === 'wizard' && { v: 1, b: 1, p: 1, c: 1, r: 1 }[k]) setTool({ v: 'pan', b: 'brush', p: 'polygon', c: 'cc', r: 'resource' }[k]);
@@ -7764,6 +7806,7 @@ async function boot() {
   onTeamModeChange({ quiet: true }); // 3.19.0：按保存的预设恢复「两队 / 自由混战」状态（不重排、不提示）
   bindAccordion();
   bindControls();
+  window.__tmxToast = (m) => toast(m, 'info', 2400); // 3.26.0：供 i18n.js 提示「已切换语言」
   bindCanvas();
   bindKeyboard();
   syncPresetFromPlayers();
@@ -7798,5 +7841,191 @@ async function boot() {
     }
   });
 }
-if (/[?&]debug\b/.test(location.search)) window.__tmx = { S, Engine, currentSpawns, dims, getMatrix, patchTmxUnits, parseTmx, uiChoice, uiConfirm, globalUndo, globalRedo, removeSpawnIndex, spawnFairness, buildCcMap, ccMapFor, verifySpawnMapping, orderBySlot, makePlayerOne, showSlotTable, buildMapPngInfo, drawExportPng, showMapPngPreview, normalizeSlots, analyzeMap, doctorVerdicts, buildGrid, labelGrid, territoryBfs, showMapDoctor, setTerritoryLayer, hasManualWork, backupCurrent, restorePrevious, generate, loadPresets, saveUserPreset, applyUserPreset, deleteUserPreset, renderPresetOptions, syncTmxUnits, exportPair, rushAnalysis, costField, tmxTerrainMasks, setRoutesLayer, generateBestOf, buildPoster, showPoster, saveProject, wallLayerFor, shapeState, selectShape, ShapeWorker, shapeSeed, generateShapePipeline, queueShapePreview, showSaveAs, ExportLoc, patchTmxItems, resourcePoolGids, planNearSpawnResources, pickResourcePoints, groupSpawnOrbits, autoApplyNearSpawnResources, HistoryStore, pushHistorySnapshot, showHistory, randomizeParams, surpriseGenerate, removeNearSpawnResourceAt, mutateTmx, measure, setMeasure, densityInfo, openCmdk, closeCmdk, cmdkScore, CMDS, measureProfile, applyTheme, resolveTheme, readThemeChoice, cycleSlot, THEMES, THEME_CHOICES, openThemeMenu, closeThemeMenu, setFxEnabled, rollMapName, spawnUndoAction, profileHover, encodeRecipe, decodeRecipe, applyRecipe, recipeData, copyRecipe, pasteRecipe, health, runHealthBadge, loupe, setFocusMode, focusOn, saveViewShot, captureEditorState, restoreEditorState, restoreAfterAbort, resetAll, analyzeSymmetry, setSymmetryLayer, tourSpawn, closeSpawnCard, tour, playerRows, isFFA, tuneFairness, optimizeSpawnLayout, analyzeSpots, setSpotLayer, repairSpawnSymmetry, mapUnfinished, finishRemainingSteps, ccExtendableCap, onTeamModeChange, extendCcTileset, rushAnalysisFFA, recipeFrom, mapRecipeCode, flyViewTo, setPresetValue, ENGINE_MAX_CC, MAX_SPAWN_POINTS, projectPayload, restoreProject, loadTmxBytes, themeGridMove, get routeCache() { return routeCache; } };
+
+/* ================================================================== 3.26.0 新功能 */
+
+/* ------------------------------------------------------------------ ① 新旧对比（X / 命令面板 / 生成完成提示里的「对比上一张」）
+ * 重新生成之后，「这张是不是比刚才那张好」以前只能靠记忆，或者先「找回上一张」看一眼、再换回来（两次整图载入）。
+ * 现在每次地图被替换前（生成 / 择优采用 / 找回上一张 / 恢复历史版本），把即将被替换的那张地图画成一张小图并记下关键指标，
+ * 替换成功后可以打开「新旧对比」：拖动分界线左右对照两张图，下面的表格列出尺寸 / 形态 / 出生点 / 资源 / 陆地占比 /
+ * 健康度 / 公平度的变化（▲ 更好 / ▼ 更差），不满意直接「换回上一张」。
+ * 实现要点：
+ *  · 摘要在替换前同步生成（drawExportPng 与导出小地图同一套绘制，≤ 360 像素），先放进 pending，只有替换成功才提交；
+ *    取消 / 失败回滚时 pending 被丢弃，不会出现「拿当前地图和它自己对比」。
+ *  · 体检分数复用 analyzeMap 的缓存（与体检、实时徽章同一个数），对比时不会重新寻路。
+ *  · 「换回上一张」直接走 restorePrevious（项目 / 恢复里的同一条路径），换回后对比方向自动对调，可以来回比较。 */
+const cmp = { prev: null, pending: null };
+function mapDigest() {
+  if (!S.snapshot) return null;
+  let url = '';
+  try { const cv = drawExportPng(360, 'dots'); if (cv) url = cv.toDataURL('image/png'); } catch (e) { console.warn('对比缩略图生成失败', e); }
+  if (!url) return null;
+  const [w, h] = dims(), sp = currentSpawns();
+  let land = null;
+  try {
+    const m = terrainMatrix();
+    if (m?.data?.length) { let n = 0; for (const v of m.data) if (v > 0) n++; land = n / m.data.length; }
+  } catch { /* ignore */ }
+  let score = null, fair = null;
+  try { score = analyzeMap()?.score ?? null; } catch { /* ignore */ }
+  try { fair = sp.length >= 2 ? Math.round(spawnFairness().score) : null; } catch { /* ignore */ }
+  return { url, w, h, spawns: sp.length, res: S.snapshot.resource_positions?.length || 0, land, score, fair,
+    shape: S.mapShape?.label || '经典', name: sanitizeName($('mapName').value) || '', at: Date.now() };
+}
+function stageCompare() { try { cmp.pending = mapDigest(); } catch { cmp.pending = null; } }
+function commitCompare() {
+  if (cmp.pending) cmp.prev = cmp.pending;
+  cmp.pending = null;
+  updateCompareButton();
+}
+function clearCompare() { cmp.prev = cmp.pending = null; updateCompareButton(); }
+function updateCompareButton() { const b = $('cmpBtn'); if (b) b.disabled = !(cmp.prev && S.snapshot); }
+async function showCompare() {
+  if (!cmp.prev || !S.snapshot) { toast('还没有可对比的上一张地图：重新生成一次地图后即可对比', 'info', 3800); return; }
+  const a = cmp.prev, b = mapDigest();
+  if (!b) { toast('当前地图无法生成对比图', 'warn'); return; }
+  const pct = v => v == null ? '—' : Math.round(v * 100) + '%';
+  const num = v => v == null ? '—' : String(v);
+  const delta = (x, y, good = 0, fmt = v => v) => {
+    if (x == null || y == null || x === y) return '<td class="cmp-d">—</td>';
+    const up = y > x, cls = !good ? 'n' : (up === (good > 0) ? 'g' : 'b');
+    return `<td class="cmp-d ${cls}">${up ? '▲' : '▼'} ${fmt(Math.abs(y - x))}</td>`;
+  };
+  const row = (k, x, y, d = '<td class="cmp-d">—</td>') => `<tr><th>${k}</th><td>${x}</td><td>${y}</td>${d}</tr>`;
+  const rows = [
+    row('尺寸', `${a.w}×${a.h}`, `${b.w}×${b.h}`, a.w === b.w && a.h === b.h ? '<td class="cmp-d">相同</td>' : '<td class="cmp-d n">变化</td>'),
+    row('地形', escapeHtml(a.shape), escapeHtml(b.shape), a.shape === b.shape ? '<td class="cmp-d">相同</td>' : '<td class="cmp-d n">变化</td>'),
+    row('出生点', num(a.spawns), num(b.spawns), delta(a.spawns, b.spawns)),
+    row('资源点', num(a.res), num(b.res), delta(a.res, b.res)),
+    row('陆地占比', pct(a.land), pct(b.land), delta(a.land == null ? null : Math.round(a.land * 100), b.land == null ? null : Math.round(b.land * 100), 0, v => v + '%')),
+    row('健康度', num(a.score), num(b.score), delta(a.score, b.score, 1)),
+    row('公平度', num(a.fair), num(b.fair), delta(a.fair, b.fair, 1))
+  ].join('');
+  const canSwap = !$('projectPrev')?.disabled;
+  const verdict = a.score != null && b.score != null
+    ? (b.score > a.score ? `当前地图健康度高 <b>${b.score - a.score}</b> 分` : b.score < a.score ? `上一张地图健康度高 <b>${a.score - b.score}</b> 分${canSwap ? '，可以一键换回' : ''}` : '两张地图健康度相同')
+    : '';
+  const p = uiChoice('新旧对比', `
+    <div class="cmp-stage" id="cmpStage" style="--x:100%;aspect-ratio:${Math.max(b.w, 1)} / ${Math.max(b.h, 1)};width:min(100%, calc(min(56vh, 520px) * ${(Math.max(b.w, 1) / Math.max(b.h, 1)).toFixed(4)}))" role="img" aria-label="左：上一张地图；右：当前地图">
+      <img class="cmp-img" src="${b.url}" alt="" draggable="false">
+      <img class="cmp-img cmp-prev" src="${a.url}" alt="" draggable="false">
+      <span class="cmp-tag l">上一张</span><span class="cmp-tag r">当前</span>
+      <span class="cmp-handle" aria-hidden="true"><i></i></span>
+    </div>
+    <input id="cmpRange" class="cmp-range" type="range" min="0" max="100" value="50" aria-label="对比分界线位置（左 = 上一张，右 = 当前）">
+    ${verdict ? `<p class="cmp-verdict">${verdict}</p>` : ''}
+    <table class="cmp-table"><thead><tr><th></th><th>上一张</th><th>当前</th><th>变化</th></tr></thead><tbody>${rows}</tbody></table>
+    <p class="help-p cmp-note">拖动画面上的分界线（或下方滑块）左右对照；▲▼ 绿色表示变好、红色表示变差。</p>`,
+    [{ key: 'cancel', label: '关闭' }, { key: 'swap', label: '换回上一张', hidden: !canSwap }, { key: 'ok', label: '保留当前', primary: true }].filter(x => !x.hidden), { wide: true });
+  const st = $('cmpStage'), rg = $('cmpRange');
+  if (st && rg) {
+    const set = v => { v = clamp(v, 0, 100); st.style.setProperty('--x', v + '%'); rg.value = String(Math.round(v)); };
+    const fromEvent = e => { const r = st.getBoundingClientRect(); return (e.clientX - r.left) / Math.max(1, r.width) * 100; };
+    let drag = false, touched = false;
+    st.addEventListener('pointerdown', e => { drag = touched = true; st.classList.remove('intro'); st.classList.add('dragging'); st.setPointerCapture?.(e.pointerId); set(fromEvent(e)); e.preventDefault(); });
+    st.addEventListener('pointermove', e => { if (drag) set(fromEvent(e)); });
+    const end = () => { drag = false; st.classList.remove('dragging'); };
+    st.addEventListener('pointerup', end); st.addEventListener('pointercancel', end);
+    rg.addEventListener('input', () => { touched = true; st.classList.remove('intro'); set(Number(rg.value)); });
+    // 打开时分界线从右向左扫到中间：先完整显示「上一张」，再揭开「当前」
+    // 用户在开场动画开始前就拖动时，不再被开场动画拉回中间
+    requestAnimationFrame(() => requestAnimationFrame(() => { if (touched) return; st.classList.add('intro'); set(50); setTimeout(() => st.classList.remove('intro'), 900); }));
+  }
+  const k = await p;
+  if (k === 'swap') await restorePrevious();
+}
+
+/* ------------------------------------------------------------------ ② 形态种子画廊（G / 形态卡片「种子画廊」按钮）
+ * 地形形态的轮廓由种子决定。以前想挑一个满意的轮廓，只能反复点骰子、每次看一张预览、记不住上一个更好的种子。
+ * 画廊一次排出 6 个预览（第一个是当前种子，方便对照），每张标出陆地占比与陆块数；「换一批」再来 5 个新种子。
+ * 点选后「固定此种子」只改种子（参数与比例不变），「用它生成」直接按这个种子生成整张地图；双击预览也可直接生成。
+ * 预览走形态 Worker 的同一个 preview 接口（与卡片里的预览完全一致，所见即所得），逐张串行计算、算好一张显示一张；
+ * 换一批 / 关闭后，尚未返回的结果按批次号丢弃，不会画到新一批的格子里。 */
+const GALLERY_SIZE = 6;
+let galleryBatch = 0;
+async function showSeedGallery() {
+  if (!guard()) return;
+  if (!shapeActive()) {
+    toast('种子画廊用于「地形形态」：先在「地形形态」里选择一个形态（如岛屿、群岛）', 'info', 4200);
+    document.querySelector('[data-card="shape"]')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    return;
+  }
+  const m = shapeMeta(shapeState.id), p0 = params();
+  let picked = shapeSeed();
+  const p = uiChoice(`种子画廊 · ${m.label}`, `
+    <p class="help-p">同一套参数（${p0.width}×${p0.height} · 陆地 ${shapeState.land}% · ${MIRROR_LABELS[p0.mirroring]}）下不同种子的轮廓。点选一张，再选择「固定此种子」或「用它生成」；双击预览直接生成。</p>
+    <div class="gal-grid" id="galGrid" role="listbox" aria-label="候选种子"></div>
+    <div class="gal-bar"><button type="button" id="galReroll" class="gal-reroll"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg>换一批</button><span id="galPick" class="gal-pick" aria-live="polite"></span></div>`,
+    [{ key: 'cancel', label: '取消' }, { key: 'fix', label: '固定此种子' }, { key: 'gen', label: '用它生成', primary: true }], { wide: true });
+  const grid = $('galGrid');
+  const showPick = () => { const el = $('galPick'); if (el) el.innerHTML = `已选种子 <b>${picked}</b>`; };
+  const fill = async (seeds) => {
+    const batch = ++galleryBatch;
+    grid.innerHTML = seeds.map((sd, i) => `<button type="button" class="gal-tile loading${sd === picked ? ' on' : ''}" role="option" aria-selected="${sd === picked}" data-seed="${sd}" style="--d:${i * 50}ms">
+      <span class="gal-cv"><canvas width="8" height="8"></canvas><i class="gal-spin" aria-hidden="true"></i></span>
+      <span class="gal-meta"><b>${i === 0 && sd === shapeSeed() ? '当前 · ' : ''}${sd}</b><small>计算中…</small></span></button>`).join('');
+    for (const tile of grid.querySelectorAll('.gal-tile')) {
+      const sd = Number(tile.dataset.seed);
+      try {
+        const r = await ShapeWorker.call('preview', { ...shapeOpts(p0, sd), maxSide: 132 });
+        if (batch !== galleryBatch || !tile.isConnected) return;
+        const cv = tile.querySelector('canvas');
+        cv.width = r.width; cv.height = r.height; cv.style.aspectRatio = `${p0.width} / ${p0.height}`;
+        cv.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(r.rgba), r.width, r.height), 0, 0);
+        tile.querySelector('small').textContent = `陆地 ${Math.round(r.stats.landRatio * 100)}% · 陆块 ${r.stats.landmasses} · 高地 ${Math.round(r.stats.mountainRatio * 100)}%`;
+        tile.classList.remove('loading'); tile.classList.add('ready');
+      } catch (e) {
+        if (batch !== galleryBatch || !tile.isConnected) return;
+        tile.classList.remove('loading'); tile.querySelector('small').textContent = e.cancelled ? '已取消' : '预览失败';
+      }
+    }
+  };
+  const fresh = (n) => { const out = new Set(); while (out.size < n) out.add(randSeed()); return [...out]; };
+  if (grid) {
+    grid.addEventListener('click', e => {
+      const t = e.target.closest('.gal-tile'); if (!t) return;
+      picked = Number(t.dataset.seed);
+      grid.querySelectorAll('.gal-tile').forEach(x => { const on = x === t; x.classList.toggle('on', on); x.setAttribute('aria-selected', String(on)); });
+      showPick();
+    });
+    grid.addEventListener('dblclick', e => { const t = e.target.closest('.gal-tile'); if (t) { picked = Number(t.dataset.seed); closeModal('gen'); } });
+    grid.addEventListener('keydown', e => {
+      const tiles = [...grid.querySelectorAll('.gal-tile')], i = tiles.indexOf(document.activeElement); if (i < 0) return;
+      const cols = Math.max(1, getComputedStyle(grid).gridTemplateColumns.split(' ').filter(Boolean).length);
+      const to = { ArrowRight: i + 1, ArrowLeft: i - 1, ArrowDown: i + cols, ArrowUp: i - cols }[e.key];
+      if (to == null) return; e.preventDefault(); tiles[clamp(to, 0, tiles.length - 1)].focus();
+    });
+    $('galReroll')?.addEventListener('click', () => { const ic = $('galReroll').querySelector('svg'); ic?.classList.remove('spin'); void ic?.offsetWidth; ic?.classList.add('spin'); fill([picked, ...fresh(GALLERY_SIZE - 1).filter(x => x !== picked)].slice(0, GALLERY_SIZE)); });
+    showPick();
+    fill([picked, ...fresh(GALLERY_SIZE - 1).filter(x => x !== picked)].slice(0, GALLERY_SIZE));
+  }
+  const k = await p;
+  galleryBatch++; // 关闭后丢弃尚未返回的预览
+  if (k !== 'fix' && k !== 'gen') return;
+  $('shapeSeed').value = String(picked); flashInput('shapeSeed');
+  saveShapePrefs(); updateShapeSeedHint(); queueShapePreview(0);
+  if (k === 'gen') generate(); else toast(`已固定形态种子 ${picked}`, 'success', 2400);
+}
+
+/* ------------------------------------------------------------------ ③ 主题切换：圆形揭示过渡
+ * 支持 View Transitions 的 WebView / 浏览器（Chromium 111+）里，新主题从点击的色板处以圆形扩散揭开，整页（含画布）一次性
+ * 平滑过渡；不支持时保留 3.16.0 的「色晕」效果。系统「减少动态效果」时直接切换。 */
+function applyThemeAnimated(id, fromEl) {
+  const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  if (reduce || typeof document.startViewTransition !== 'function' || !fromEl?.getBoundingClientRect) { themeWash(fromEl); applyTheme(id, true); return; }
+  const r = fromEl.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2;
+  const root = document.documentElement;
+  root.style.setProperty('--vt-x', x + 'px'); root.style.setProperty('--vt-y', y + 'px');
+  root.style.setProperty('--vt-r', Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y)) + 'px');
+  root.classList.add('vt-theme');
+  try {
+    const vt = document.startViewTransition(() => { applyTheme(id, true); try { renderMap(); } catch { /* 下一帧照常重绘 */ } });
+    const done = () => { clearTimeout(t); root.classList.remove('vt-theme'); };
+    // 兜底：后台标签页 / 渲染被节流时 finished 可能迟迟不结算，最多 1.2 秒后清理过渡标记
+    const t = setTimeout(done, 1200);
+    vt.finished.then(done, done);
+  } catch { root.classList.remove('vt-theme'); applyTheme(id, true); }
+}
+
+if (/[?&]debug\b/.test(location.search)) window.__tmx = { S, Engine, currentSpawns, dims, getMatrix, patchTmxUnits, parseTmx, uiChoice, uiConfirm, globalUndo, globalRedo, removeSpawnIndex, spawnFairness, buildCcMap, ccMapFor, verifySpawnMapping, orderBySlot, makePlayerOne, showSlotTable, buildMapPngInfo, drawExportPng, showMapPngPreview, normalizeSlots, analyzeMap, doctorVerdicts, buildGrid, labelGrid, territoryBfs, showMapDoctor, setTerritoryLayer, hasManualWork, backupCurrent, restorePrevious, generate, loadPresets, saveUserPreset, applyUserPreset, deleteUserPreset, renderPresetOptions, syncTmxUnits, exportPair, rushAnalysis, costField, tmxTerrainMasks, setRoutesLayer, generateBestOf, buildPoster, showPoster, saveProject, wallLayerFor, shapeState, selectShape, ShapeWorker, shapeSeed, generateShapePipeline, queueShapePreview, showSaveAs, ExportLoc, patchTmxItems, resourcePoolGids, planNearSpawnResources, pickResourcePoints, groupSpawnOrbits, autoApplyNearSpawnResources, HistoryStore, pushHistorySnapshot, showHistory, randomizeParams, surpriseGenerate, removeNearSpawnResourceAt, mutateTmx, measure, setMeasure, densityInfo, openCmdk, closeCmdk, cmdkScore, CMDS, measureProfile, applyTheme, resolveTheme, readThemeChoice, cycleSlot, THEMES, THEME_CHOICES, openThemeMenu, closeThemeMenu, setFxEnabled, rollMapName, spawnUndoAction, profileHover, encodeRecipe, decodeRecipe, applyRecipe, recipeData, copyRecipe, pasteRecipe, health, runHealthBadge, loupe, setFocusMode, focusOn, saveViewShot, captureEditorState, restoreEditorState, restoreAfterAbort, resetAll, analyzeSymmetry, setSymmetryLayer, tourSpawn, closeSpawnCard, tour, playerRows, isFFA, tuneFairness, optimizeSpawnLayout, analyzeSpots, setSpotLayer, repairSpawnSymmetry, mapUnfinished, finishRemainingSteps, ccExtendableCap, onTeamModeChange, extendCcTileset, rushAnalysisFFA, recipeFrom, mapRecipeCode, flyViewTo, setPresetValue, ENGINE_MAX_CC, MAX_SPAWN_POINTS, projectPayload, restoreProject, loadTmxBytes, themeGridMove, showCompare, mapDigest, cmp, stageCompare, commitCompare, showSeedGallery, applyThemeAnimated, releaseImportedName, get routeCache() { return routeCache; } };
 boot();

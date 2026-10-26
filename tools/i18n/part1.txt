@@ -1,0 +1,224 @@
+铁锈战争地图生成器 · 完整离线版|Rusted Warfare Map Generator · Offline|Générateur de cartes Rusted Warfare · Hors ligne|Rusted Warfare Kartengenerator · Offline|Rusted Warfare マップジェネレーター・オフライン版|러스티드 워페어 맵 생성기 · 오프라인|Генератор карт Rusted Warfare · офлайн|Generador de mapas de Rusted Warfare · Sin conexión
+铁锈战争地图生成器|Rusted Warfare Map Generator|Générateur de cartes Rusted Warfare|Rusted Warfare Kartengenerator|Rusted Warfare マップジェネレーター|러스티드 워페어 맵 생성기|Генератор карт Rusted Warfare|Generador de mapas Rusted Warfare
+完全离线|Fully offline|Hors ligne|Komplett offline|完全オフライン|완전 오프라인|Полностью офлайн|Sin conexión
+引擎初始化中…|Starting engine…|Démarrage du moteur…|Engine wird gestartet…|エンジン起動中…|엔진 초기화 중…|Запуск движка…|Iniciando motor…
+屏幕方向|Screen orientation|Orientation de l’écran|Bildschirmausrichtung|画面の向き|화면 방향|Ориентация экрана|Orientación de pantalla
+自动旋转|Auto-rotate|Rotation auto|Automatisch drehen|自動回転|자동 회전|Автоповорот|Giro automático
+跟随手机重力感应|Follows the device sensor|Suit le capteur de l’appareil|Folgt dem Lagesensor|端末のセンサーに従う|기기 센서를 따름|По датчику устройства|Sigue el sensor del dispositivo
+锁定竖屏|Lock portrait|Verrouiller en portrait|Hochformat sperren|縦向きに固定|세로 고정|Только портретная|Bloquear vertical
+单手编辑、浏览参数更方便|Easier one-handed editing|Plus pratique à une main|Bequemer mit einer Hand|片手で編集しやすい|한 손 편집에 편리|Удобно одной рукой|Más cómodo con una mano
+锁定横屏|Lock landscape|Verrouiller en paysage|Querformat sperren|横向きに固定|가로 고정|Только альбомная|Bloquear horizontal
+画布更宽，适合大地图|Wider canvas for big maps|Canevas plus large pour grandes cartes|Breitere Fläche für große Karten|キャンバスが広く大きなマップ向け|넓은 캔버스, 큰 맵에 적합|Шире холст для больших карт|Lienzo más ancho para mapas grandes
+锁定当前方向|Lock current orientation|Verrouiller l’orientation actuelle|Aktuelle Ausrichtung sperren|現在の向きで固定|현재 방향 고정|Зафиксировать текущую|Bloquear orientación actual
+以手机此刻的朝向为准|Uses the phone’s current orientation|Selon l’orientation actuelle|Nach aktueller Haltung|今の端末の向きを使用|현재 휴대폰 방향 기준|По текущему положению|Según la orientación actual
+设置保存在本机，下次打开自动保持|Saved on this device and kept next time|Enregistré sur l’appareil, conservé au prochain lancement|Auf dem Gerät gespeichert und beibehalten|この端末に保存され次回も維持|이 기기에 저장되어 다음에도 유지|Сохраняется на устройстве|Se guarda en este dispositivo
+编辑面板|Editor panel|Panneau d’édition|Bearbeitungsbereich|編集パネル|편집 패널|Панель редактора|Panel de edición
+生成方式|Generation mode|Mode de génération|Generierungsmodus|生成方式|생성 방식|Режим генерации|Modo de generación
+快速生成|Quick|Rapide|Schnell|クイック生成|빠른 생성|Быстро|Rápido
+分步编辑|Step-by-step|Pas à pas|Schrittweise|ステップ編集|단계별 편집|По шагам|Paso a paso
+地图名称|Map name|Nom de la carte|Kartenname|マップ名|맵 이름|Название карты|Nombre del mapa
+（导出文件名，可留空自动命名）|(export file name; leave blank for auto)|(nom du fichier ; vide = automatique)|(Dateiname; leer = automatisch)|（書き出し名。空欄で自動）|(내보낼 파일명, 비우면 자동)|(имя файла; пусто — авто)|(nombre de archivo; vacío = automático)
+地形形态|Terrain shape|Forme du terrain|Geländeform|地形タイプ|지형 형태|Форма местности|Forma del terreno
+新|New|Nouveau|Neu|新|NEW|Новое|Nuevo
+经典|Classic|Classique|Klassisch|クラシック|클래식|Классика|Clásico
+预览|Preview|Aperçu|Vorschau|プレビュー|미리보기|Просмотр|Vista previa
+陆地比例|Land ratio|Part de terre|Landanteil|陸地の割合|육지 비율|Доля суши|Proporción de tierra
+山地|Mountains|Montagnes|Gebirge|山地|산지|Горы|Montañas
+少|Few|Peu|Wenig|少|적음|Мало|Pocas
+标准|Normal|Normal|Normal|標準|표준|Норма|Normal
+多|Many|Beaucoup|Viel|多|많음|Много|Muchas
+形态种子|Shape seed|Graine de forme|Form-Seed|形状シード|형태 시드|Сид формы|Semilla de forma
+使用推荐尺寸|Use recommended size|Taille recommandée|Empfohlene Größe|推奨サイズを使用|권장 크기 사용|Рекомендуемый размер|Tamaño recomendado
+种子画廊|Seed gallery|Galerie de graines|Seed-Galerie|シードギャラリー|시드 갤러리|Галерея сидов|Galería de semillas
+选择形态时自动套用推荐主题 / 对称 / 层级|Apply recommended tileset / symmetry / levels with a shape|Appliquer thème / symétrie / niveaux recommandés|Empfohlenes Thema / Symmetrie / Ebenen übernehmen|形状選択時に推奨テーマ・対称・階層を適用|형태 선택 시 권장 테마 / 대칭 / 층 적용|Применять рекомендуемые тему / симметрию / уровни|Aplicar tema / simetría / niveles recomendados
+地图基本参数|Map basics|Paramètres de base|Grundeinstellungen|基本パラメーター|맵 기본 설정|Основные параметры|Parámetros básicos
+地图宽度|Width|Largeur|Breite|幅|너비|Ширина|Ancho
+地图高度|Height|Hauteur|Höhe|高さ|높이|Высота|Alto
+地形模板|Tileset|Thème de tuiles|Kachelthema|地形テンプレート|지형 템플릿|Набор тайлов|Tileset
+模板1 丛林|1 Jungle|1 Jungle|1 Dschungel|1 ジャングル|1 정글|1 Джунгли|1 Selva
+模板2 雪山|2 Snow mountain|2 Montagne enneigée|2 Schneeberg|2 雪山|2 설산|2 Снежные горы|2 Montaña nevada
+模板3 火山|3 Volcano|3 Volcan|3 Vulkan|3 火山|3 화산|3 Вулкан|3 Volcán
+模板4 沙漠|4 Desert|4 Désert|4 Wüste|4 砂漠|4 사막|4 Пустыня|4 Desierto
+模板5 森林|5 Forest|5 Forêt|5 Wald|5 森林|5 숲|5 Лес|5 Bosque
+高度层级|Height levels|Niveaux d’altitude|Höhenstufen|高さ階層|높이 단계|Уровни высоты|Niveles de altura
+海洋层级|Ocean levels|Niveaux d’océan|Meeresstufen|海の階層|바다 단계|Уровни океана|Niveles de océano
+资源点数量|Resources|Ressources|Ressourcen|資源数|자원 수|Ресурсы|Recursos
+出生点数量|Spawns|Points d’apparition|Startpunkte|出撃地点数|시작 지점 수|Точки старта|Puntos de inicio
+指挥中心/出生点 · 最大 100 · 3V3=6，50V50=100 · 自由混战人数自定|Command centers · max 100 · 3v3=6, 50v50=100 · FFA: any count|Centres de commande · max 100 · 3v3=6, 50v50=100 · FFA libre|Kommandozentralen · max. 100 · 3v3=6, 50v50=100 · FFA frei|司令部 · 最大 100 · 3v3=6、50v50=100 · FFA は任意|사령부 · 최대 100 · 3v3=6, 50v50=100 · 난전은 자유|Командные центры · до 100 · 3v3=6, 50v50=100 · FFA любое|Centros de mando · máx. 100 · 3v3=6, 50v50=100 · FFA libre
+出生点对称|Spawn symmetry|Symétrie des départs|Start-Symmetrie|出撃地点の対称|시작 지점 대칭|Симметрия стартов|Simetría de inicios
+不对称|None|Aucune|Keine|非対称|비대칭|Нет|Ninguna
+X 轴对称|X-axis|Axe X|X-Achse|X 軸対称|X축 대칭|Ось X|Eje X
+Y 轴对称|Y-axis|Axe Y|Y-Achse|Y 軸対称|Y축 대칭|Ось Y|Eje Y
+主对角线对称|Main diagonal|Diagonale principale|Hauptdiagonale|主対角線|주대각선|Главная диагональ|Diagonal principal
+副对角线对称|Anti-diagonal|Antidiagonale|Nebendiagonale|副対角線|부대각선|Побочная диагональ|Antidiagonal
+XY 双轴对称|X + Y axes|Axes X + Y|X- und Y-Achse|XY 両軸|XY 양축|Оси X и Y|Ejes X + Y
+当前模式会自动保持出生点成对分布|Spawns are kept in mirrored pairs|Les départs restent appariés en miroir|Startpunkte bleiben gespiegelt gepaart|出撃地点はペアで配置されます|시작 지점이 쌍으로 유지됩니다|Старты остаются зеркальными парами|Los inicios se mantienen en pares
+近家资源点|Home resources|Ressources proches|Basisnahe Ressourcen|拠点付近の資源|기지 근처 자원|Ресурсы у базы|Recursos cercanos
+每个出生点周边 10–20 格内自动补足|Auto-filled within 10–20 tiles of each spawn|Ajoutées à 10–20 cases de chaque départ|Im Umkreis von 10–20 Feldern ergänzt|各出撃地点の 10–20 マス以内に自動補充|각 시작 지점 10–20칸 내 자동 보충|В радиусе 10–20 клеток от старта|A 10–20 casillas de cada inicio
+每个出生点|Per spawn|Par départ|Pro Startpunkt|各出撃地点|시작 지점마다|На старт|Por inicio
+2 个|2|2|2|2 個|2개|2|2
+3 个|3|3|3|3 個|3개|3|3
+4 个|4|4|4|4 個|4개|4|4
+距离范围（格，直线距离）|Distance range (tiles, straight line)|Distance (cases, à vol d’oiseau)|Abstand (Felder, Luftlinie)|距離（マス・直線）|거리 범위 (칸, 직선)|Дистанция (клетки, по прямой)|Distancia (casillas, en línea recta)
+至|to|à|bis|〜|~|до|a
+尺寸预设|Size presets|Tailles prédéfinies|Größenvorlagen|サイズプリセット|크기 프리셋|Пресеты размера|Tamaños predefinidos
+我的方案|My presets|Mes réglages|Meine Vorlagen|マイプリセット|내 프리셋|Мои пресеты|Mis ajustes
+暂无方案|No presets yet|Aucun réglage|Keine Vorlagen|プリセットなし|프리셋 없음|Пресетов нет|Sin ajustes
+保存|Save|Enregistrer|Speichern|保存|저장|Сохранить|Guardar
+删除|Delete|Supprimer|Löschen|削除|삭제|Удалить|Eliminar
+配方码|Recipe code|Code recette|Rezeptcode|レシピコード|레시피 코드|Код рецепта|Código de receta
+复制配方码|Copy code|Copier le code|Code kopieren|コードをコピー|코드 복사|Копировать код|Copiar código
+已复制|Copied|Copié|Kopiert|コピーしました|복사됨|Скопировано|Copiado
+使用配方码|Use code|Utiliser un code|Code verwenden|コードを使う|코드 사용|Применить код|Usar código
+出生点 / 队伍控制台|Spawns / teams|Départs / équipes|Startpunkte / Teams|出撃地点 / チーム|시작 지점 / 팀|Старты / команды|Inicios / equipos
+地形尺寸|Map size|Taille|Größe|マップサイズ|맵 크기|Размер|Tamaño
+出生点|Spawns|Départs|Startpunkte|出撃地点|시작 지점|Старты|Inicios
+公平度|Fairness|Équité|Fairness|公平度|공정도|Честность|Equidad
+模式预设|Mode preset|Mode prédéfini|Modusvorlage|モードプリセット|모드 프리셋|Режим|Modo
+自由混战（FFA）|Free-for-all (FFA)|Chacun pour soi (FFA)|Jeder gegen jeden (FFA)|バトルロイヤル（FFA）|개인전 (FFA)|Каждый за себя (FFA)|Todos contra todos (FFA)
+自由配置|Custom|Personnalisé|Benutzerdefiniert|カスタム|사용자 지정|Свой|Personalizado
+设为玩家 1（交换槽位）|Set as player 1 (swap slot)|Définir comme joueur 1 (échanger)|Als Spieler 1 (Slot tauschen)|プレイヤー 1 に設定（スロット交換）|플레이어 1로 설정 (슬롯 교환)|Сделать игроком 1 (обмен)|Fijar como jugador 1 (intercambiar)
+对称强度|Symmetry strength|Force de symétrie|Symmetriestärke|対称の強さ|대칭 강도|Сила симметрии|Fuerza de simetría
+严格|Strict|Stricte|Streng|厳密|엄격|Строго|Estricta
+平衡|Balanced|Équilibrée|Ausgewogen|バランス|균형|Баланс|Equilibrada
+柔性（不镜像）|Soft (no mirror)|Souple (sans miroir)|Weich (ohne Spiegel)|ソフト（ミラーなし）|유연 (미러 없음)|Мягко (без зеркала)|Flexible (sin espejo)
+槽位顺序|Slot order|Ordre des emplacements|Slot-Reihenfolge|スロット順|슬롯 순서|Порядок слотов|Orden de ranuras
+A/B 交替（奇偶分队）|A/B alternating|A/B en alternance|A/B abwechselnd|A/B 交互|A/B 교대|A/B поочерёдно|A/B alternado
+A 队在前|Team A first|Équipe A d’abord|Team A zuerst|A チームを先に|A팀 먼저|Сначала команда A|Equipo A primero
+保持原顺序|Keep order|Garder l’ordre|Reihenfolge beibehalten|元の順序|원래 순서 유지|Сохранить порядок|Mantener orden
+智能重新布置|Smart re-place|Replacement intelligent|Intelligent neu setzen|スマート再配置|스마트 재배치|Умная перестановка|Recolocar inteligente
+一键微调|Fine-tune|Ajuster|Feinabstimmen|ワンタップ微調整|원클릭 미세 조정|Подстроить|Ajuste fino
+自动优化：开|Auto-optimize: on|Optimisation auto : oui|Auto-Optimierung: an|自動最適化：オン|자동 최적화: 켬|Автооптимизация: вкл|Auto-optimizar: sí
+自动优化：关|Auto-optimize: off|Optimisation auto : non|Auto-Optimierung: aus|自動最適化：オフ|자동 최적화: 끔|Автооптимизация: выкл|Auto-optimizar: no
+按队伍排槽位|Sort slots by team|Trier par équipe|Slots nach Team|チーム順にスロット|팀별 슬롯 정렬|Слоты по командам|Ordenar por equipo
+公平度分析|Fairness analysis|Analyse d’équité|Fairness-Analyse|公平度分析|공정도 분석|Анализ честности|Análisis de equidad
+槽位映射表|Slot map|Table des emplacements|Slot-Tabelle|スロット対応表|슬롯 매핑표|Таблица слотов|Tabla de ranuras
+地图体检|Map check-up|Bilan de la carte|Karten-Check|マップ診断|맵 진단|Проверка карты|Revisión del mapa
+撤销|Undo|Annuler|Rückgängig|元に戻す|실행 취소|Отменить|Deshacer
+重做|Redo|Rétablir|Wiederholen|やり直し|다시 실행|Повторить|Rehacer
+补齐近家资源|Fill home resources|Compléter les ressources|Basisressourcen ergänzen|拠点資源を補充|기지 자원 보충|Дополнить ресурсы|Completar recursos
+地形|Terrain|Terrain|Gelände|地形|지형|Рельеф|Terreno
+资源|Resources|Ressources|Ressourcen|資源|자원|Ресурсы|Recursos
+墙体|Walls|Murs|Mauern|壁|벽|Стены|Muros
+网格|Grid|Grille|Raster|グリッド|격자|Сетка|Cuadrícula
+领地|Territory|Territoire|Gebiet|領地|영역|Территория|Territorio
+路线|Routes|Itinéraires|Routen|ルート|경로|Маршруты|Rutas
+近家圈|Home ring|Cercle proche|Basisring|拠点圏|기지 반경|Круг базы|Anillo base
+对称|Symmetry|Symétrie|Symmetrie|対称|대칭|Симметрия|Simetría
+落点|Hotspots|Emplacements|Platzierung|配置候補|배치 후보|Места|Ubicaciones
+生成地图后可查看：出生点间距、边缘距离、资源距离、两队平衡度。|After generating: spawn spacing, edge distance, resource distance and team balance.|Après génération : espacement, distance aux bords, aux ressources et équilibre des équipes.|Nach dem Generieren: Abstände, Randabstand, Ressourcenabstand und Teambalance.|生成後に出撃地点の間隔・端からの距離・資源距離・チームバランスを確認できます。|생성 후 시작 지점 간격, 가장자리 거리, 자원 거리, 팀 균형을 확인할 수 있습니다.|После генерации: расстояния между стартами, до края, до ресурсов и баланс команд.|Tras generar: separación, distancia al borde, a recursos y equilibrio de equipos.
+海岸线模板|Coastline template|Modèle de côte|Küstenvorlage|海岸線テンプレート|해안선 템플릿|Шаблон берега|Plantilla de costa
+当前使用「地形形态」生成陆地，5×5 海岸线模板暂不生效；在「地形形态」中选择「经典」即可恢复。|A terrain shape is active, so the 5×5 coastline template is ignored; choose “Classic” under Terrain shape to use it again.|Une forme de terrain est active : le modèle 5×5 est ignoré ; choisissez « Classique » pour le réactiver.|Eine Geländeform ist aktiv, die 5×5-Küstenvorlage wird ignoriert; „Klassisch“ wählen, um sie zu nutzen.|地形タイプ使用中のため 5×5 テンプレートは無効です。「クラシック」を選ぶと有効になります。|지형 형태 사용 중이라 5×5 해안선 템플릿은 적용되지 않습니다. ‘클래식’을 선택하면 복원됩니다.|Активна форма местности, шаблон 5×5 не используется; выберите «Классика», чтобы вернуть его.|Hay una forma de terreno activa; la plantilla 5×5 se ignora. Elige «Clásico» para usarla.
+点击方格开关陆地区域：|Click cells to toggle land:|Cliquez pour basculer la terre :|Felder anklicken für Land:|マスをクリックして陸地を切替：|칸을 눌러 육지 전환:|Нажимайте клетки для суши:|Pulsa celdas para alternar tierra:
+✓ 陆地|✓ Land|✓ Terre|✓ Land|✓ 陸地|✓ 육지|✓ Суша|✓ Tierra
+✕ 水域|✕ Water|✕ Eau|✕ Wasser|✕ 水域|✕ 물|✕ Вода|✕ Agua
+。开启出生点对称后，镜像方格会同步联动。|. With spawn symmetry on, mirrored cells follow.|. Avec la symétrie, les cases miroirs suivent.|. Bei Symmetrie folgen gespiegelte Felder.|。対称が有効なら鏡像マスも連動します。|. 대칭을 켜면 대칭 칸도 함께 바뀝니다.|. При симметрии зеркальные клетки меняются вместе.|. Con simetría, las celdas espejo se sincronizan.
+随机模板|Random|Aléatoire|Zufällig|ランダム|무작위|Случайно|Aleatoria
+反转|Invert|Inverser|Umkehren|反転|반전|Инвертировать|Invertir
+默认|Default|Par défaut|Standard|デフォルト|기본|По умолчанию|Predeterminada
+地图编辑步骤|Editing steps|Étapes d’édition|Bearbeitungsschritte|編集ステップ|편집 단계|Шаги редактирования|Pasos de edición
+① 海岸线|① Coastline|① Côte|① Küste|① 海岸線|① 해안선|① Берег|① Costa
+生成海岸线|Generate coastline|Générer la côte|Küste generieren|海岸線を生成|해안선 생성|Создать берег|Generar costa
+从图片导入|Import image|Importer une image|Bild importieren|画像から読込|이미지 가져오기|Из изображения|Importar imagen
+未导入图片 · 暗色=水域，亮色=陆地，绿色=缺口|No image · dark = water, light = land, green = gap|Aucune image · sombre = eau, clair = terre, vert = brèche|Kein Bild · dunkel = Wasser, hell = Land, grün = Lücke|画像なし · 暗=水域、明=陸地、緑=切れ目|이미지 없음 · 어두움=물, 밝음=육지, 초록=틈|Нет изображения · тёмное = вода, светлое = суша, зелёное = проход|Sin imagen · oscuro = agua, claro = tierra, verde = hueco
+② 墙体 / 丘陵|② Walls / hills|② Murs / collines|② Mauern / Hügel|② 壁 / 丘陵|② 벽 / 언덕|② Стены / холмы|② Muros / colinas
+画笔|Brush|Pinceau|Pinsel|ブラシ|브러시|Кисть|Pincel
+多边形分层|Polygon layers|Calques polygones|Polygon-Ebenen|多角形レイヤー|다각형 층|Слои-полигоны|Capas de polígonos
+缺口|Gap|Brèche|Lücke|切れ目|틈|Проход|Hueco
+橡皮|Eraser|Gomme|Radierer|消しゴム|지우개|Ластик|Borrador
+画笔大小|Brush size|Taille du pinceau|Pinselgröße|ブラシサイズ|브러시 크기|Размер кисти|Tamaño de pincel
+清空|Clear|Effacer|Leeren|クリア|비우기|Очистить|Vaciar
+点击地图逐点绘制；再次点击起点闭合多边形。嵌套区域会形成更高地形层级。|Click to add points; click the first point to close. Nested areas form higher levels.|Cliquez pour ajouter des points ; cliquez le premier pour fermer. Les zones imbriquées sont plus hautes.|Punkte setzen; ersten Punkt anklicken zum Schließen. Verschachtelte Flächen werden höher.|クリックで頂点を追加、始点をクリックで閉じます。入れ子の領域はより高い階層になります。|클릭으로 점을 찍고 시작점을 다시 눌러 닫습니다. 중첩 영역은 더 높은 층이 됩니다.|Щёлкайте, чтобы добавить точки; щелчок по первой замыкает. Вложенные области выше.|Pulsa para añadir puntos; pulsa el primero para cerrar. Las zonas anidadas son más altas.
+取消绘制|Cancel drawing|Annuler le tracé|Zeichnen abbrechen|描画をキャンセル|그리기 취소|Отменить рисование|Cancelar dibujo
+删除选中|Delete selected|Supprimer la sélection|Auswahl löschen|選択を削除|선택 삭제|Удалить выбранное|Eliminar selección
+切换边缘缺口|Toggle edge gaps|Basculer les brèches|Randlücken umschalten|端の切れ目を切替|가장자리 틈 전환|Проходы по краям|Alternar huecos
+清空全部|Clear all|Tout effacer|Alles leeren|すべてクリア|모두 비우기|Очистить всё|Vaciar todo
+暂无多边形|No polygons|Aucun polygone|Keine Polygone|多角形なし|다각형 없음|Нет полигонов|Sin polígonos
+③ 高度与海洋|③ Height & ocean|③ Altitude et océan|③ Höhe & Meer|③ 高さと海|③ 높이와 바다|③ Высота и океан|③ Altura y océano
+墙体吸附强度|Wall magnetism|Attraction des murs|Mauer-Magnetismus|壁の吸着強度|벽 흡착 강도|Притяжение стен|Atracción de muros
+随机种子|Random seed|Graine aléatoire|Zufalls-Seed|乱数シード|무작위 시드|Случайный сид|Semilla aleatoria
+生成高度与海洋|Generate height & ocean|Générer altitude et océan|Höhe & Meer generieren|高さと海を生成|높이와 바다 생성|Создать высоты и океан|Generar altura y océano
+适应画布|Fit to view|Ajuster à la vue|Einpassen|全体表示|화면에 맞춤|Вписать|Ajustar a la vista
+④ 指挥中心 / 出生点|④ Command centers / spawns|④ Centres de commande / départs|④ Kommandozentralen / Startpunkte|④ 司令部 / 出撃地点|④ 사령부 / 시작 지점|④ КЦ / старты|④ Centros de mando / inicios
+手动放置|Place manually|Placer à la main|Manuell setzen|手動配置|수동 배치|Вручную|Colocar a mano
+智能随机|Smart random|Aléatoire intelligent|Intelligent zufällig|スマートランダム|스마트 무작위|Умно случайно|Aleatorio inteligente
+手动模式下点击放置（自动按对称镜像）；拖动出生点可移动；右键/长按删除。|Click to place (mirrored automatically); drag to move; right-click / long-press to delete.|Cliquez pour placer (miroir auto) ; glissez pour déplacer ; clic droit / appui long pour supprimer.|Klicken zum Setzen (automatisch gespiegelt); ziehen zum Verschieben; Rechtsklick / lange drücken zum Löschen.|クリックで配置（自動で鏡像）。ドラッグで移動、右クリック / 長押しで削除。|클릭해 배치(자동 대칭), 드래그로 이동, 우클릭/길게 눌러 삭제.|Щелчок — поставить (с зеркалом), перетаскивание — переместить, ПКМ / долгое нажатие — удалить.|Pulsa para colocar (espejo automático); arrastra para mover; clic derecho / pulsación larga para borrar.
+⑤ 资源点|⑤ Resources|⑤ Ressources|⑤ Ressourcen|⑤ 資源|⑤ 자원|⑤ Ресурсы|⑤ Recursos
+随机|Random|Aléatoire|Zufällig|ランダム|무작위|Случайно|Aleatorio
+手动模式下点击放置资源点；右键/长按删除附近资源点。|Click to place resources; right-click / long-press to delete nearby ones.|Cliquez pour placer des ressources ; clic droit / appui long pour supprimer.|Klicken zum Setzen; Rechtsklick / lange drücken löscht nahe Ressourcen.|クリックで資源を配置、右クリック / 長押しで近くの資源を削除。|클릭해 자원 배치, 우클릭/길게 눌러 근처 자원 삭제.|Щелчок — ресурс, ПКМ / долгое нажатие — удалить ближайший.|Pulsa para colocar recursos; clic derecho / pulsación larga para borrar.
+⑥ 完成与导出|⑥ Finish & export|⑥ Finaliser et exporter|⑥ Fertigstellen & exportieren|⑥ 完成と書き出し|⑥ 완료 및 내보내기|⑥ Готово и экспорт|⑥ Finalizar y exportar
+完成地图并生成 TMX|Finish map & build TMX|Finaliser et créer le TMX|Karte fertigstellen & TMX erzeugen|完成して TMX を生成|맵 완료 및 TMX 생성|Завершить и создать TMX|Finalizar y crear TMX
+导出 ZIP 包|Export ZIP|Exporter en ZIP|ZIP exportieren|ZIP を書き出し|ZIP 내보내기|Экспорт ZIP|Exportar ZIP
+导出时自动附带小地图图片：地图文件名去掉 .tmx 后加|A minimap image is exported too: the map file name without .tmx plus|Une mini-carte est aussi exportée : nom du fichier sans .tmx suivi de|Eine Minikarte wird mitexportiert: Dateiname ohne .tmx plus|書き出し時にミニマップ画像も保存：ファイル名から .tmx を除き|내보낼 때 미니맵 이미지도 함께 저장: 파일명에서 .tmx를 빼고|Вместе с картой сохраняется миникарта: имя файла без .tmx плюс|También se exporta un minimapa: nombre sin .tmx más
+，如|, e.g.|, ex.|, z. B.|、例：|, 예:|, например|, p. ej.
+（≤500×500、≤512KB，与画布一样显示出生点编号和资源点，样式可在底部「小地图」中选择）。|(≤500×500, ≤512 KB, showing spawn numbers and resources like the canvas; style is set under “Minimap” below).|(≤500×500, ≤512 Ko, avec numéros de départ et ressources ; style réglable dans « Mini-carte »).|(≤500×500, ≤512 KB, mit Startnummern und Ressourcen; Stil unten unter „Minikarte“).|（500×500 以下・512KB 以下。出撃番号と資源を表示。スタイルは下部「ミニマップ」で選択）。|(500×500·512KB 이하, 시작 번호와 자원 표시. 스타일은 아래 ‘미니맵’에서 선택).|(≤500×500, ≤512 КБ, с номерами стартов и ресурсами; стиль — в «Миникарта» ниже).|(≤500×500, ≤512 KB, con números de inicio y recursos; estilo en «Minimapa» abajo).
+项目 / 恢复|Project / restore|Projet / restauration|Projekt / Wiederherstellen|プロジェクト / 復元|프로젝트 / 복원|Проект / восстановление|Proyecto / restaurar
+新建|New|Nouveau|Neu|新規|새로 만들기|Новый|Nuevo
+保存项目|Save project|Enregistrer le projet|Projekt speichern|プロジェクト保存|프로젝트 저장|Сохранить проект|Guardar proyecto
+恢复项目|Restore project|Restaurer le projet|Projekt laden|プロジェクト復元|프로젝트 복원|Восстановить проект|Restaurar proyecto
+导出项目|Export project|Exporter le projet|Projekt exportieren|プロジェクト書き出し|프로젝트 내보내기|Экспорт проекта|Exportar proyecto
+导入 TMX/项目|Import TMX / project|Importer TMX / projet|TMX / Projekt importieren|TMX / プロジェクト読込|TMX/프로젝트 가져오기|Импорт TMX / проекта|Importar TMX / proyecto
+全局撤销|Undo|Annuler|Rückgängig|元に戻す|실행 취소|Отменить|Deshacer
+全局重做|Redo|Rétablir|Wiederholen|やり直し|다시 실행|Повторить|Rehacer
+自动保存：开|Autosave: on|Sauvegarde auto : oui|Autospeichern: an|自動保存：オン|자동 저장: 켬|Автосохранение: вкл|Autoguardado: sí
+自动保存：关|Autosave: off|Sauvegarde auto : non|Autospeichern: aus|自動保存：オフ|자동 저장: 끔|Автосохранение: выкл|Autoguardado: no
+生成过程动画|Generation animation|Animation de génération|Generierungsanimation|生成アニメーション|생성 애니메이션|Анимация генерации|Animación de generación
+上一张地图 ⇄|Previous map ⇄|Carte précédente ⇄|Vorherige Karte ⇄|前のマップ ⇄|이전 맵 ⇄|Предыдущая карта ⇄|Mapa anterior ⇄
+对比|Compare|Comparer|Vergleichen|比較|비교|Сравнить|Comparar
+保存快照|Save snapshot|Instantané|Snapshot speichern|スナップショット保存|스냅샷 저장|Снимок|Guardar instantánea
+历史版本|History|Historique|Verlauf|履歴|버전 기록|История|Historial
+导出位置|Export location|Dossier d’export|Exportort|書き出し先|내보내기 위치|Папка экспорта|Ubicación de exportación
+下载目录（Download）|Downloads folder|Dossier Téléchargements|Download-Ordner|ダウンロードフォルダ|다운로드 폴더|Папка «Загрузки»|Carpeta de descargas
+选择文件夹…|Choose folder…|Choisir un dossier…|Ordner wählen…|フォルダを選択…|폴더 선택…|Выбрать папку…|Elegir carpeta…
+恢复下载目录|Reset to Downloads|Revenir aux Téléchargements|Auf Downloads zurücksetzen|ダウンロードに戻す|다운로드 폴더로 복원|Вернуть «Загрузки»|Volver a descargas
+项目草稿保存在本机（IndexedDB），不会上传。支持恢复上次编辑状态。|Drafts are kept on this device (IndexedDB) and never uploaded. Your last session can be restored.|Les brouillons restent sur l’appareil (IndexedDB), jamais envoyés. La dernière session peut être restaurée.|Entwürfe bleiben auf dem Gerät (IndexedDB), nichts wird hochgeladen. Letzte Sitzung wiederherstellbar.|下書きはこの端末（IndexedDB）に保存され、アップロードされません。前回の状態を復元できます。|초안은 이 기기(IndexedDB)에만 저장되며 업로드되지 않습니다. 마지막 편집 상태를 복원할 수 있습니다.|Черновики хранятся на устройстве (IndexedDB) и не выгружаются. Можно восстановить прошлый сеанс.|Los borradores se guardan en el dispositivo (IndexedDB) y no se suben. Puedes restaurar la última sesión.
+生成地图|Generate map|Générer la carte|Karte generieren|マップ生成|맵 생성|Создать карту|Generar mapa
+择优 ×4|Best of 4|Meilleure ×4|Beste aus 4|ベスト ×4|최적 ×4|Лучшая из 4|Mejor de 4
+惊喜|Surprise|Surprise|Überraschung|おまかせ|서프라이즈|Сюрприз|Sorpresa
+恢复默认|Reset|Réinitialiser|Zurücksetzen|初期化|기본값|Сбросить|Restablecer
+导出 TMX+小地图|Export TMX + minimap|Exporter TMX + mini-carte|TMX + Minikarte exportieren|TMX+ミニマップ書き出し|TMX+미니맵 내보내기|Экспорт TMX + миникарта|Exportar TMX + minimapa
+另存为…|Save as…|Enregistrer sous…|Speichern unter…|名前を付けて保存…|다른 이름으로…|Сохранить как…|Guardar como…
+小地图|Minimap|Mini-carte|Minikarte|ミニマップ|미니맵|Миникарта|Minimapa
+标注：编号 + 资源|Labels: numbers + resources|Étiquettes : numéros + ressources|Beschriftung: Nummern + Ressourcen|表示：番号＋資源|표시: 번호 + 자원|Метки: номера + ресурсы|Etiquetas: números + recursos
+标注：仅点位|Labels: dots only|Étiquettes : points seuls|Beschriftung: nur Punkte|表示：点のみ|표시: 점만|Метки: только точки|Etiquetas: solo puntos
+纯地形|Terrain only|Terrain seul|Nur Gelände|地形のみ|지형만|Только рельеф|Solo terreno
+海报|Poster|Affiche|Poster|ポスター|포스터|Постер|Póster
+导出 TMX 时同时保存同名|When exporting TMX, also save a matching|À l’export TMX, enregistre aussi|Beim TMX-Export wird zusätzlich|TMX 書き出し時に同名の|TMX 내보낼 때 같은 이름의|При экспорте TMX также сохраняется|Al exportar TMX también se guarda
+小地图（≤500×500、≤512KB，含出生点与资源点）。所有操作均在本机完成，无需联网。|minimap (≤500×500, ≤512 KB, with spawns and resources). Everything runs locally, no internet needed.|mini-carte (≤500×500, ≤512 Ko, départs et ressources). Tout se fait en local, sans Internet.|Minikarte (≤500×500, ≤512 KB, mit Startpunkten und Ressourcen) gespeichert. Alles lokal, kein Internet nötig.|ミニマップ（500×500・512KB 以下、出撃地点と資源入り）も保存。すべて端末内で完結し、ネット不要です。|미니맵(500×500·512KB 이하, 시작 지점·자원 포함)도 저장합니다. 모든 작업은 기기에서 처리되며 인터넷이 필요 없습니다.|миникарта (≤500×500, ≤512 КБ, со стартами и ресурсами). Всё работает локально, без интернета.|minimapa (≤500×500, ≤512 KB, con inicios y recursos). Todo funciona en local, sin Internet.
+· 地图已修改，导出时将重新生成 TMX|· Map changed; TMX will be rebuilt on export|· Carte modifiée ; le TMX sera régénéré|· Karte geändert; TMX wird beim Export neu erzeugt|· マップが変更されました。書き出し時に TMX を再生成します|· 맵이 수정되어 내보낼 때 TMX를 다시 생성합니다|· Карта изменена; TMX пересоздастся при экспорте|· Mapa modificado; el TMX se regenerará al exportar
+状态|Status|État|Status|状態|상태|Статус|Estado
+等待本地生成引擎…|Waiting for the local engine…|En attente du moteur local…|Warte auf lokale Engine…|ローカルエンジン待機中…|로컬 엔진 대기 중…|Ожидание локального движка…|Esperando al motor local…
+还没有地图|No map yet|Pas encore de carte|Noch keine Karte|マップはまだありません|아직 맵이 없습니다|Карты пока нет|Aún no hay mapa
+设置参数后点击「生成地图」，或导入 TMX / 项目文件|Set the options and click “Generate map”, or import a TMX / project file|Réglez les paramètres puis « Générer la carte », ou importez un TMX / projet|Optionen einstellen und „Karte generieren“ klicken oder TMX / Projekt importieren|パラメーターを設定して「マップ生成」、または TMX / プロジェクトを読み込み|설정 후 ‘맵 생성’을 누르거나 TMX/프로젝트 파일을 가져오세요|Задайте параметры и нажмите «Создать карту» или импортируйте TMX / проект|Ajusta los parámetros y pulsa «Generar mapa», o importa un TMX / proyecto
+按|Press|Appuyez sur|Drücke|||Нажмите|Pulsa
+打开命令面板，搜索任意功能|to open the command palette and search any feature|pour ouvrir la palette de commandes|für die Befehlspalette mit allen Funktionen|でコマンドパレットを開き、機能を検索|를 눌러 명령 팔레트에서 모든 기능 검색|чтобы открыть палитру команд|para abrir la paleta de comandos
+平移|Pan|Déplacer|Verschieben|移動|이동|Сдвиг|Mover
+多边形|Polygon|Polygone|Polygon|多角形|다각형|Полигон|Polígono
+拖动|Drag|Glisser|Ziehen|ドラッグ|드래그|Перетаскивание|Arrastrar
+平移 ·|pan ·|déplacer ·|verschieben ·|移動 ·|이동 ·|сдвиг ·|mover ·
+双指/滚轮|Pinch / wheel|Pincer / molette|Zwei Finger / Mausrad|ピンチ / ホイール|두 손가락/휠|Щипок / колесо|Pellizco / rueda
+缩放 ·|zoom ·|zoom ·|zoomen ·|ズーム ·|확대 ·|масштаб ·|zoom ·
+点出生点|Tap spawn|Toucher un départ|Startpunkt tippen|出撃地点をタップ|시작 지점 탭|Нажать старт|Toca un inicio
+选中 ·|select ·|sélection ·|auswählen ·|選択 ·|선택 ·|выбор ·|seleccionar ·
+拖出生点|Drag spawn|Glisser un départ|Startpunkt ziehen|出撃地点をドラッグ|시작 지점 드래그|Тянуть старт|Arrastra un inicio
+移动 ·|move ·|déplacer ·|bewegen ·|移動 ·|이동 ·|переместить ·|mover ·
+右键/长按|Right-click / long-press|Clic droit / appui long|Rechtsklick / lange drücken|右クリック / 長押し|우클릭/길게 누르기|ПКМ / долгое нажатие|Clic derecho / mantener
+资源点|Resource|Ressource|Ressource|資源|자원|Ресурс|Recurso
+A 领地|Team A area|Zone A|Gebiet A|A 領地|A 영역|Зона A|Zona A
+B 领地|Team B area|Zone B|Gebiet B|B 領地|B 영역|Зона B|Zona B
+各玩家领地（每人一色）|Per-player territory|Territoire par joueur|Gebiet je Spieler|プレイヤー別の領地|플레이어별 영역|Территория игроков|Territorio por jugador
+孤岛|Isolated|Isolé|Isoliert|孤島|고립|Изолировано|Aislado
+接敌路线|Enemy routes|Routes vers l’ennemi|Wege zum Gegner|接敵ルート|적 접근 경로|Пути к врагу|Rutas al enemigo
+近家范围|Home range|Zone proche|Basisbereich|拠点範囲|기지 범위|Зона базы|Zona base
+陆/水不对称|Land/water mismatch|Terre/eau asymétrique|Land/Wasser asymmetrisch|陸 / 水の非対称|육지/물 비대칭|Асимметрия суша/вода|Tierra/agua asimétrica
+墙体不对称|Wall mismatch|Murs asymétriques|Mauern asymmetrisch|壁の非対称|벽 비대칭|Асимметрия стен|Muros asimétricos
+无镜像点|No mirror point|Sans miroir|Kein Spiegelpunkt|鏡像なし|대칭점 없음|Нет зеркальной точки|Sin punto espejo
+落点：冷 = 拥挤 · 暖 = 宽敞|Hotspots: cool = crowded · warm = roomy|Emplacements : froid = encombré · chaud = spacieux|Platzierung: kalt = eng · warm = geräumig|配置候補：寒色＝混雑・暖色＝広い|배치: 차가움=혼잡 · 따뜻함=여유|Места: холодно = тесно · тепло = просторно|Ubicaciones: frío = apretado · cálido = amplio
+正在处理…|Working…|Traitement…|Wird verarbeitet…|処理中…|처리 중…|Обработка…|Procesando…
+跳过动画|Skip animation|Passer l’animation|Animation überspringen|アニメーションをスキップ|애니메이션 건너뛰기|Пропустить анимацию|Saltar animación
+取消|Cancel|Annuler|Abbrechen|キャンセル|취소|Отмена|Cancelar
+退出专注|Exit focus|Quitter le mode focus|Fokus beenden|集中モード終了|집중 모드 종료|Выйти из фокуса|Salir del enfoque
+确定|OK|OK|OK|OK|확인|ОК|Aceptar
+选择|Select|Choisir|Wählen|選択|선택|Выбрать|Elegir
+执行|Run|Exécuter|Ausführen|実行|실행|Выполнить|Ejecutar
+开 / 关|On / off|Oui / non|An / aus|オン / オフ|켜기/끄기|Вкл / выкл|Sí / no
