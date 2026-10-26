@@ -46,8 +46,9 @@ android {
         // 3.24.0-offline (37) → 3.24.1-offline (38)：全量审查修复（种子折叠 / 配方码版本 / 模板场缓存 / 山地档位 / 对角对称宽度 / open_path 限定）
         // 3.24.1-offline (38) → 3.25.0-offline (39)：地形形态按「陆地比例参照物」重做（山湖 / 火山 / 两岸狭路 / 群岛 / 沙漠 / 大陆）
         // 3.25.0-offline (39) → 3.26.0-offline (40)：第二十轮审查修复 + 新旧对比 / 种子画廊 + 6 套新主题 + 9 种界面语言
-        versionCode = 40
-        versionName = "3.26.0-offline"
+        // 3.26.0-offline (40) → 3.27.0-offline (41)：第二十一轮 · 4 套衍生地形形态 + 形态总览 / 种子收藏 + 6 套新主题
+        versionCode = 41
+        versionName = "3.27.0-offline"
     }
     signingConfigs {
         create("release") {

@@ -6,6 +6,8 @@
  *      两岸的水全部是中央水道（两岸延伸到图边）+ 中间渡口始终相通；
  *   ⑤ 参照物单调：同一种子下中央湖 / 火口 / 中央水道的面积随陆地比例增大而严格减小；
  *   ④ 对称压力：全部模板 × 6 种镜像 × 10/50/90%，最终引擎矩阵逐格严格镜像。
+ *   3.27.0：新增环礁（潟湖经水道通外海 / 礁环被切成多块）、三角洲（源头与入海口 / 分汊 / 浅滩）、高原要塞（中央台地 / 不贴边）、
+ *           沼泽（≥ 6 个水塘 / 陆地到图边 / 浅滩连通）的形态特征断言。
  * 用法：node tools/land-ratio-test.js */
 const TS = require('../app/src/main/assets/terrain-shapes.js');
 const ratios = [0.1, 0.3, 0.5, 0.7, 0.9];
@@ -88,6 +90,43 @@ for (const shape of TS.SHAPES) for (const seed of seeds) for (const land of rati
   const V = r.view, at = (fx, fy) => V[Math.round((h - 1) * fy) * w + Math.round((w - 1) * fx)];
   const big = components(V, w, h, isLand).filter(s => s >= w * h * 0.004);
   switch (shape.id) {
+    /* 3.27.0：4 套新模板的形态特征 */
+    case 'atoll': {
+      // 潟湖：图心是水，且经四条斜向水道与外海连成一片；外缘一圈是海；常用比例下礁环被水道切成 ≥ 4 块
+      if (isLand(at(0.5, 0.5))) failures.push(`${tag}: lagoon center is land`);
+      if (land <= 0.7 && centralShare(V, w, h, isWater) < 0.97) failures.push(`${tag}: lagoon not linked to the sea (${centralShare(V, w, h, isWater).toFixed(3)})`);
+      if (borderLand(V, w, h) > 0) failures.push(`${tag}: atoll touches map border`);
+      if (land >= 0.3 && land <= 0.7 && big.length < 4) failures.push(`${tag}: reef ring not split by channels (${big.length})`);
+      break;
+    }
+    case 'delta': {
+      // 推荐 Y 轴对称：主河从上边缘中央流入，下边缘中央是外海；30%～70% 时有浅滩渡口连通两岸 / 沙洲
+      if (isLand(at(0.5, 0.01))) failures.push(`${tag}: river trunk missing at the source`);
+      if (isLand(at(0.5, 0.995))) failures.push(`${tag}: no sea at the river mouth`);
+      if (land >= 0.3 && land <= 0.7 && !r.stats.fords) failures.push(`${tag}: no fords across the delta`);
+      if (land >= 0.5 && land <= 0.7) {
+        // 分汊：入海口附近同一行上至少穿过 3 条河道（主河两侧的内汊 + 外汊）
+        const qc = Math.round(h * 0.56) * w; let runs = 0, prev = false;
+        for (let x = Math.round(w * 0.2); x < Math.round(w * 0.8); x++) { const wet = isWater(V[qc + x]); if (wet && !prev) runs++; prev = wet; }
+        if (runs < 3) failures.push(`${tag}: delta not branching (${runs} channels at 56%)`);
+      }
+      break;
+    }
+    case 'highland': {
+      if (borderLand(V, w, h) > 0) failures.push(`${tag}: highland island touches map border`);
+      if (land >= 0.3 && !(V[Math.round((h - 1) / 2) * w + Math.round((w - 1) / 2)] === TS.T.MOUNTAIN || V[Math.round((h - 1) / 2) * w + Math.round((w - 1) / 2)] === TS.VIEW.RAMP)) failures.push(`${tag}: no central plateau`);
+      if (land >= 0.3 && r.stats.mountainRatio < 0.03) failures.push(`${tag}: plateau too small (${r.stats.mountainRatio})`);
+      if (big.length !== 1) failures.push(`${tag}: landmasses=${big.length}`);
+      break;
+    }
+    case 'wetland': {
+      // 水塘：常用比例下至少 6 个独立水塘；陆地延伸到图边；最大陆块占全部陆地 ≥ 90%（浅滩连通）
+      const ponds = components(V, w, h, isWater).filter(s => s >= 12).length;
+      if (land >= 0.5 && land <= 0.7 && ponds < 6) failures.push(`${tag}: only ${ponds} ponds`);
+      if (land >= 0.5 && borderLand(V, w, h) < 0.4) failures.push(`${tag}: land does not reach the map border`);
+      if (land >= 0.3) { const all = components(V, w, h, isLand), tot = all.reduce((a, b) => a + b, 0), mx = Math.max(...all); if (mx / tot < 0.9) failures.push(`${tag}: land not connected (${(mx / tot).toFixed(3)})`); }
+      break;
+    }
     case 'island': {
       let shore = 0; for (let x = 0; x < w; x++) { if (isLand(V[x]) || isLand(V[(h - 1) * w + x])) shore++; }
       for (let y = 0; y < h; y++) { if (isLand(V[y * w]) || isLand(V[y * w + w - 1])) shore++; }
@@ -176,7 +215,7 @@ for (const shape of TS.SHAPES) for (const seed of seeds) {
   if (both / a < 0.9) failures.push(`${shape.id} seed=${seed}: 30% land only ${(both / a * 100).toFixed(1)}% contained in 70% land`);
 }
 // ⑤ 参照物单调：中央湖 / 火口 / 中央水道的面积随陆地比例增大而严格减小（其余水体也不应反向变化）
-for (const id of ['mountain_lake', 'volcano', 'two_sides', 'river', 'desert']) for (const seed of seeds) {
+for (const id of ['mountain_lake', 'volcano', 'two_sides', 'river', 'desert', 'atoll', 'delta', 'highland', 'wetland']) for (const seed of seeds) {
   let prev = Infinity;
   for (const land of ratios) {
     const r = built[`${id}|${seed}|${land}`]; if (!r) continue;

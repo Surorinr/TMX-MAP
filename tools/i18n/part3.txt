@@ -46,3 +46,37 @@
 建议：当前布局可用，可继续手动微调|Tip: layout is usable; fine-tune by hand if you like|Conseil : disposition correcte, ajustable à la main|Tipp: Layout passt, Feinschliff möglich|ヒント：現在の配置で問題なし。手動で微調整も可|추천: 현재 배치 사용 가능, 수동 조정 가능|Совет: расстановка годится, можно подправить|Consejo: la disposición sirve; ajústala si quieres
 已自动保存|Autosaved|Sauvegardé|Automatisch gespeichert|自動保存済み|자동 저장됨|Автосохранено|Guardado automático
 项目已保存|Project saved|Projet enregistré|Projekt gespeichert|プロジェクトを保存しました|프로젝트 저장됨|Проект сохранён|Proyecto guardado
+环礁|Atoll|Atoll|Atoll|環礁|환초|Атолл|Atolón
+三角洲|Delta|Delta|Delta|三角州|삼각주|Дельта|Delta
+高原要塞|Plateau Fortress|Forteresse du plateau|Plateaufestung|高原要塞|고원 요새|Плато-крепость|Fortaleza de meseta
+沼泽|Wetland|Marais|Sumpf|湿地|습지|Болото|Pantano
+环形珊瑚岛环抱中央潟湖，四条斜向水道连通潟湖与外海；陆地越少礁环越窄，适合海陆协同|A coral ring around a lagoon, linked to the sea by four diagonal channels — great for combined land–sea play|Anneau de corail autour d’un lagon relié à la mer par quatre chenaux|Korallenring um eine Lagune, vier Kanäle zum Meer|ラグーンを囲む環状の珊瑚島。斜めの水路 4 本で外海とつながる|석호를 둘러싼 환초, 네 개의 수로로 바다와 연결|Коралловое кольцо вокруг лагуны с четырьмя протоками|Anillo de coral alrededor de una laguna con cuatro canales al mar
+一条大河在入海口分汊成扇形水网，河汊之间是三角洲沙洲，浅滩渡口连通各洲；陆地越少河汊越宽、海岸越靠内|A great river fans out into channels at its mouth; fords link the delta islands|Un grand fleuve se divise en bras à son embouchure ; des gués relient les îles|Ein Strom fächert sich an der Mündung auf; Furten verbinden die Inseln|大河が河口で扇状に分かれ、浅瀬が中州を結ぶ|큰 강이 하구에서 갈라지고 여울이 삼각주 섬을 잇는다|Река ветвится в устье, броды связывают острова дельты|Un gran río se abre en brazos en su desembocadura; vados unen las islas
+海岛中央一座大型高原台地，四个斜角各有一座前哨台地，台地边缘有坡道可登；陆地越少外海越宽|A large central plateau with four corner outposts, reached by ramps|Grand plateau central et quatre avant-postes, accessibles par des rampes|Großes zentrales Plateau mit vier Außenposten und Rampen|中央の大きな台地と四隅の前哨台地。スロープで登れる|중앙 대형 고원과 네 모서리 전초 고원, 경사로로 오름|Большое центральное плато и четыре форпоста с подъёмами|Gran meseta central con cuatro puestos y rampas
+遍布大小水塘的湿地，塘边一圈芦苇草甸，陆路在水塘间蜿蜒；陆地越少水塘越大、越容易连成水网|Marshland dotted with reed-fringed ponds; paths wind between them|Marais parsemé d’étangs bordés de roseaux|Sumpfland mit schilfgesäumten Teichen|葦に囲まれた池が点在する湿地。道が池の間を縫う|갈대로 둘러싸인 연못이 흩어진 습지|Болотистая местность с прудами в камышах|Humedal salpicado de charcas con juncos
+潟湖与外海|lagoon & sea|lagon et mer|Lagune & Meer|ラグーンと外海|석호와 바다|лагуна и море|laguna y mar
+河汊与外海|channels & sea|bras et mer|Arme & Meer|分流と外海|지류와 바다|протоки и море|brazos y mar
+水塘|ponds|étangs|Teiche|池|연못|пруды|charcas
+外海|open sea|large|offenes Meer|外海|외해|открытое море|mar abierto
+形态总览|Shape overview|Aperçu des formes|Formenübersicht|形状一覧|형태 한눈에 보기|Обзор форм|Vista general de formas
+形态总览：一次预览全部地形形态，横向比较后选用|Shape overview: preview every terrain shape at once and pick one|Aperçu : toutes les formes d’un coup, puis choisir|Übersicht: alle Formen auf einmal vergleichen|形状一覧：全形状を一度に比べて選ぶ|형태 한눈에 보기: 모든 형태 비교 후 선택|Обзор: все формы сразу, выберите одну|Vista general: todas las formas a la vez
+一次预览全部地形形态，横向比较后选用（Shift+G）|Preview every terrain shape at once and pick one (Shift+G)|Toutes les formes d’un coup (Maj+G)|Alle Formen auf einmal (Umschalt+G)|全形状を一度に比較（Shift+G）|모든 형태 한 번에 비교 (Shift+G)|Все формы сразу (Shift+G)|Todas las formas a la vez (Mayús+G)
+选用此形态|Use this shape|Utiliser cette forme|Diese Form nutzen|この形状を使う|이 형태 사용|Выбрать форму|Usar esta forma
+选用并生成|Use & generate|Utiliser et générer|Nutzen & generieren|使って生成|사용 후 생성|Выбрать и создать|Usar y generar
+收藏|Save|Favori|Merken|お気に入り|즐겨찾기|В избранное|Favorito
+已收藏|Saved|En favori|Gemerkt|お気に入り済み|즐겨찾기됨|В избранном|En favoritos
+收藏的种子|Saved seeds|Graines favorites|Gemerkte Seeds|お気に入りシード|즐겨찾는 시드|Избранные сиды|Semillas favoritas
+移除收藏|Remove|Retirer|Entfernen|お気に入り解除|즐겨찾기 해제|Убрать|Quitar
+收藏 / 取消收藏所选种子（按形态分别保存在本机）|Save / unsave the selected seed (kept per shape on this device)|Ajouter / retirer la graine (par forme, sur l’appareil)|Seed merken / entfernen (je Form, auf dem Gerät)|選択シードをお気に入り / 解除（形状ごとに端末に保存）|선택 시드 즐겨찾기/해제 (형태별로 기기에 저장)|Добавить / убрать сид (по форме, на устройстве)|Guardar / quitar la semilla (por forma, en el dispositivo)
+水墨|Ink Wash|Lavis|Tuschmalerei|水墨|수묵|Тушь|Tinta china
+钢铁|Steel|Acier|Stahl|スチール|강철|Сталь|Acero
+薄荷|Mint|Menthe|Minze|ミント|민트|Мята|Menta
+雪夜|Snowy Night|Nuit de neige|Schneenacht|雪の夜|눈 내리는 밤|Снежная ночь|Noche nevada
+霓虹|Neon|Néon|Neon|ネオン|네온|Неон|Neón
+麦浪|Wheat Field|Champ de blé|Weizenfeld|麦畑|밀밭|Пшеничное поле|Trigal
+宣纸底色配朱砂红与墨色，留白多、层次干净的亮色主题|Rice-paper light theme with cinnabar and ink accents|Thème clair papier de riz, vermillon et encre|Helles Reispapier mit Zinnober und Tusche|和紙の地に朱と墨のライトテーマ|한지 바탕에 주홍과 먹색의 라이트 테마|Светлая тема «рисовая бумага», киноварь и тушь|Tema claro de papel de arroz con bermellón y tinta
+冷灰钢板 + 深绯红强调色，硬朗醒目的深色主题|Cold steel grey with deep crimson accents|Gris acier froid et cramoisi profond|Kühles Stahlgrau mit tiefem Karmesin|冷たい鋼色に深紅のアクセント|차가운 강철 회색과 진홍 포인트|Холодная сталь и тёмно-алый акцент|Gris acero frío con carmesí intenso
+清爽薄荷绿 + 翡翠强调色，低饱和不刺眼的亮色主题|Fresh mint light theme with emerald accents|Thème clair menthe, touches émeraude|Frisches Minz-Hell mit Smaragd|爽やかなミントとエメラルドのライトテーマ|산뜻한 민트와 에메랄드 라이트 테마|Свежая мятная светлая тема|Tema claro menta con esmeralda
+冷月薄雾下远近两层雪花轻轻摇曳飘落，灯火金点缀|Snow drifting gently under a cold moon, with lamplight gold|Neige légère sous une lune froide, lueur dorée|Sanfter Schnee unter kaltem Mond, goldenes Licht|冷たい月の下で舞う雪と灯りの金色|차가운 달빛 아래 흩날리는 눈과 등불 금빛|Лёгкий снег под холодной луной, золотой свет|Nieve suave bajo una luna fría, luz dorada
+地平线辉光与向前奔流的透视网格，复古霓虹风|Horizon glow and a rushing perspective grid — retro neon|Lueur d’horizon et grille en perspective, néon rétro|Horizontglühen und Perspektivraster, Retro-Neon|地平線の輝きと流れるグリッド。レトロネオン|지평선 빛과 흐르는 원근 격자, 레트로 네온|Сияние горизонта и бегущая сетка, ретро-неон|Brillo del horizonte y rejilla en perspectiva, neón retro
+午后暖阳下起伏的麦浪与上飘的蒲公英（亮色）|Rolling wheat and drifting dandelion seeds in warm sun (light)|Blé ondoyant et aigrettes de pissenlit (clair)|Wogender Weizen und Pusteblumen (hell)|暖かな日差しに揺れる麦とたんぽぽ（ライト）|햇살 아래 일렁이는 밀과 민들레 씨 (라이트)|Пшеница и пух одуванчиков (светлая)|Trigo ondulante y vilanos (claro)

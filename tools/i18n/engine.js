@@ -65,6 +65,13 @@
     [/^队伍 A (\d+) \/ B (\d+)$/, ['teams A $1 / B $2', 'équipes A $1 / B $2', 'Teams A $1 / B $2', 'チーム A $1 / B $2', '팀 A $1 / B $2', 'команды A $1 / B $2', 'equipos A $1 / B $2']],
     [/^含 TMX（(.+)）$/, ['incl. TMX ($1)', 'avec TMX ($1)', 'inkl. TMX ($1)', 'TMX 含む（$1）', 'TMX 포함 ($1)', 'с TMX ($1)', 'con TMX ($1)']],
     [/^已为每个出生点补齐近家资源点（共 \+(\d+)）$/, ['Home resources added for every spawn (+$1)', 'Ressources ajoutées à chaque départ (+$1)', 'Basisressourcen ergänzt (+$1)', '各出撃地点に資源を補充（+$1）', '각 시작 지점에 자원 보충 (+$1)', 'Ресурсы добавлены у стартов (+$1)', 'Recursos añadidos a cada inicio (+$1)']],
+    // 3.27.0：形态总览 / 种子收藏
+    [/^形态总览 · (\d+) 套$/, ['Shape overview · $1', 'Aperçu des formes · $1', 'Formenübersicht · $1', '形状一覧 · $1 種', '형태 한눈에 보기 · $1개', 'Обзор форм · $1', 'Vista general · $1']],
+    [/^已收藏「(.+?)」种子 (\d+)$/, ['Saved “$1” seed $2', 'Graine $2 de « $1 » en favori', 'Seed $2 von „$1“ gemerkt', '「$1」のシード $2 をお気に入りに追加', '‘$1’ 시드 $2 즐겨찾기', 'Сид $2 «$1» в избранном', 'Semilla $2 de «$1» guardada']],
+    [/^已取消收藏种子 (\d+)$/, ['Seed $1 removed from saved', 'Graine $1 retirée', 'Seed $1 entfernt', 'シード $1 のお気に入りを解除', '시드 $1 즐겨찾기 해제', 'Сид $1 удалён из избранного', 'Semilla $1 quitada']],
+    [/^载入种子 (\d+)$/, ['Load seed $1', 'Charger la graine $1', 'Seed $1 laden', 'シード $1 を読み込む', '시드 $1 불러오기', 'Загрузить сид $1', 'Cargar semilla $1']],
+    [/^移除收藏 (\d+)$/, ['Remove $1', 'Retirer $1', '$1 entfernen', '$1 を解除', '$1 해제', 'Убрать $1', 'Quitar $1']],
+    [/^已选中「(.+?)」$/, ['Selected “$1”', '« $1 » sélectionné', '„$1“ gewählt', '「$1」を選択', '‘$1’ 선택됨', 'Выбрано: «$1»', '«$1» seleccionado']],
     [/^已切换语言 · (.+)$/, ['Language: $1', 'Langue : $1', 'Sprache: $1', '言語：$1', '언어: $1', 'Язык: $1', 'Idioma: $1']],
     // 通用「A（B）」：只有括号内外都翻译成功才改写，否则保持原文（不会出现中文配半角括号）
     [/^(.+?)（(.+)）$/, ['$1 ($2)', '$1 ($2)', '$1 ($2)', '$1（$2）', '$1 ($2)', '$1 ($2)', '$1 ($2)'], true]

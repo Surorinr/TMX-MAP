@@ -62,18 +62,22 @@ try {
     htmlRes.text(), appRes.text(), cssRes.text(), workerRes.text(), shapeWorkerRes.text(), tsRes.text()
   ]);
   check('首页通过本地 HTTP 正常提供', htmlRes.status === 200 && html.includes('<html'));
-  check('前端版本为 v3.26.0', app.includes("const APP_VERSION = '3.26.0'") && app.includes('const PROJECT_FORMAT = 3260'));
-  // 3.25.0：陆地比例按参照物调节（山湖 ↔ 中央湖、火山 ↔ 周围陆地、两岸 ↔ 中央水道），沿岸骨架随水体缩放
+  check('前端版本为 v3.27.0', app.includes("const APP_VERSION = '3.27.0'") && app.includes('const PROJECT_FORMAT = 3270'));
   // 3.26.0
   const i18nRes = await fetch(base + '/i18n.js'); const i18n = await i18nRes.text();
+  // 3.27.0
+  check('3.27.0 新增 4 套形态（模板定义 / 缩略图 / 配方码末尾追加 / 版本 4 只用于新形态）', ['atoll', 'delta', 'highland', 'wetland'].every(id => ts.includes(`id: '${id}'`) && ts.includes(`case '${id}':`) && existsSync(resolve(ROOT, 'shapes', id + '.png'))) && app.includes("'two_sides', 'atoll', 'delta', 'highland', 'wetland']") && app.includes('u8(RECIPE_SHAPES_V4.includes(String(d.shape)) ? 4 : 3)') && ts.includes('meta.fordCap'));
+  check('3.27.0 新增 6 套主题（静态 3 + 动态 3）且有色板 / 深色按钮文字 / 暂停处理', ['ink', 'steel', 'mint', 'snow', 'neon', 'wheat'].every(t => css.includes(`body[data-theme="${t}"]`) && css.includes(`.tm-sw[data-sw="${t}"]`) && app.includes(`id: '${t}'`)) && css.includes('body:is([data-theme="snow"],[data-theme="neon"]) .primary') && css.includes('body.fx-off[data-fx="neon"] .fx-c::after{opacity:0!important}'));
+  check('3.27.0 形态总览 / 种子收藏 / 新角标锚点', ['async function showShapeOverview', 'function toggleSeedFav', "id: 'overview'", 'e.stopPropagation(); select(tiles[i])'].every(k => app.includes(k)) && html.includes('id="shapeOverview"') && ['.ov-grid', '.fav-row', '.new-dot'].every(k => css.includes(k)) && i18n.includes('"形态总览"'));
+  // 3.25.0：陆地比例按参照物调节（山湖 ↔ 中央湖、火山 ↔ 周围陆地、两岸 ↔ 中央水道），沿岸骨架随水体缩放
   check('3.26.0 多语言脚本可加载、在 app.js 之前引入、9 种语言', i18nRes.status === 200 && html.indexOf('src="i18n.js"') > 0 && html.indexOf('src="i18n.js"') < html.indexOf('src="app.js"') && ['zh-CN', 'zh-TW', "'en'", "'fr'", "'de'", "'ja'", "'ko'", "'ru'", "'es'"].every(k => i18n.includes(k)) && i18n.includes('MutationObserver'));
   check('3.26.0 逻辑不读取被翻译的界面文字（状态用 statusRaw）', app.includes('let statusRaw') && !app.includes("test($('status').textContent)"));
   check('3.26.0 新增 6 套主题（静态 3 + 动态 3）且有色板与暂停处理', ['sand', 'graphite', 'field', 'storm', 'firefly', 'sky'].every(t => css.includes(`body[data-theme="${t}"]`) && css.includes(`.tm-sw[data-sw="${t}"]`) && app.includes(`id: '${t}'`)) && css.includes('body.fx-off[data-fx="storm"] .fx-b{opacity:0!important}'));
   check('3.26.0 新旧对比 / 种子画廊 / 主题过渡 / 导入名称修复锚点', ['function showCompare', 'function stageCompare', 'function commitCompare', 'function showSeedGallery', 'function applyThemeAnimated', 'function releaseImportedName'].every(k => app.includes(k)) && ['id="cmpBtn"', 'id="shapeGallery"'].every(k => html.includes(k)) && ['.cmp-stage', '.gal-grid', '::view-transition-new(root)'].every(k => css.includes(k)) && css.includes("最多支持 100 个"));
   check('3.25.0 模板定义比例参照物 / 沿岸骨架 / 熔岩流反函数', ["ref: '中央湖'", "ref: '火山（岩浆）'", "ref: '中央水道'", 'const RING = {', 'function radBlend', 'const flowInv = R =>', "hole = shape === 'volcano' ? T.LAVA : T.WATER"].every(k => ts.includes(k)));
-  check('3.25.0 界面显示比例参照 / 配方码格式版本 3 并识别重做模板的旧码', html.includes('id="shapeLandRef"') && app.includes("$('shapeLandRef').textContent") && app.includes('const RECIPE_VERSION = 3') && app.includes('RECIPE_SHAPES_V3.includes(d.shape)'));
+  check('3.25.0 界面显示比例参照 / 配方码格式版本 3 并识别重做模板的旧码', html.includes('id="shapeLandRef"') && app.includes("$('shapeLandRef').textContent") && /const RECIPE_VERSION = [34]/.test(app) && app.includes('RECIPE_SHAPES_V3.includes(d.shape)'));
   // 3.24.1：全量审查修复锚点
-  check('3.24.1 形态种子按生成器规则折叠 / 配方码格式版本 2 且识别旧版形态码', app.includes('TerrainShapes.normSeed(v)') && app.includes('u8(RECIPE_VERSION)') && app.includes('(b[0] < 2 ||'));
+  check('3.24.1 形态种子按生成器规则折叠 / 配方码格式版本 2 且识别旧版形态码', app.includes('TerrainShapes.normSeed(v)') && (app.includes('u8(RECIPE_VERSION)') || app.includes('u8(RECIPE_SHAPES_V4.includes')) && app.includes('(b[0] < 2 ||'));
   check('3.24.1 模板场与比例无关并缓存 / 参数 NaN 防护 / 对角对称步长', ts.includes('const FIELD_CACHE_MAX = 160000') && !ts.includes('waterFrac') && ts.includes('const unit = (v, def)') && ts.includes('const cellQ = cellMin / (fr.E * fr.E)'));
   check('3.24.1 陆地比例滑块说明语义', html.includes('只改变陆地的多少'));
   check('3.21.0 陆地占比全路径为 10～90', [

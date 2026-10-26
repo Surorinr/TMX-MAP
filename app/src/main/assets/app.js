@@ -1,5 +1,7 @@
 /*
  * 铁锈战争地图生成器 · TMX MapForge Offline
+ * 版本 3.27.0 —— 第二十一轮：新增 4 套衍生地形形态（环礁 / 三角洲 / 高原要塞 / 沼泽，配方码格式版本 4 仅用于新形态）、
+ *              「形态总览」（Shift+G）、种子收藏、6 套新主题（水墨 / 钢铁 / 薄荷 · 雪夜 / 霓虹 / 麦浪）、形态卡片新角标与动效。
  * 版本 3.26.0 —— 第二十轮审查：修复导入后新地图沿用导入文件名、配方码旧版标记误报、出生点上限文案；新增「新旧对比」
  *              （X）、「形态种子画廊」（G）、主题圆形揭示过渡、6 套新主题（砂岩 / 石墨 / 战地 · 雷暴 / 萤林 / 晴空）、
  *              9 种界面语言（i18n.js：简 / 繁 / EN / FR / DE / 日 / 한 / RU / ES）。
@@ -99,8 +101,8 @@
  *   Pointer    —— 统一手势状态机：平移 / 双指缩放 / 画笔 / 多边形 / 放置 / 拖动出生点 / 长按删除
  *   Project    —— IndexedDB 项目存储（可保存大体积 TMX），兼容旧版 localStorage 草稿
  */
-const APP_VERSION = '3.26.0';
-const PROJECT_FORMAT = 3260; // 3.26.0：仅记录写入版本（读取时不校验），旧项目仍可读取（项目结构本轮无变化）
+const APP_VERSION = '3.27.0';
+const PROJECT_FORMAT = 3270; // 3.27.0：仅记录写入版本（读取时不校验），旧项目仍可读取（项目结构本轮无变化）
 const $ = id => document.getElementById(id);
 const MAX_SPAWN_POINTS = 100; // 3.19.0：50 → 100（51～100 号槽位的指挥中心瓦片在导出时自动补进 TMX，见 extendCcTileset）
 const ENGINE_MAX_CC = 50;     // 3.19.0：WASM 引擎与内置蓝图只有 50 个指挥中心槽位；超出部分由 JS 智能布点补齐
@@ -159,6 +161,10 @@ const THEMES = [
   { id: 'sand', name: '砂岩', group: '经典', bar: '#f8f3ea', tone: 'light', desc: '暖色纸张质感的亮色主题，陶土橙点缀，白天久看不累' },
   { id: 'graphite', name: '石墨', group: '经典', bar: '#141518', tone: 'dark', desc: '中性炭灰 + 琥珀强调色，不偏色，看地图配色最准' },
   { id: 'field', name: '战地', group: '经典', bar: '#12170e', tone: 'dark', desc: '军绿与卡其的深色主题，铁锈战争的战场味道' },
+  /* 3.27.0：再新增三套静态主题 */
+  { id: 'ink', name: '水墨', group: '经典', bar: '#f7f5ef', tone: 'light', desc: '宣纸底色配朱砂红与墨色，留白多、层次干净的亮色主题' },
+  { id: 'steel', name: '钢铁', group: '经典', bar: '#141920', tone: 'dark', desc: '冷灰钢板 + 深绯红强调色，硬朗醒目的深色主题' },
+  { id: 'mint', name: '薄荷', group: '经典', bar: '#f3faf6', tone: 'light', desc: '清爽薄荷绿 + 翡翠强调色，低饱和不刺眼的亮色主题' },
   { id: 'aurora', name: '极光', group: '动态', bar: '#08151f', tone: 'dark', fx: true, desc: '星空下缓缓摆动的极光带，星点闪烁' },
   { id: 'ember', name: '熔岩', group: '动态', bar: '#1a0d09', tone: 'dark', fx: true, desc: '底部呼吸的熔岩光晕与不断上升的火星' },
   { id: 'nebula', name: '星云', group: '动态', bar: '#110a22', tone: 'dark', fx: true, desc: '缓慢旋转的紫粉星云，偶尔有流星划过' },
@@ -167,7 +173,11 @@ const THEMES = [
   /* 3.26.0：新增三套动态主题 */
   { id: 'storm', name: '雷暴', group: '动态', bar: '#0d121c', tone: 'dark', fx: true, desc: '翻滚的云团与斜雨，偶尔一道柔和的闪电（不刺眼）' },
   { id: 'firefly', name: '萤林', group: '动态', bar: '#0a1712', tone: 'dark', fx: true, desc: '月下林间薄雾，成群萤火虫游走明灭' },
-  { id: 'sky', name: '晴空', group: '动态', bar: '#f3f8fd', tone: 'light', fx: true, desc: '暖阳光晕与远近两层缓缓飘过的白云（亮色）' }
+  { id: 'sky', name: '晴空', group: '动态', bar: '#f3f8fd', tone: 'light', fx: true, desc: '暖阳光晕与远近两层缓缓飘过的白云（亮色）' },
+  /* 3.27.0：再新增三套动态主题 */
+  { id: 'snow', name: '雪夜', group: '动态', bar: '#0f1620', tone: 'dark', fx: true, desc: '冷月薄雾下远近两层雪花轻轻摇曳飘落，灯火金点缀' },
+  { id: 'neon', name: '霓虹', group: '动态', bar: '#100b1c', tone: 'dark', fx: true, desc: '地平线辉光与向前奔流的透视网格，复古霓虹风' },
+  { id: 'wheat', name: '麦浪', group: '动态', bar: '#faf5e8', tone: 'light', fx: true, desc: '午后暖阳下起伏的麦浪与上飘的蒲公英（亮色）' }
 ];
 const THEME_AUTO = [
   { id: 'system', name: '跟随系统', group: '自动', desc: '跟随系统深浅色：浅色用「亮白」，深色用「深空」' },
@@ -5260,7 +5270,7 @@ function renderShapeGrid() {
   const items = [{ id: 'classic', label: '经典', desc: '原有 5×5 海岸线模板算法' }, ...TerrainShapes.SHAPES];
   box.innerHTML = items.map((s, i) => `<button type="button" class="shape-tile${s.id === shapeState.id ? ' active' : ''}" data-shape="${s.id}" role="radio" aria-checked="${s.id === shapeState.id}" title="${escapeHtml(s.desc)}" style="--d:${i * 28}ms">
       <span class="shape-thumb">${s.id === 'classic' ? '<svg viewBox="0 0 40 40" aria-hidden="true"><g fill="currentColor"><rect x="4" y="4" width="9" height="9" rx="2"/><rect x="15.5" y="15.5" width="9" height="9" rx="2"/><rect x="27" y="4" width="9" height="9" rx="2"/><rect x="4" y="27" width="9" height="9" rx="2"/><rect x="27" y="27" width="9" height="9" rx="2"/><rect x="15.5" y="4" width="9" height="9" rx="2" opacity=".35"/><rect x="4" y="15.5" width="9" height="9" rx="2" opacity=".35"/><rect x="27" y="15.5" width="9" height="9" rx="2" opacity=".35"/><rect x="15.5" y="27" width="9" height="9" rx="2" opacity=".35"/></g></svg>' : `<img src="shapes/${s.id}.png" alt="" loading="lazy" decoding="async">`}</span>
-      <span class="shape-name">${s.label}</span></button>`).join('');
+      <span class="shape-name">${s.label}</span>${s.from ? '<i class="new-dot" aria-hidden="true">新</i>' : ''}</button>`).join('');
   box.querySelectorAll('.shape-tile').forEach(b => b.onclick = () => selectShape(b.dataset.shape, true));
 }
 function syncShapeUI() {
@@ -6323,6 +6333,7 @@ function showHelp() {
       <div><kbd>K</kbd></div><div>落点热力：暖色 = 宽敞、冷色 = 拥挤，准星为最佳落点，可一键放置</div>
       <div><kbd>X</kbd></div><div>新旧对比：拖动分界线对照上一张与当前地图，查看健康度 / 公平度等指标的变化，不满意可一键换回</div>
       <div><kbd>G</kbd></div><div>形态种子画廊：同一套参数一次预览 6 个种子的轮廓，挑中后固定种子或直接生成</div>
+      <div><kbd>Shift</kbd>+<kbd>G</kbd></div><div>形态总览（3.27.0）：以当前参数一次预览全部 15 套地形形态，横向比较后选用；画廊里的 ☆ 可按形态收藏种子</div>
       <div><kbd>,</kbd> / <kbd>.</kbd></div><div>出生点巡视：飞到上一个 / 下一个出生点，并显示该玩家的领地、资源与接敌数据</div>
       <div><kbd>Ctrl</kbd>+<kbd>V</kbd></div><div>在画布区粘贴配方码（TMX1-…）：直接打开「使用配方码」</div>
       <div><kbd>[</kbd> / <kbd>]</kbd></div><div>画笔变小 / 变大</div>
@@ -6333,7 +6344,7 @@ function showHelp() {
     <p class="help-p">槽位规则：<b>出生点 N = 游戏玩家 N = 瓦片 team 属性 N-1</b>。导出前会按 team 属性写入 GID 并读回校验；修改队伍会自动重排槽位，「设为玩家 1」只交换槽位、不影响其他玩家。</p>
     <p class="help-p">地图体检：检查所有出生点之间是否有陆路相通、双方能控制多大的地盘（按行走距离划分，蓝 = A 队、红 = B 队、橙 = 无人可达的孤岛）、资源点分配是否均衡；点击问题项可直接定位到对应出生点。重新生成前会自动备份当前地图，可在「项目 / 恢复」中找回。</p>
     <p class="help-p">3.7.0：「择优」按钮一次生成多张候选地图并按体检分排序；体检新增接敌（Rush）距离——每位玩家走到最近敌人要多远，「路线」图层把这些最短路径画在地图上；导入的地图会读取 TMX 中的悬崖 / 水域瓦片，体检更精确；底部「海报」可导出带体检数据的分享图。</p>
-    <p class="help-p">3.8.0：「地形形态」提供 11 套模板（岛屿 / 半岛 / 群岛 / 双河 / 山湖 / 大陆 / 沙漠 / 雪原 / 火山 / 迷宫 / 两岸狭路），生成时自动对称、加浅滩渡口、为高地开坡道并打通被围死的空地；预览即成图（同一种子），种子可固定复用。山地会生成为带悬崖的高地，坡道处可通行。「另存为…」可自定义文件名、导出内容和保存位置（Android 可选导出文件夹）；画布与小地图按所选地形模板的贴图着色。</p>
+    <p class="help-p">3.8.0：「地形形态」提供 15 套模板（岛屿 / 半岛 / 群岛 / 双河 / 山湖 / 大陆 / 沙漠 / 雪原 / 火山 / 迷宫 / 两岸狭路，3.27.0 新增环礁 / 三角洲 / 高原要塞 / 沼泽），生成时自动对称、加浅滩渡口、为高地开坡道并打通被围死的空地；预览即成图（同一种子），种子可固定复用。山地会生成为带悬崖的高地，坡道处可通行。「另存为…」可自定义文件名、导出内容和保存位置（Android 可选导出文件夹）；画布与小地图按所选地形模板的贴图着色。</p>
     <p class="help-p">触屏：单指拖动平移，双指缩放（抬起一指可继续平移）；长按删除出生点/资源点；拖动出生点可直接移动。手机上右下角的悬浮按钮可直接生成 / 导出 / 撤销。</p>
     ${window.DesktopBridge ? '<p class="help-p">PC 版：<kbd>F11</kbd> 全屏；<kbd>Ctrl</kbd>+<kbd>O</kbd> 导入；把 TMX / 项目文件 / 地形图片拖进窗口即可导入；导出文件保存在「项目 / 恢复」卡片中设置的导出目录（默认系统下载目录）；关闭窗口前自动保存草稿。</p>' : ''}
     <p class="help-p">版本 v${APP_VERSION}${window.DesktopBridge ? ' · PC 版' : ''} · 所有计算均在本机完成，不联网。</p>`, [{ key: 'ok', label: '知道了', primary: true }]);
@@ -6399,6 +6410,7 @@ const CMDS = [
   { id: 'surprise', g: '地图', t: '惊喜生成（随机一套好玩的参数）', kw: 'jx surprise random suiji jingxi', run: clickId('surprise') },
   { id: 'lang', g: '系统', t: '切换界面语言（Language）', kw: 'yy qhyy language lang yuyan english 繁體 日本語 한국어', run: () => window.I18N?.openMenu() },
   { id: 'gallery', g: '地图', t: '形态种子画廊：一次预览 6 个种子，挑一个生成', k: 'G', kw: 'zzhl gallery seed zhongzi hualang xingtai', run: () => showSeedGallery() },
+  { id: 'overview', g: '地图', t: '形态总览：一次预览全部地形形态，横向比较后选用', k: 'Shift+G', kw: 'xtzl overview shape xingtai zonglan quanbu bijiao', run: () => showShapeOverview() },
   { id: 'name', g: '地图', t: '随机起一个地图名', kw: 'qm name mingzi suiji qiming', run: () => rollMapName(true) },
   { id: 'import', g: '地图', t: '导入 TMX / 项目文件', kw: 'dr import daoru tmx json', run: clickId('tmxImport') },
   { id: 'export', g: '导出', t: '导出 TMX + 小地图', k: 'Ctrl+E', kw: 'dc export daochu png', map: 1, run: () => exportPair() },
@@ -6587,7 +6599,7 @@ function drawProfileCursor(ctx) {
  * 导出文件名默认是「[p10]铁锈地图_20261019_1313」，在群里发了十几张图之后谁也分不清哪张是哪张。
  * 点地图名称旁的骰子（或命令面板「随机起名」），按「地形主题 + 地形形态 + 人数」生成一个好记的中文名，如「赤焰峡湾·5v5」。 */
 const NAME_PREFIX = { 1: ['翠影', '藤蔓', '雨林', '蛇牙', '密林', '绿谷'], 2: ['霜峰', '冰川', '白狼', '寒鸦', '雪线', '凛冬'], 3: ['熔岩', '赤焰', '焦土', '炎狱', '灰烬', '火脊'], 4: ['黄沙', '烈日', '蝎尾', '流沙', '旱海', '金丘'], 5: ['松涛', '暮林', '鹿角', '青苔', '晨雾', '橡木'] };
-const NAME_NOUN = { island: ['孤岛', '环礁'], peninsula: ['半岛', '海角'], archipelago: ['群岛', '列岛'], river: ['双河', '河口'], mountain_lake: ['山湖', '天池'], continent: ['大陆', '平原'], desert: ['沙海', '绿洲'], snowland: ['雪原', '冻土'], volcano: ['火山口', '熔炉'], labyrinth: ['迷城', '回廊'], two_sides: ['狭路', '对岸'] };
+const NAME_NOUN = { atoll: ['环礁', '潟湖'], delta: ['三角洲', '河口'], highland: ['高原', '要塞'], wetland: ['沼泽', '泽国'], island: ['孤岛', '海屿'], peninsula: ['半岛', '海角'], archipelago: ['群岛', '列岛'], river: ['双河', '河口'], mountain_lake: ['山湖', '天池'], continent: ['大陆', '平原'], desert: ['沙海', '绿洲'], snowland: ['雪原', '冻土'], volcano: ['火山口', '熔炉'], labyrinth: ['迷城', '回廊'], two_sides: ['狭路', '对岸'] };
 const NAME_CLASSIC = ['峡湾', '要塞', '走廊', '高地', '海峡', '防线', '盆地', '前哨', '港湾', '隘口', '战线', '河谷'];
 const pick = a => a[Math.floor(Math.random() * a.length)];
 function rollMapName(announce = false) {
@@ -6623,7 +6635,7 @@ async function copyPngToClipboard(bytes) {
  * Base64URL 编码后共 44 个字符（TMX1- + 39 位）。复制、截断、误改都能被校验发现；夹在聊天文字里整段粘贴也能识别。
  * 形态模式下种子一并写入，对方套用后地形轮廓完全一致；经典模式只保证参数一致（引擎的海岸线随机性不受种子控制）。
  * 字段表只能在末尾追加（RECIPE_* 列表的顺序就是编码值），保证旧码永远可解。 */
-const RECIPE_SHAPES = ['classic', 'island', 'peninsula', 'archipelago', 'river', 'mountain_lake', 'continent', 'desert', 'snowland', 'volcano', 'labyrinth', 'two_sides'];
+const RECIPE_SHAPES = ['classic', 'island', 'peninsula', 'archipelago', 'river', 'mountain_lake', 'continent', 'desert', 'snowland', 'volcano', 'labyrinth', 'two_sides', 'atoll', 'delta', 'highland', 'wetland']; // 3.27.0：末尾追加 4 套新形态
 const RECIPE_MIRRORS = ['none', 'horizontal', 'vertical', 'diagonal1', 'diagonal2', 'both'];
 const RECIPE_PRESETS = ['1v1', '2v2', '3v3', '4v4', '5v5', '10v10', '20v20', '25v25', 'free', '30v30', '40v40', '50v50', 'ffa']; // 只能在末尾追加；25v25 保留用于解码旧码（套用时落到「自由配置」）
 const RECIPE_SYM = ['strict', 'balanced', 'soft'];
@@ -6634,7 +6646,10 @@ const RECIPE_LEN = 29; // 27 字节参数 + 2 字节 CRC
  * 但同一种子生成的轮廓与当年不同；写入版本 2 以便解码时识别并提示。字段布局两版完全相同。 */
 /* 3.25.0：山湖 / 火山 / 两岸狭路 / 群岛 / 沙漠 / 大陆六个模板按「陆地比例参照物」重做（其余五个模板逐格不变），
  * 写入版本 3；版本 2 的这六个模板的形态码在解码时提示轮廓已更新。字段布局三版完全相同。 */
-const RECIPE_VERSION = 3;
+/* 3.27.0：新增 4 套形态（环礁 / 三角洲 / 高原要塞 / 沼泽），编码值追加在 RECIPE_SHAPES 末尾。用到新形态的码写版本 4，
+ * 其余仍写版本 3 —— 旧版 App 读到版本 4 会提示「请升级」，而不是笼统的「参数超出范围」；不用新形态的码在旧版里照常可用。 */
+const RECIPE_VERSION = 4;
+const RECIPE_SHAPES_V4 = ['atoll', 'delta', 'highland', 'wetland'];
 const RECIPE_SHAPES_V3 = ['mountain_lake', 'volcano', 'two_sides', 'archipelago', 'desert', 'continent'];
 const RECIPE_RE = /TMX1-([A-Za-z0-9_-]{39})/;
 const toB64Url = bytes => bytesToBase64(bytes).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
@@ -6663,7 +6678,7 @@ function encodeRecipe(d = recipeData()) {
   let o = 0;
   const u8 = x => { v.setUint8(o, x & 255); o += 1; }, u16 = x => { v.setUint16(o, x & 65535); o += 2; }, u32 = x => { v.setUint32(o, x >>> 0); o += 4; };
   const idx = (list, x, dft) => { const i = list.indexOf(String(x)); return i < 0 ? dft : i; };
-  u8(RECIPE_VERSION); u16(d.w); u16(d.h);
+  u8(RECIPE_SHAPES_V4.includes(String(d.shape)) ? 4 : 3); u16(d.w); u16(d.h);
   u8((clamp(d.ts | 0, 1, 5) << 4) | idx(RECIPE_MIRRORS, d.mirror, 2));
   u8(d.hl); u8(d.ol); u8(d.pl); u16(d.rs);
   let g = 0; (Array.isArray(d.grid) ? d.grid : DEFAULT_GRID).flat().slice(0, 25).forEach((x, i) => { if (Number(x)) g |= 1 << i; }); u32(g);
@@ -7591,6 +7606,7 @@ function bindControls() {
   $('projectPrev').onclick = () => restorePrevious();
   $('cmpBtn').onclick = () => showCompare();           // 3.26.0
   $('shapeGallery').onclick = () => showSeedGallery(); // 3.26.0
+  $('shapeOverview').onclick = () => showShapeOverview(); // 3.27.0
   $('userPreset').onchange = () => { const v = $('userPreset').value; $('presetDel').disabled = !v; if (v) applyUserPreset(v); };
   $('presetSave').onclick = () => saveUserPreset();
   $('presetDel').onclick = () => deleteUserPreset();
@@ -7733,7 +7749,8 @@ function bindKeyboard() {
       if (focusOn()) { setFocusMode(false); return; } // 3.17.0
       closeDrawer(); return;
     }
-    if (modalOpen()) { if (e.key === 'Enter' && !e.target.closest?.('.modal-actions button')) { e.preventDefault(); $('modal').querySelector('.primary-soft,.danger')?.click(); } return; }
+    /* 3.27.0 修复：形态总览的网格自己处理 Enter（= 选用），这里跳过；否则本监听（捕获阶段，先于网格执行）会先点主按钮「选用并生成」 */
+    if (modalOpen()) { if (e.key === 'Enter' && !e.target.closest?.('.modal-actions button,#ovGrid')) { e.preventDefault(); $('modal').querySelector('.primary-soft,.danger')?.click(); } return; }
     if (mod && e.key === 'Enter') { e.preventDefault(); if (e.shiftKey) generateBestOf(); else generate(); return; }
     // 3.6.0：保存 / 导出快捷键在输入框内同样有效（旧版焦点在「地图名称」等输入框时 Ctrl+S 没反应）
     if (mod && e.shiftKey && (e.key === 's' || e.key === 'S')) { e.preventDefault(); showSaveAs(); return; } // 3.8.0：另存为
@@ -7770,6 +7787,7 @@ function bindKeyboard() {
     else if (k === 'o') tuneFairness();                        // 3.20.0：公平度一键微调
     else if (k === 'k') setSpotLayer(!S.layers.spots);        // 3.20.0：落点热力
     else if (k === 'x') showCompare();                         // 3.26.0：新旧对比
+    else if (k === 'g' && e.shiftKey) showShapeOverview();     // 3.27.0：形态总览
     else if (k === 'g') showSeedGallery();                     // 3.26.0：形态种子画廊
     else if (k === '.' || k === '>') tourSpawn(1);            // 3.19.0：出生点巡视
     else if (k === ',' || k === '<') tourSpawn(-1);
@@ -7943,6 +7961,78 @@ async function showCompare() {
  * 换一批 / 关闭后，尚未返回的结果按批次号丢弃，不会画到新一批的格子里。 */
 const GALLERY_SIZE = 6;
 let galleryBatch = 0;
+/* ================================================================== 3.27.0 新功能 */
+/* ------------------------------------------------------------------ ① 种子收藏
+ * 种子画廊里挑到满意的轮廓后，以前只能「固定此种子」——换一个种子试别的就丢了。现在可以按形态收藏（每个形态最多 12 个，
+ * 保存在本机），画廊底部列出收藏夹，点选即放回第一格对照。只存种子数字，不影响项目文件与配方码。 */
+const SEED_FAV_KEY = 'tmx_seed_fav_v1', SEED_FAV_MAX = 12;
+function loadSeedFavs() { try { const o = JSON.parse(localStorage.getItem(SEED_FAV_KEY) || '{}'); return o && typeof o === 'object' && !Array.isArray(o) ? o : {}; } catch { return {}; } }
+function seedFavs(id) { const a = loadSeedFavs()[id]; return Array.isArray(a) ? a.filter(x => Number.isInteger(x) && x > 0).slice(0, SEED_FAV_MAX) : []; }
+function toggleSeedFav(id, seed) {
+  seed = Number(seed); if (!Number.isInteger(seed) || seed <= 0) return false;
+  const all = loadSeedFavs(); let a = seedFavs(id);
+  const on = !a.includes(seed);
+  a = on ? [seed, ...a].slice(0, SEED_FAV_MAX) : a.filter(x => x !== seed);
+  if (a.length) all[id] = a; else delete all[id];
+  try { localStorage.setItem(SEED_FAV_KEY, JSON.stringify(all)); } catch { /* 存储不可用时仅本次有效 */ }
+  return on;
+}
+/* ------------------------------------------------------------------ ② 形态总览（Shift+G）
+ * 15 套形态各有特点，以前只能逐个点选、看卡片里那一张预览，比较起来要来回切。总览以当前尺寸 / 陆地比例 / 山地 / 种子
+ * 一次排出全部形态的预览（同一形态 Worker 接口，逐张计算、算好一张显示一张）。「自动套用推荐」开启时每张按该形态的
+ * 推荐对称方式预览 —— 与选用后实际生成的一致（所见即所得）；关闭时统一用当前的对称方式。 */
+async function showShapeOverview() {
+  if (!guard() || !window.TerrainShapes) return;
+  const p0 = params(), seed = shapeSeed(), items = TerrainShapes.SHAPES;
+  let picked = shapeActive() ? shapeState.id : items[0].id;
+  const mirrorOf = sh => shapeState.auto ? sh.mirror : p0.mirroring;
+  const pr = uiChoice(`形态总览 · ${items.length} 套`, `
+    <p class="help-p">以当前参数（${p0.width}×${p0.height} · 陆地 ${shapeState.land}% · 种子 ${seed}${shapeState.auto ? ' · 各形态按推荐对称' : ' · ' + MIRROR_LABELS[p0.mirroring]}）预览全部形态，方便横向比较。点选一张后「选用」；双击直接生成。</p>
+    <div class="gal-grid ov-grid" id="ovGrid" role="listbox" aria-label="地形形态"></div>`,
+    [{ key: 'cancel', label: '取消' }, { key: 'use', label: '选用此形态' }, { key: 'gen', label: '选用并生成', primary: true }], { wide: true });
+  const grid = $('ovGrid'), batch = ++galleryBatch;
+  if (grid) {
+    grid.innerHTML = items.map((sh, i) => `<button type="button" class="gal-tile loading${sh.id === picked ? ' on' : ''}${shapeActive() && sh.id === shapeState.id ? ' cur' : ''}" role="option" aria-selected="${sh.id === picked}" data-shape="${sh.id}" title="${escapeHtml(sh.desc)}" style="--d:${i * 32}ms">
+      <span class="gal-cv"><canvas width="8" height="8"></canvas><i class="gal-spin" aria-hidden="true"></i></span>
+      <span class="gal-meta"><b>${sh.label}${sh.from ? '<em>新</em>' : ''}</b><small>计算中…</small></span></button>`).join('');
+    const select = t => { picked = t.dataset.shape; grid.querySelectorAll('.gal-tile').forEach(x => { const on = x === t; x.classList.toggle('on', on); x.setAttribute('aria-selected', String(on)); }); };
+    grid.addEventListener('click', e => { const t = e.target.closest('.gal-tile'); if (t) select(t); });
+    grid.addEventListener('dblclick', e => { const t = e.target.closest('.gal-tile'); if (t) { select(t); closeModal('gen'); } });
+    grid.addEventListener('keydown', e => {
+      const tiles = [...grid.querySelectorAll('.gal-tile')], i = tiles.indexOf(document.activeElement); if (i < 0) return;
+      // Enter = 选用（不生成）；阻止冒泡，否则全局「弹窗内 Enter = 主按钮」会再触发一次「选用并生成」
+      if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); select(tiles[i]); closeModal('use'); return; }
+      const cols = Math.max(1, getComputedStyle(grid).gridTemplateColumns.split(' ').filter(Boolean).length);
+      const to = { ArrowRight: i + 1, ArrowLeft: i - 1, ArrowDown: i + cols, ArrowUp: i - cols, Home: 0, End: tiles.length - 1 }[e.key];
+      if (to == null) return; e.preventDefault(); const t = tiles[clamp(to, 0, tiles.length - 1)]; t.focus(); select(t);
+    });
+    // uiChoice 会在 60ms 后把焦点交给主按钮；总览以浏览网格为主，稍后把焦点放回当前形态，方向键可直接使用
+    setTimeout(() => { if (grid.isConnected) (grid.querySelector('.gal-tile.on') || grid.querySelector('.gal-tile'))?.focus({ preventScroll: true }); }, 90);
+    (async () => {
+      for (const tile of grid.querySelectorAll('.gal-tile')) {
+        const sh = TerrainShapes.SHAPE_MAP.get(tile.dataset.shape);
+        try {
+          const r = await ShapeWorker.call('preview', { shape: sh.id, width: p0.width, height: p0.height, seed, land: shapeState.land / 100, rough: Number(shapeState.rough), mirror: mirrorOf(sh), maxSide: 110 });
+          if (batch !== galleryBatch || !tile.isConnected) return;
+          const cv = tile.querySelector('canvas');
+          cv.width = r.width; cv.height = r.height; cv.style.aspectRatio = `${p0.width} / ${p0.height}`;
+          cv.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(r.rgba), r.width, r.height), 0, 0);
+          tile.querySelector('small').textContent = `陆地 ${Math.round(r.stats.landRatio * 100)}% · 陆块 ${r.stats.landmasses} · 高地 ${Math.round(r.stats.mountainRatio * 100)}%`;
+          tile.classList.remove('loading'); tile.classList.add('ready');
+        } catch (e) {
+          if (batch !== galleryBatch || !tile.isConnected) return;
+          tile.classList.remove('loading'); tile.querySelector('small').textContent = e.cancelled ? '已取消' : '预览失败';
+        }
+      }
+    })();
+  }
+  const k = await pr;
+  galleryBatch++; // 关闭后丢弃尚未返回的预览
+  if (k !== 'use' && k !== 'gen') return;
+  selectShape(picked, true);
+  if (k === 'gen') generate();
+}
+
 async function showSeedGallery() {
   if (!guard()) return;
   if (!shapeActive()) {
@@ -7955,10 +8045,23 @@ async function showSeedGallery() {
   const p = uiChoice(`种子画廊 · ${m.label}`, `
     <p class="help-p">同一套参数（${p0.width}×${p0.height} · 陆地 ${shapeState.land}% · ${MIRROR_LABELS[p0.mirroring]}）下不同种子的轮廓。点选一张，再选择「固定此种子」或「用它生成」；双击预览直接生成。</p>
     <div class="gal-grid" id="galGrid" role="listbox" aria-label="候选种子"></div>
-    <div class="gal-bar"><button type="button" id="galReroll" class="gal-reroll"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg>换一批</button><span id="galPick" class="gal-pick" aria-live="polite"></span></div>`,
+    <div class="gal-bar"><div class="gal-actions"><button type="button" id="galReroll" class="gal-reroll"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg>换一批</button>
+      <button type="button" id="galStar" class="gal-star" aria-pressed="false" title="收藏 / 取消收藏所选种子（按形态分别保存在本机）"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="m12 3.5 2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.8-5.2 2.8 1-5.8-4.3-4.1 5.9-.9z"/></svg><span>收藏</span></button></div>
+      <span id="galPick" class="gal-pick" aria-live="polite"></span></div><div class="fav-row" id="galFavs" hidden></div>`,
     [{ key: 'cancel', label: '取消' }, { key: 'fix', label: '固定此种子' }, { key: 'gen', label: '用它生成', primary: true }], { wide: true });
   const grid = $('galGrid');
-  const showPick = () => { const el = $('galPick'); if (el) el.innerHTML = `已选种子 <b>${picked}</b>`; };
+  /* 3.27.0：种子收藏 —— 选中种子的收藏状态、收藏夹（点选即把该种子放到第一格并重新排一批） */
+  const renderFavs = () => {
+    const box = $('galFavs'); if (!box) return;
+    const favs = seedFavs(m.id);
+    box.hidden = !favs.length;
+    box.innerHTML = favs.length ? `<small>收藏的种子</small>` + favs.map((sd, i) => `<span class="chip fav-chip${sd === picked ? ' on' : ''}" style="--d:${i * 30}ms"><button type="button" class="fav-go" data-fav="${sd}" title="载入种子 ${sd}" style="all:unset;cursor:pointer">${sd}</button><button type="button" class="fav-x" data-unfav="${sd}" aria-label="移除收藏 ${sd}" title="移除收藏">✕</button></span>`).join('') : '';
+  };
+  const showPick = () => {
+    const el = $('galPick'); if (el) el.innerHTML = `已选种子 <b>${picked}</b>`;
+    const st = $('galStar'); if (st) { const on = seedFavs(m.id).includes(picked); st.classList.toggle('on', on); st.setAttribute('aria-pressed', String(on)); st.querySelector('span').textContent = on ? '已收藏' : '收藏'; }
+    renderFavs();
+  };
   const fill = async (seeds) => {
     const batch = ++galleryBatch;
     grid.innerHTML = seeds.map((sd, i) => `<button type="button" class="gal-tile loading${sd === picked ? ' on' : ''}" role="option" aria-selected="${sd === picked}" data-seed="${sd}" style="--d:${i * 50}ms">
@@ -7993,7 +8096,23 @@ async function showSeedGallery() {
       const tiles = [...grid.querySelectorAll('.gal-tile')], i = tiles.indexOf(document.activeElement); if (i < 0) return;
       const cols = Math.max(1, getComputedStyle(grid).gridTemplateColumns.split(' ').filter(Boolean).length);
       const to = { ArrowRight: i + 1, ArrowLeft: i - 1, ArrowDown: i + cols, ArrowUp: i - cols }[e.key];
-      if (to == null) return; e.preventDefault(); tiles[clamp(to, 0, tiles.length - 1)].focus();
+      if (to == null) return; e.preventDefault();
+      // 3.27.0 修复：方向键移动焦点的同时选中该种子。旧版只移动焦点，而弹窗里的 Enter 会直接触发「用它生成」，
+      // 生成的是之前用鼠标点过的那个种子，而不是键盘焦点所在的那张 —— 纯键盘无法挑选种子
+      const t = tiles[clamp(to, 0, tiles.length - 1)]; t.focus(); t.click();
+    });
+    $('galStar')?.addEventListener('click', () => {
+      const on = toggleSeedFav(m.id, picked), st = $('galStar');
+      st.classList.remove('pop'); void st.offsetWidth; if (on) st.classList.add('pop');
+      showPick(); toast(on ? `已收藏「${m.label}」种子 ${picked}` : `已取消收藏种子 ${picked}`, on ? 'success' : 'info', 2000);
+    });
+    $('galFavs')?.addEventListener('click', e => {
+      const x = e.target.closest('[data-unfav]');
+      if (x) { toggleSeedFav(m.id, Number(x.dataset.unfav)); showPick(); return; }
+      const g = e.target.closest('[data-fav]'); if (!g) return;
+      picked = Number(g.dataset.fav);
+      const favs = seedFavs(m.id).filter(v => v !== picked);
+      fill([picked, ...favs, ...fresh(GALLERY_SIZE)].filter((v, i, a) => a.indexOf(v) === i).slice(0, GALLERY_SIZE)); showPick();
     });
     $('galReroll')?.addEventListener('click', () => { const ic = $('galReroll').querySelector('svg'); ic?.classList.remove('spin'); void ic?.offsetWidth; ic?.classList.add('spin'); fill([picked, ...fresh(GALLERY_SIZE - 1).filter(x => x !== picked)].slice(0, GALLERY_SIZE)); });
     showPick();
@@ -8027,5 +8146,5 @@ function applyThemeAnimated(id, fromEl) {
   } catch { root.classList.remove('vt-theme'); applyTheme(id, true); }
 }
 
-if (/[?&]debug\b/.test(location.search)) window.__tmx = { S, Engine, currentSpawns, dims, getMatrix, patchTmxUnits, parseTmx, uiChoice, uiConfirm, globalUndo, globalRedo, removeSpawnIndex, spawnFairness, buildCcMap, ccMapFor, verifySpawnMapping, orderBySlot, makePlayerOne, showSlotTable, buildMapPngInfo, drawExportPng, showMapPngPreview, normalizeSlots, analyzeMap, doctorVerdicts, buildGrid, labelGrid, territoryBfs, showMapDoctor, setTerritoryLayer, hasManualWork, backupCurrent, restorePrevious, generate, loadPresets, saveUserPreset, applyUserPreset, deleteUserPreset, renderPresetOptions, syncTmxUnits, exportPair, rushAnalysis, costField, tmxTerrainMasks, setRoutesLayer, generateBestOf, buildPoster, showPoster, saveProject, wallLayerFor, shapeState, selectShape, ShapeWorker, shapeSeed, generateShapePipeline, queueShapePreview, showSaveAs, ExportLoc, patchTmxItems, resourcePoolGids, planNearSpawnResources, pickResourcePoints, groupSpawnOrbits, autoApplyNearSpawnResources, HistoryStore, pushHistorySnapshot, showHistory, randomizeParams, surpriseGenerate, removeNearSpawnResourceAt, mutateTmx, measure, setMeasure, densityInfo, openCmdk, closeCmdk, cmdkScore, CMDS, measureProfile, applyTheme, resolveTheme, readThemeChoice, cycleSlot, THEMES, THEME_CHOICES, openThemeMenu, closeThemeMenu, setFxEnabled, rollMapName, spawnUndoAction, profileHover, encodeRecipe, decodeRecipe, applyRecipe, recipeData, copyRecipe, pasteRecipe, health, runHealthBadge, loupe, setFocusMode, focusOn, saveViewShot, captureEditorState, restoreEditorState, restoreAfterAbort, resetAll, analyzeSymmetry, setSymmetryLayer, tourSpawn, closeSpawnCard, tour, playerRows, isFFA, tuneFairness, optimizeSpawnLayout, analyzeSpots, setSpotLayer, repairSpawnSymmetry, mapUnfinished, finishRemainingSteps, ccExtendableCap, onTeamModeChange, extendCcTileset, rushAnalysisFFA, recipeFrom, mapRecipeCode, flyViewTo, setPresetValue, ENGINE_MAX_CC, MAX_SPAWN_POINTS, projectPayload, restoreProject, loadTmxBytes, themeGridMove, showCompare, mapDigest, cmp, stageCompare, commitCompare, showSeedGallery, applyThemeAnimated, releaseImportedName, get routeCache() { return routeCache; } };
+if (/[?&]debug\b/.test(location.search)) window.__tmx = { S, Engine, currentSpawns, dims, getMatrix, patchTmxUnits, parseTmx, uiChoice, uiConfirm, globalUndo, globalRedo, removeSpawnIndex, spawnFairness, buildCcMap, ccMapFor, verifySpawnMapping, orderBySlot, makePlayerOne, showSlotTable, buildMapPngInfo, drawExportPng, showMapPngPreview, normalizeSlots, analyzeMap, doctorVerdicts, buildGrid, labelGrid, territoryBfs, showMapDoctor, setTerritoryLayer, hasManualWork, backupCurrent, restorePrevious, generate, loadPresets, saveUserPreset, applyUserPreset, deleteUserPreset, renderPresetOptions, syncTmxUnits, exportPair, rushAnalysis, costField, tmxTerrainMasks, setRoutesLayer, generateBestOf, buildPoster, showPoster, saveProject, wallLayerFor, shapeState, selectShape, ShapeWorker, shapeSeed, generateShapePipeline, queueShapePreview, showSaveAs, ExportLoc, patchTmxItems, resourcePoolGids, planNearSpawnResources, pickResourcePoints, groupSpawnOrbits, autoApplyNearSpawnResources, HistoryStore, pushHistorySnapshot, showHistory, randomizeParams, surpriseGenerate, removeNearSpawnResourceAt, mutateTmx, measure, setMeasure, densityInfo, openCmdk, closeCmdk, cmdkScore, CMDS, measureProfile, applyTheme, resolveTheme, readThemeChoice, cycleSlot, THEMES, THEME_CHOICES, openThemeMenu, closeThemeMenu, setFxEnabled, rollMapName, spawnUndoAction, profileHover, encodeRecipe, decodeRecipe, applyRecipe, recipeData, copyRecipe, pasteRecipe, health, runHealthBadge, loupe, setFocusMode, focusOn, saveViewShot, captureEditorState, restoreEditorState, restoreAfterAbort, resetAll, analyzeSymmetry, setSymmetryLayer, tourSpawn, closeSpawnCard, tour, playerRows, isFFA, tuneFairness, optimizeSpawnLayout, analyzeSpots, setSpotLayer, repairSpawnSymmetry, mapUnfinished, finishRemainingSteps, ccExtendableCap, onTeamModeChange, extendCcTileset, rushAnalysisFFA, recipeFrom, mapRecipeCode, flyViewTo, setPresetValue, ENGINE_MAX_CC, MAX_SPAWN_POINTS, projectPayload, restoreProject, loadTmxBytes, themeGridMove, showCompare, mapDigest, cmp, stageCompare, commitCompare, showSeedGallery, applyThemeAnimated, releaseImportedName, showShapeOverview, seedFavs, toggleSeedFav, get routeCache() { return routeCache; } };
 boot();

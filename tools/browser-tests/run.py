@@ -577,10 +577,93 @@ async def sec15(b, base):
     check('15h 首次启动按系统语言自动选择（ja-JP → 日本語）', r == ['ja', 'マップ生成'], str(r))
     await ctx.close()
 
+async def sec16(b, base):
+    # —— 16. 3.27.0：4 套新地形形态 / 形态总览 / 种子收藏 / 配方码版本 4 / 6 套新主题 ——
+    pg = await new_page(b, base); await pg.click('#animToggle')
+    # 16a 形态网格：16 格（经典 + 15 套），新形态带「新」角标，缩略图可加载
+    r = await pg.evaluate("""(async()=>{const t=[...document.querySelectorAll('#shapeGrid .shape-tile')];
+      const nw=t.filter(x=>x.querySelector('.new-dot')).map(x=>x.dataset.shape);
+      const imgs=[...document.querySelectorAll('#shapeGrid img')];await Promise.all(imgs.map(i=>i.decode().catch(()=>0)));
+      return [t.length,nw.join(','),imgs.every(i=>i.naturalWidth===96)]})()""")
+    check('16a 形态网格 16 格；环礁 / 三角洲 / 高原要塞 / 沼泽带「新」角标，缩略图可加载', r == [16, 'atoll,delta,highland,wetland', True], str(r))
+    # 16b 四套新形态逐一生成：套用推荐对称，出生点齐全、TMX 生成、状态显示形态名
+    res = []
+    for sid, lab in [('atoll', '环礁'), ('delta', '三角洲'), ('highland', '高原要塞'), ('wetland', '沼泽')]:
+        await pg.evaluate(f"window.__tmx.selectShape('{sid}', true)"); await pg.wait_for_timeout(300)
+        await gen(pg, w=140, players=8)
+        res.append(await pg.evaluate(f"[document.getElementById('mirror').value, window.__tmx.currentSpawns().length, !!window.__tmx.S.lastTmx, /「{lab}」地图生成完成/.test(document.getElementById('status').textContent)]"))
+    check('16b 环礁 / 三角洲 / 高原要塞 / 沼泽：推荐对称 + 8 个出生点 + TMX + 状态文字', res == [['both', 8, True, True], ['vertical', 8, True, True], ['both', 8, True, True], ['vertical', 8, True, True]], str(res))
+    # 16c 配方码：新形态写格式版本 4、旧形态仍写版本 3；往返一致
+    r = await pg.evaluate("""(()=>{const T=window.__tmx;const d=T.recipeData();const c4=T.encodeRecipe(d);const back=T.decodeRecipe(c4);
+      const c3=T.encodeRecipe({...d,shape:'island'});const v=c=>atob(c.slice(5).replace(/-/g,'+').replace(/_/g,'/')+'=').charCodeAt(0);
+      return [d.shape,v(c4),v(c3),back.data&&back.data.shape,!!back.data&&!back.data.legacyShape]})()""")
+    check('16c 配方码：新形态 → 版本 4、旧形态 → 版本 3；解码还原形态且不带旧版标记', r == ['wetland', 4, 3, 'wetland', True], str(r))
+    # 16d 形态总览：列出 15 套，逐张出图；点选「三角洲」→「选用此形态」后形态切换、推荐对称套用
+    await pg.keyboard.press('Shift+G')
+    await pg.wait_for_function("document.querySelectorAll('#ovGrid .gal-tile.ready').length === 15", timeout=60000)
+    n = await pg.evaluate("[document.querySelectorAll('#ovGrid .gal-tile').length, document.querySelector('#ovGrid .gal-tile.on')?.dataset.shape]")
+    await pg.click('#ovGrid [data-shape="delta"]')
+    await pg.click('#modal .modal-actions button:nth-child(2)'); await pg.wait_for_timeout(400)
+    r = await pg.evaluate("[window.__tmx.shapeState.id, document.getElementById('mirror').value, document.getElementById('modal').classList.contains('show')]")
+    check('16d 形态总览（Shift+G）：15 张预览全部出图、当前形态预选；选用三角洲后切换并套用推荐对称', n == [15, 'wetland'] and r == ['delta', 'vertical', False], f'{n} {r}')
+    # 16e 形态总览里按 Enter = 选用（不会连带触发「选用并生成」）
+    await pg.evaluate("void window.__tmx.showShapeOverview()"); await pg.wait_for_selector('#ovGrid [data-shape="atoll"]')  # 不返回 Promise：否则 evaluate 会一直等到弹窗关闭
+    await pg.wait_for_timeout(300)
+    foc = await pg.evaluate("document.activeElement?.dataset?.shape || ''")
+    await pg.focus('#ovGrid [data-shape="atoll"]'); await pg.keyboard.press('Enter'); await pg.wait_for_timeout(600)
+    r = await pg.evaluate("[window.__tmx.shapeState.id, !document.getElementById('busy').hidden || window.__tmx.S.locked]")
+    check('16e 形态总览：打开后焦点在当前形态上；Enter 只选用、不开始生成', foc == 'delta' and r == ['atoll', False], f'{foc} {r}')
+    # 16e2 种子画廊（3.26.0 功能的修复）：方向键移动焦点即选中，Enter 用焦点所在的种子生成
+    await pg.keyboard.press('g'); await pg.wait_for_timeout(500)
+    await pg.focus('#galGrid .gal-tile'); await pg.keyboard.press('ArrowRight'); await pg.wait_for_timeout(100)
+    want = await pg.evaluate("[Number(document.activeElement.dataset.seed), Number(document.querySelector('#galGrid .gal-tile.on').dataset.seed)]")
+    await pg.keyboard.press('Escape'); await pg.wait_for_timeout(400)
+    check('16e2 种子画廊：方向键移动焦点即选中该种子（修复：旧版 Enter 生成的是之前点过的种子）', want[0] == want[1], str(want))
+    # 16f 种子收藏：收藏 → 星标 + 收藏夹出现；重开画廊后仍在；移除后收藏夹隐藏
+    await pg.keyboard.press('g'); await pg.wait_for_timeout(500)
+    seed = await pg.evaluate("Number(document.querySelector('#galGrid .gal-tile.on').dataset.seed)")
+    await pg.click('#galStar'); await pg.wait_for_timeout(200)
+    r1 = await pg.evaluate("[document.getElementById('galStar').classList.contains('on'), [...document.querySelectorAll('#galFavs [data-fav]')].map(x=>+x.dataset.fav), JSON.parse(localStorage.getItem('tmx_seed_fav_v1')||'{}').atoll]")
+    await pg.keyboard.press('Escape'); await pg.wait_for_timeout(400)
+    await pg.keyboard.press('g'); await pg.wait_for_timeout(500)
+    r2 = await pg.evaluate("[...document.querySelectorAll('#galFavs [data-fav]')].map(x=>+x.dataset.fav)")
+    await pg.click(f'#galFavs [data-unfav="{seed}"]'); await pg.wait_for_timeout(200)
+    r3 = await pg.evaluate("[document.getElementById('galFavs').hidden, document.getElementById('galStar').classList.contains('on'), localStorage.getItem('tmx_seed_fav_v1')]")
+    await pg.keyboard.press('Escape'); await pg.wait_for_timeout(300)
+    check('16f 种子收藏：星标 / 收藏夹 / 本机保存，重开画廊仍在，移除后收藏夹隐藏', r1 == [True, [seed], [seed]] and r2 == [seed] and r3 == [True, False, '{}'], f'{r1} {r2} {r3}')
+    # 16g 6 套新主题：色调 / 动态图层 / 亮强调色主按钮用深色文字
+    await pg.add_style_tag(content='*,*::before,*::after{transition:none!important}')  # 按钮文字色有 0.18s 过渡：只验证层叠结果
+    out = []
+    for tid, tone, fx in [('ink', 'light', False), ('steel', 'dark', False), ('mint', 'light', False), ('snow', 'dark', True), ('neon', 'dark', True), ('wheat', 'light', True)]:
+        await pg.evaluate(f"window.__tmx.applyTheme('{tid}', false, false)"); await pg.wait_for_timeout(120)
+        out.append(await pg.evaluate("""(()=>{const b=document.body,fxv=getComputedStyle(document.querySelector('.theme-fx')).display;
+          const p=getComputedStyle(document.getElementById('generate')).color;return [b.dataset.tone,!!b.dataset.fx,fxv!=='none',p]})()"""))
+    ok = all(o[0] == t[1] and o[1] == t[2] and o[2] == t[2] for o, t in zip(out, [('ink', 'light', False), ('steel', 'dark', False), ('mint', 'light', False), ('snow', 'dark', True), ('neon', 'dark', True), ('wheat', 'light', True)]))
+    dark_ink = out[3][3] != 'rgb(255, 255, 255)' and out[4][3] != 'rgb(255, 255, 255)'
+    check('16g 新主题 水墨 / 钢铁 / 薄荷 / 雪夜 / 霓虹 / 麦浪：色调与动态图层正确，雪夜 / 霓虹主按钮用深色文字', ok and dark_ink, str(out))
+    # 16h 主题面板：22 个选项，经典 9 / 动态 11 / 自动 2；关闭动态背景时霓虹扫描线不可见
+    await pg.click('#themeToggle'); await pg.wait_for_timeout(350)
+    g = await pg.evaluate("[...document.querySelectorAll('#themeMenu .tm-grid')].map(x=>x.querySelectorAll('[data-theme-id]').length)")
+    await pg.keyboard.press('Escape'); await pg.wait_for_timeout(250)
+    await pg.evaluate("window.__tmx.applyTheme('neon', false, false); window.__tmx.setFxEnabled(false)"); await pg.wait_for_timeout(150)
+    sc = await pg.evaluate("getComputedStyle(document.querySelector('.theme-fx .fx-c'),'::after').opacity")
+    await pg.evaluate("window.__tmx.setFxEnabled(true)")
+    check('16h 主题面板分组 9 / 11 / 2；暂停动态背景时霓虹扫描线强制不可见', g == [9, 11, 2] and sc == '0', f'{g} {sc}')
+    # 16i 英文界面：新形态 / 新主题 / 新按钮被翻译
+    await pg.evaluate("window.I18N.set('en')"); await pg.wait_for_timeout(400)
+    r = await pg.evaluate("[document.querySelector('#shapeGrid [data-shape=\"wetland\"] .shape-name').textContent, document.getElementById('shapeOverview').innerText.trim()]")
+    await pg.evaluate("window.I18N.set('zh-CN')"); await pg.wait_for_timeout(200)
+    check('16i 英文界面：新形态名称与「形态总览」按钮被翻译', r == ['Wetland', 'Shape overview'], str(r))
+    check('16 测试过程无页面错误', not pg.errors, str(pg.errors[:3]))
+    await pg.context.close()
+
 async def main():
     srv = serve(); base = f'http://127.0.0.1:{srv.server_address[1]}/index.html?debug'
     async with async_playwright() as p:
         b = await p.chromium.launch(args=['--no-sandbox'])
+        if os.environ.get('ONLY') == '16':
+            await sec16(b, base); await b.close(); srv.shutdown()
+            print('SECTION 16 ' + ('PASSED' if not FAILED else f'FAILED ({len(FAILED)}): {FAILED}')); sys.exit(1 if FAILED else 0)
         if os.environ.get('ONLY') == '15':
             await sec15(b, base); await b.close(); srv.shutdown()
             print('SECTION 15 ' + ('PASSED' if not FAILED else f'FAILED ({len(FAILED)}): {FAILED}')); sys.exit(1 if FAILED else 0)
@@ -780,7 +863,7 @@ async def main():
         st = await pg.evaluate("""(()=>{const c=document.getElementById('map'),x=c.getContext('2d').getImageData(2,2,1,1).data;
           return {open:document.getElementById('themeMenu').classList.contains('show'),theme:document.body.dataset.theme,fx:document.body.dataset.fx,
           saved:localStorage.getItem('tmx_theme'),alpha:x[3],fxShown:getComputedStyle(document.querySelector('.theme-fx')).display}})()""")
-        check('主题面板列出 16 个选项（14 套主题 + 跟随系统 + 昼夜流转；3.26.0 新增 6 套）', n_items == 16, str(n_items))
+        check('主题面板列出 22 个选项（20 套主题 + 跟随系统 + 昼夜流转；3.26.0 / 3.27.0 各新增 6 套）', n_items == 22, str(n_items))
         check('选「极光」：面板保持打开、存储为 id、显示动态图层、画布空白处透明', st['open'] and st['theme'] == 'aurora' and st['fx'] == 'aurora' and st['saved'] == 'aurora' and st['alpha'] == 0 and st['fxShown'] == 'block', str(st))
         await pg.keyboard.press('Escape'); await pg.wait_for_timeout(300)
         check('Esc 关闭主题面板', not await pg.evaluate("document.getElementById('themeMenu').classList.contains('show')"))
@@ -818,6 +901,7 @@ async def main():
         await sec13(b, base)
         await sec14(b, base)
         await sec15(b, base)
+        await sec16(b, base)
         await b.close()
     srv.shutdown()
     print('\nALL BROWSER TESTS PASSED' if not FAILED else f'\nBROWSER TESTS FAILED ({len(FAILED)}): {FAILED}')

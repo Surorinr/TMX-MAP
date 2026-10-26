@@ -104,7 +104,12 @@
     { id: 'snowland', label: '雪原', desc: '冰雪覆盖的大地，峡湾海岸、冰湖与雪山', ref: '外海与峡湾', size: [140, 140], theme: 2, mirror: 'vertical', levels: 7, ocean: 2, magnet: 25, bridge: true },
     { id: 'volcano', label: '火山', desc: '中央火山：岩浆火口 + 熔岩流，火山锥沿火口环抱；陆地越少火山越大，外围始终是一圈陆地', ref: '火山（岩浆）', size: [120, 120], theme: 3, mirror: 'vertical', levels: 7, ocean: 2, magnet: 30, bridge: true },
     { id: 'labyrinth', label: '迷宫', desc: '高地山脊构成迷宫走廊，陆地越少外围走廊被水淹没得越多', ref: '外围水域', size: [160, 160], theme: 5, mirror: 'both', levels: 6, ocean: 1, magnet: 30, bridge: true },
-    { id: 'two_sides', label: '两岸狭路', desc: '中央水道把地图分为对峙两岸，两岸延伸到图边；陆地越少水道越宽，中间渡口始终相通', ref: '中央水道', size: [240, 110], theme: 1, mirror: 'vertical', levels: 6, ocean: 2, magnet: 20, bridge: false }
+    { id: 'two_sides', label: '两岸狭路', desc: '中央水道把地图分为对峙两岸，两岸延伸到图边；陆地越少水道越宽，中间渡口始终相通', ref: '中央水道', size: [240, 110], theme: 1, mirror: 'vertical', levels: 6, ocean: 2, magnet: 20, bridge: false },
+    /* 3.27.0：由现有模板衍生的 4 套新形态（模板场写法与 3.24.0 / 3.25.0 相同：P 陆地优先级 / fw 结构水域 / M 山地） */
+    { id: 'atoll', label: '环礁', desc: '环形珊瑚岛环抱中央潟湖，四条斜向水道连通潟湖与外海；陆地越少礁环越窄，适合海陆协同', ref: '潟湖与外海', size: [140, 140], theme: 1, mirror: 'both', levels: 4, ocean: 3, magnet: 20, bridge: false, from: ['island', 'mountain_lake'] },
+    { id: 'delta', label: '三角洲', desc: '一条大河在入海口分汊成扇形水网，河汊之间是三角洲沙洲，浅滩渡口连通各洲；陆地越少河汊越宽、海岸越靠内', ref: '河汊与外海', size: [160, 160], theme: 5, mirror: 'vertical', levels: 5, ocean: 3, magnet: 20, bridge: true, bridgeIter: 14, fordCap: 0.1, from: ['river', 'archipelago'] },
+    { id: 'highland', label: '高原要塞', desc: '海岛中央一座大型高原台地，四个斜角各有一座前哨台地，台地边缘有坡道可登；陆地越少外海越宽', ref: '外海', size: [150, 150], theme: 2, mirror: 'both', levels: 7, ocean: 2, magnet: 35, bridge: true, fordCap: 0.1, from: ['island', 'volcano'] },
+    { id: 'wetland', label: '沼泽', desc: '遍布大小水塘的湿地，塘边一圈芦苇草甸，陆路在水塘间蜿蜒；陆地越少水塘越大、越容易连成水网', ref: '水塘', size: [150, 150], theme: 1, mirror: 'vertical', levels: 4, ocean: 2, magnet: 20, bridge: true, bridgeIter: 20, fordCap: 0.1, from: ['desert', 'continent'] }
   ];
   const SHAPE_MAP = new Map(SHAPES.map(s => [s.id, s]));
 
@@ -237,6 +242,27 @@
       t.pen = { along, tip: mode === 'both' ? -0.16 : 0.5 + (rng() - 0.5) * 0.08, bend: fr.axis || mode === 'both' ? 0 : (rng() - 0.5) * 0.24, ph: rng() * 6.283 };
     } else if (shape === 'river') {
       t.riv = { ph1: rng() * 6.283, ph2: rng() * 6.283, f1: 1.1 + rng() * 0.5, f2: 1.1 + rng() * 0.5 };
+    } else if (shape === 'atoll') {
+      // 3.27.0 环礁：礁环半径（radBlend 度量）与水道方向。水道取 45° 斜向，对任意对称方式都自成镜像；不对称时整体随机旋转
+      t.atoll = { r0: 0.55 + (rng() - 0.5) * 0.06, rot: mode === 'none' ? rng() * Math.PI / 2 : 0 };
+    } else if (shape === 'delta') {
+      // 3.27.0 三角洲：主河在 aS 处一分为二（内汊），内汊在 aS2 处再分出外汊；coast 为海岸基线（沿河向坐标）
+      // 分汊点放在上游、海岸基线放在图中部：默认比例（50%）时外海约占四成，三角洲沙洲完整可见；陆地更多时海岸外推、河汊随之延长
+      const aS = -0.7 + (rng() - 0.5) * 0.08;
+      t.delta = { aS, aS2: aS + (0.26 + rng() * 0.06) * (1 - aS), fI: 0.22 + rng() * 0.05, fO: 0.55 + rng() * 0.08, coast: 0.04 + (rng() - 0.5) * 0.06, ph: rng() * 6.283 };
+    } else if (shape === 'highland') {
+      // 3.27.0 高原要塞：中央台地半径与四角前哨台地（斜 45° 方向，对任意对称方式都自成镜像）
+      t.hl = { rP: 0.27 + rng() * 0.04, rO: 0.6 + (rng() - 0.5) * 0.06, sO: 0.095 + rng() * 0.02 };
+    } else if (shape === 'wetland') {
+      // 3.27.0 沼泽：抖动网格上的椭圆水塘（约 15% 的格子空着，形成干燥草甸）；镜像后成对出现
+      const nx = Math.max(3, Math.min(8, Math.round(5 * Math.sqrt(asp)))), ny = Math.max(3, Math.min(8, Math.round(5 / Math.sqrt(asp))));
+      const cw = W / S / nx, ch = H / S / ny, ponds = [];
+      for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
+        if (rng() < 0.15) { rng(); rng(); rng(); rng(); continue; } // 跳过时仍消耗随机数，保持其余水塘位置稳定
+        const big = rng() < 0.18;
+        ponds.push({ x: (i + 0.5 + (rng() - 0.5) * 0.7) * cw, y: (j + 0.5 + (rng() - 0.5) * 0.7) * ch, r: (big ? 0.5 : 0.3 + rng() * 0.12) * Math.sqrt(cw * ch), ang: rng() * Math.PI, ex: 1 + rng() * 0.6 });
+      }
+      Object.assign(t, { ponds, cell: Math.sqrt(cw * ch) });
     } else if (shape === 'two_sides') {
       const j = (rng() - 0.5) * 0.12;
       t.cross = mode === 'both' ? [-0.56 - j, 0, 0.56 + j] : [-0.56 + (rng() - 0.5) * 0.1, (rng() - 0.5) * 0.08, 0.56 + (rng() - 0.5) * 0.1];
@@ -492,6 +518,100 @@
             m = 1.5 * (rg - 0.66) + 0.12 * (1 - qe);
             break;
           }
+          case 'atoll': {
+            // 3.27.0（岛屿 + 山湖衍生）：陆地是一条以 r0 为中线的圆形礁环，优先级 = 到礁环中线的距离（潟湖一侧加权，潟湖不会先被填平）；
+            // 陆地多则礁环变宽、潟湖与外海同时收窄，陆地少则礁环变窄、断成一串小岛（motu）。四条斜向水道在常用比例下都保持贯通。
+            const A0 = t.atoll, rr = Math.hypot(l, u);
+            let th = Math.atan2(u, l) - A0.rot;
+            const ct = rr > 1e-9 ? l / rr : 1, stt = rr > 1e-9 ? u / rr : 0;
+            const wob = 0.07 * sn(noise.fbm(ct * 1.7 + 12.9, stt * 1.7 + 44.1, 3));
+            // 礁环宽度沿环向起伏（宽处成岛、窄处成礁），只依赖角度：随比例变化时起伏位置不变
+            const motu = 0.05 * sn(noise.fbm(ct * 3.1 - 5.3, stt * 3.1 + 21.7, 3));
+            const rho = rr * (1 + wob);
+            const dr = (rho < A0.r0 ? (A0.r0 - rho) * 1.3 : (rho - A0.r0)) - motu;
+            // 水道：45° 斜向；水道不在对称轴上时（单轴 / 双轴 / 不对称）沿半径方向轻微弯曲，看起来像潮汐冲出的水道
+            if (mode !== 'diagonal1' && mode !== 'diagonal2') th += 0.1 * Math.sin(rr * 7 + A0.r0 * 40);
+            const arc = Math.min(angDist(th, Math.PI / 4), angDist(th, 3 * Math.PI / 4), angDist(th, -Math.PI / 4), angDist(th, -3 * Math.PI / 4)) * rr;
+            const chW = Math.max(1.4 * cellMin, 0.036), chan = smooth(chW * 2.2, chW, arc) * smooth(0.02, 0.07, rr); // 水道一直通到潟湖中心的结构水域
+            p = -(dr + 0.05 * nl + 0.02 * nm) - 2.2 * chan; // 水道优先级压得很低：80% 以下的陆地比例都保持贯通（潟湖 ↔ 外海），90% 时才被填平以达到目标比例
+            if (rr < 0.1) fw[k] = 1; // 潟湖中心：任何比例都保留
+            const edge = Math.min(px, py, W - 1 - px, H - 1 - py);
+            if (edge < Math.max(st, minSide * 0.015)) fw[k] = 1; // 外缘海带
+            m = 1.2 * (rg - 0.66) + 0.1 * nm;
+            break;
+          }
+          case 'delta': {
+            // 3.27.0（双河 + 群岛衍生）：q 沿河向（-1 上游 → +1 入海），s 横向。分汊只依赖 |s|，任意单轴对称下河网都严格自成镜像；
+            // 双轴对称时取 q = 2|a|−1：主河横贯图心，两端各成一片三角洲。
+            const D = t.delta;
+            let q, s;
+            if (mode === 'both') { q = 2 * Math.abs(a) - 1; s = b; }
+            else if (fr.axis) { q = a / fr.E; s = b / fr.E; }
+            else if (t.longAxisA) { q = l; s = u; } else { q = u; s = l; }
+            const ds = Math.abs(s);
+            const wig = kk => 0.05 * sn(noise.fbm(q * 2.6 + kk * 17.3 + D.ph, kk * 5.1 + 2.2, 3)); // 河汊蜿蜒（只依赖 q，左右严格对称）
+            const t1 = clamp01((q - D.aS) / (1 - D.aS)), t2 = clamp01((q - D.aS2) / (1 - D.aS2));
+            const cI = D.fI * Math.pow(t1, 0.8) + wig(1) * t1;
+            const cO = cI + (D.fO - D.fI) * Math.pow(t2, 0.75) + wig(2) * t2;
+            // 到最近河道的横向距离（在 |s| 上分区计算：主河 / 内汊 / 外汊）
+            let dch = q < D.aS ? ds : Math.abs(ds - cI);
+            if (q > D.aS2) dch = Math.min(dch, Math.abs(ds - cO));
+            // 河道宽度随下游缓慢增加；主河最窄处也至少约 2.5 格
+            const across = fr.axis ? cellQ : cellMin;
+            const hwFix = Math.max(1.25 * across, 0.016 + 0.008 * clamp01((q + 1) / 2));
+            if (dch < hwFix && q < 0.98) fw[k] = 1;
+            if (q > 0.95) fw[k] = 1; // 入海口外的海带：任何比例下河流都有出海口
+            // 海岸：三角洲向海中鼓出（中间外凸），海岸噪声只在海边起作用
+            const qc = D.coast + 0.26 * (1 - Math.min(1, ds / 0.95) ** 2) + 0.04 * nl;
+            // 河岸优先级按「绝对」距离、并在 RIV 处封顶：离河道足够远的陆地同等优先，比例变化时所有河汊同步加宽 / 收窄
+            // （若按各区宽度归一化，主河两岸那片宽阔陆地会让主河跟着变得极宽）；陆地再少时海岸线向上游退
+            const RIV = 0.12, pR = Math.min(dch, RIV) / RIV, pS = (qc - q) / 0.45;
+            const hk = Math.max(0, 0.18 - Math.abs(pR - pS)) / 0.18;
+            p = Math.min(pR, pS) - hk * hk * 0.05 + 0.05 * nl * smooth(0, 0.4, pR) + 0.02 * nm;
+            // 丘陵集中在上游，三角洲本身平坦
+            m = 1.4 * (rg - 0.66) + 0.35 * smooth(0.1, -0.85, q) + 0.02 + 0.1 * nm;
+            break;
+          }
+          case 'highland': {
+            // 3.27.0（岛屿 + 火山衍生）：岛形与岛屿模板一致（陆地比例 ↔ 外海）；中央是四瓣的大台地，四个斜角各有一座前哨台地。
+            // 台地写入 M = 1.95（略低于「骨架」的 2）：仍需离岸至少 2 格才成为高地，陆地很少时台地自动缩回岛内，不会贴着海岸形成悬崖。
+            const q = pnorm(l, u, 2.6);
+            p = -(q + 0.17 * nl + 0.06 * nm);
+            const edge = Math.min(px, py, W - 1 - px, H - 1 - py);
+            if (edge < Math.max(st, minSide * 0.015)) fw[k] = 1;
+            const Hh = t.hl, th = Math.atan2(u, l), rr = Math.hypot(l, u);
+            const ct = rr > 1e-9 ? l / rr : 1, stt = rr > 1e-9 ? u / rr : 0;
+            const wob = 0.07 * sn(noise.fbm(ct * 1.8 - 9.7, stt * 1.8 + 30.3, 3));
+            const rP = Hh.rP * (1 + 0.14 * Math.cos(4 * th) + wob);
+            let mo = 9;
+            for (const sx of [-1, 1]) for (const sy of [-1, 1]) mo = Math.min(mo, Math.hypot(l - sx * Hh.rO * Math.SQRT1_2, u - sy * Hh.rO * Math.SQRT1_2));
+            const rO = Hh.sO * (1 + 0.25 * sn(noise.fbm(X * 5.3 + 70.7, Y * 5.3 - 11.1, 3)));
+            if (rr < rP || mo < rO) m = 1.95;
+            else m = 1.2 * (rg - 0.66) + 0.1 * nm - 0.35 * smooth(rP + 0.12, rP, rr) - 0.35 * smooth(rO + 0.08, rO, mo); // 台地周围留出平地
+            break;
+          }
+          case 'wetland': {
+            // 3.27.0（沙漠绿洲 + 大陆内陆湖衍生）：陆地优先级 = 到最近水塘（椭圆）的相对距离，水塘随比例同步缩放；
+            // 陆地多时只剩塘心，陆地少时水塘相连成水网（由浅滩渡口连通各块陆地）。G 供芦苇草环跟随塘岸。
+            const wx = X + 0.05 * nl, wy = Y + 0.05 * sn(noise.fbm(X * 2.4 + 8.8, Y * 2.4 - 3.3, 3));
+            let best = 9, second = 9;
+            for (const pd of t.ponds) {
+              const dx = wx - pd.x, dy = wy - pd.y;
+              if (Math.abs(dx) > pd.r * 5 || Math.abs(dy) > pd.r * 5) continue;
+              const c = Math.cos(pd.ang), si = Math.sin(pd.ang);
+              const e1 = (dx * c + dy * si) / (pd.r * pd.ex), e2 = (-dx * si + dy * c) * pd.ex / pd.r;
+              const d = Math.hypot(e1, e2);
+              if (d < best) { second = best; best = d; } else if (d < second) second = d;
+            }
+            if (best < 0.38) fw[k] = 1;
+            // 塘间堤埂：到最近两个水塘距离相近处（Voronoi 边）优先保留为陆地。陆地很少时水塘连成水网，
+            // 剩下的陆地仍是一张连通的堤埂网，而不是一片湖里散落的碎岛
+            const levee = smooth(0.45, 0, second - best) * smooth(0.25, 0.8, best);
+            p = Math.min(2.5, best) * 0.55 + 0.65 * levee + (0.07 * nl + 0.05 * nm) * smooth(0.6, 1.2, best);
+            G[k] = p;
+            m = 1.3 * (rg - 0.66) + 0.1 * nm;
+            break;
+          }
           default: p = -Math.hypot(l, u) + 0.1 * nl;
         }
         P[k] = p; M[k] = m;
@@ -537,6 +657,8 @@
   /** 各模板的海岸材质 */
   function beachType(shape) {
     if (shape === 'snowland') return T.ICE;
+    if (shape === 'wetland') return T.DIRT;   // 3.27.0：沼泽的岸边是泥滩
+    if (shape === 'highland') return T.STONE;
     if (shape === 'volcano') return T.STONE;
     return T.SAND;
   }
@@ -545,12 +667,16 @@
     if (shape === 'desert') return tg === TAG.OASIS ? (v < 0.5 ? T.SHORT_GRASS : T.LONG_GRASS) : v < 0.585 ? T.SAND : v < 0.635 ? T.DIRT : T.STONE;
     if (shape === 'snowland') return v < 0.53 ? T.SNOW : v < 0.6 ? T.ICE : T.STONE;
     if (shape === 'volcano') return tg === TAG.ASH ? (v < 0.47 ? T.STONE : T.DIRT) : v < 0.47 ? T.LONG_GRASS : v < 0.55 ? T.SHORT_GRASS : v < 0.61 ? T.DIRT : T.STONE;
+    // 3.27.0：沼泽 = 芦苇（长草）为主 + 泥地；高原 = 高寒草甸 + 碎石 + 残雪；环礁 / 三角洲沿用默认的草地调色板
+    if (shape === 'wetland') return tg === TAG.OASIS ? T.LONG_GRASS : v < 0.5 ? T.SHORT_GRASS : v < 0.6 ? T.LONG_GRASS : T.DIRT;
+    if (shape === 'highland') return v < 0.48 ? T.SHORT_GRASS : v < 0.56 ? T.DIRT : v < 0.62 ? T.STONE : T.SNOW;
     return v < 0.45 ? T.SHORT_GRASS : v < 0.55 ? T.LONG_GRASS : v < 0.615 ? T.DIRT : T.STONE;
   }
   /** 「多」/「标准」/「少」山地 → 山地强度阈值 */
   /** 山地的「离岸相对深度」权重：岛屿的山地应始终位于岛心，与岛的大小无关 */
-  const MOUNT_REL = { island: 1.3, peninsula: 0.35, continent: 0.35, snowland: 0.3 };
-  const MOUNT_THR = { island: 0.32, peninsula: 0.62, archipelago: 0.9, river: 0.72, mountain_lake: 0.2, continent: 0.32, desert: 0.62, snowland: 0.16, volcano: 0.45, labyrinth: 0.72, two_sides: 0.42 };
+  const MOUNT_REL = { island: 1.3, peninsula: 0.35, continent: 0.35, snowland: 0.3, atoll: 0.9 };
+  const MOUNT_THR = { island: 0.32, peninsula: 0.62, archipelago: 0.9, river: 0.72, mountain_lake: 0.2, continent: 0.32, desert: 0.62, snowland: 0.16, volcano: 0.45, labyrinth: 0.72, two_sides: 0.42,
+    atoll: 0.5, delta: 0.6, highland: 0.62, wetland: 0.72 };
 
   /**
    * 由模板场得到最终地形类别（已镜像）。
@@ -587,7 +713,7 @@
     const thr = (MOUNT_THR[shape] ?? 0.6) + (clamp01(rough) - 0.3) * 0.3;
     const mountDepth = Math.max(2, 3 / st);  // 普通山地至少离岸 2 格（按预览步长折算，至少 2 格）
     const wob = new PermNoise((F.seed ^ 0x7f4a7c15) >>> 0);
-    const beachCells = shape === 'snowland' ? 2.4 : shape === 'labyrinth' ? 1.2 : shape === 'archipelago' ? 1.5 : 1.9;
+    const beachCells = shape === 'snowland' || shape === 'atoll' ? 2.4 : shape === 'labyrinth' ? 1.2 : shape === 'archipelago' || shape === 'wetland' ? 1.5 : 1.9;
     // 沿岸骨架（3.25.0）：山湖的环形山 / 火山的火山锥按「到水体岸线的距离」G − τ 放置，随中央湖 / 火口一起缩放。
     // band 为岸线到图边的带宽（归一化），山环宽度与岸边留白按带宽同比变化，并有以格计的下限；带宽不够时不放山环。
     const rc = RING[shape], cell = F.cell || 0.02;
@@ -600,7 +726,7 @@
       gAsh = g1 + (rc.ash || 0) * band;
       passHalf = Math.max(rc.pc * cell, rc.p);
     }
-    const oasisBand = shape === 'desert' ? 0.4 : 0;
+    const oasisBand = shape === 'desert' ? 0.4 : shape === 'wetland' ? 0.16 : 0; // 3.27.0：沼泽的芦苇草环跟随塘岸
     for (let k = 0; k < n; k++) {
       if (cats[k] !== T.SAND) continue;
       const c = src ? src(k) : k, cx = c % gw, cy = (c / gw) | 0;
@@ -869,7 +995,7 @@
     if (meta.bridge) {
       const maxGap = Math.max(10, Math.round(Math.min(w, h) * 0.14));
       const links = 1;
-      for (let iter = 0; iter < 10; iter++) {
+      for (let iter = 0, maxIter = meta.bridgeIter || 10; iter < maxIter; iter++) { // 3.27.0：水网型模板（沼泽 / 三角洲）陆块更多，允许多连几轮
         const L = label(k => land[k] === 1, w, h, false);
         let landTotal = 0; for (let i = 1; i < L.sizes.length; i++) landTotal += L.sizes[i];
         const bigMin = Math.max(60, landTotal * 0.04);
@@ -889,6 +1015,9 @@
           if (!st.length) break;
           const path = bfsPath(buf, st, k => !land[k], k => others.has(L.label[k]), w, h, maxGap);
           if (!path) break;
+          // 3.27.0：fordCap（仅新模板设置）—— 浅滩总量超过陆地的一定比例时不再继续连。陆地极少（≈10%）时陆块彼此相距很远，
+          // 一圈浅滩会让陆地比例明显超标（三角洲 80×80 双轴 10% 实测 13.3%）；旧模板不设此项，输出逐格不变
+          const bak = meta.fordCap ? [land.slice(), ford.slice()] : null;
           for (const k of path) {
             const r = (k / w) | 0, c = k - r * w;
             for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
@@ -898,6 +1027,10 @@
             }
           }
           mirror(land); mirror(ford);
+          if (bak) {
+            let fn = 0, ln = 0; for (let k = 0; k < n; k++) { fn += ford[k]; ln += land[k]; }
+            if (fn > ln * meta.fordCap) { land.set(bak[0]); ford.set(bak[1]); stats.connected = false; break; }
+          }
           stats.fords++; carved = true;
           if (firstAt < 0) firstAt = path[path.length - 1];
           if (iter > 0 && li === 0) { /* 后续轮次只为新连通的块各开一处 */ break; }
