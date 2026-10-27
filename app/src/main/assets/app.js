@@ -1,7 +1,9 @@
 /*
  * 铁锈战争地图生成器 · TMX MapForge Offline
- * 版本 3.28.0 —— 第二十二轮：修复主题切换闪帧 / 快速连点过渡竞态、合并重复画布重绘；保留 3.27.0 的地形与配方兼容性。
- * 上一版 3.27.0：新增 4 套衍生地形形态（环礁 / 三角洲 / 高原要塞 / 沼泽，配方码格式版本 4 仅用于新形态）、
+ * 版本 3.30.0 —— 自动保存失败可见化与备份快捷入口；隔离保存状态与草稿恢复入口，避免自动保存覆盖「立即恢复」链接；
+ *              增加未处理脚本错误 / 异步拒绝的节流提示，保留控制台诊断；跨平台版本滚动。
+ * 上一版 3.28.0：第二十二轮——修复主题切换闪帧 / 快速连点过渡竞态、合并重复画布重绘；保留 3.27.0 的地形与配方兼容性。
+ * 版本 3.27.0：新增 4 套衍生地形形态（环礁 / 三角洲 / 高原要塞 / 沼泽，配方码格式版本 4 仅用于新形态）、
  *              「形态总览」（Shift+G）、种子收藏、6 套新主题（水墨 / 钢铁 / 薄荷 · 雪夜 / 霓虹 / 麦浪）、形态卡片新角标与动效。
  * 版本 3.26.0 —— 第二十轮审查：修复导入后新地图沿用导入文件名、配方码旧版标记误报、出生点上限文案；新增「新旧对比」
  *              （X）、「形态种子画廊」（G）、主题圆形揭示过渡、6 套新主题（砂岩 / 石墨 / 战地 · 雷暴 / 萤林 / 晴空）、
@@ -102,8 +104,8 @@
  *   Pointer    —— 统一手势状态机：平移 / 双指缩放 / 画笔 / 多边形 / 放置 / 拖动出生点 / 长按删除
  *   Project    —— IndexedDB 项目存储（可保存大体积 TMX），兼容旧版 localStorage 草稿
  */
-const APP_VERSION = '3.28.0';
-const PROJECT_FORMAT = 3280; // 3.28.0：仅记录写入版本（读取时不校验），项目结构不变，旧项目仍可读取
+const APP_VERSION = '3.30.0';
+const PROJECT_FORMAT = 3300; // 3.30.0：仅增加状态反馈与错误提示，不改变项目载荷；旧项目照常读取
 const $ = id => document.getElementById(id);
 const MAX_SPAWN_POINTS = 100; // 3.19.0：50 → 100（51～100 号槽位的指挥中心瓦片在导出时自动补进 TMX，见 extendCcTileset）
 const ENGINE_MAX_CC = 50;     // 3.19.0：WASM 引擎与内置蓝图只有 50 个指挥中心槽位；超出部分由 JS 智能布点补齐
@@ -334,6 +336,30 @@ function toast(msg, type = 'info', ms = 2800, opts = {}) {
   armToast(t, ms);
   return t;
 }
+
+/* 3.30.0：未处理错误可见化。只记录并提示，不吞掉异常；短时间内重复错误不会刷屏。 */
+const runtimeDiagnostics = { last: null, count: 0, lastToastAt: 0, lastFingerprint: '', lastFingerprintAt: 0 };
+function reportRuntimeFault(kind, reason, source = '', line = 0) {
+  const message = String(reason?.message || reason || '未知错误').replace(/\s+/g, ' ').trim().slice(0, 220);
+  if (!message || message === 'Script error.') return;
+  const now = Date.now(), fingerprint = `${kind}:${message}`;
+  if (fingerprint === runtimeDiagnostics.lastFingerprint && now - runtimeDiagnostics.lastFingerprintAt < 15000) runtimeDiagnostics.count++;
+  else { runtimeDiagnostics.lastFingerprint = fingerprint; runtimeDiagnostics.lastFingerprintAt = now; runtimeDiagnostics.count = 1; }
+  const shortSource = String(source || '').split(/[\\/]/).pop().slice(0, 80);
+  runtimeDiagnostics.last = { kind, message, source: shortSource, line: Number(line) || 0, at: now, repeated: runtimeDiagnostics.count };
+  console.error(`[TMX MapForge] ${kind}: ${message}`, source ? `${shortSource}${line ? ':' + line : ''}` : '', reason);
+  if (document.hidden || now - runtimeDiagnostics.lastToastAt < 7000) return;
+  runtimeDiagnostics.lastToastAt = now;
+  const where = shortSource ? `（${shortSource}${line ? ':' + line : ''}）` : '';
+  toast(`检测到未处理的${kind}：${message}${where}。本次操作可能未完成，请重试；若持续出现，请记录此错误信息。`, 'error', 6200);
+}
+window.addEventListener('error', event => {
+  const message = event?.message || event?.error?.message;
+  if (message) reportRuntimeFault('脚本错误', message, event.filename, event.lineno);
+});
+window.addEventListener('unhandledrejection', event => {
+  reportRuntimeFault('异步错误', event?.reason);
+});
 
 /* ------------------------------------------------------------------ UI 基础：状态栏 / 运行时 */
 /* 3.26.0：界面可切换语言后，#status 的文字会被 i18n.js 翻译；逻辑判断一律用原文 statusRaw，不读界面文字 */
@@ -5530,16 +5556,31 @@ function projectPayloadRaw() {
 }
 /** 3.19.0：当前地图「生成时」的配方码；分步编辑 / 导入的地图没有完整生成参数，返回 null */
 function mapRecipeCode() { try { return S.snapshot && S.mapRecipe ? encodeRecipe(S.mapRecipe) : null; } catch { return null; } }
+let lastAutoSaveFailureToastAt = 0;
+function setSaveStatus(state, message) {
+  const el = $('saveStatus'); if (!el) return;
+  el.hidden = false; el.dataset.state = state; el.textContent = message;
+}
 async function saveProject(silent = false) {
   try {
     if (S.unitsDirty && S.lastTmx) await syncTmxUnits();
     await ProjectStore.put('current', projectPayload());
     const t = new Date().toLocaleTimeString();
-    $('projectInfo').textContent = `${silent ? '已自动保存' : '项目已保存'} · ${t}${S.lastTmx ? ` · 含 TMX（${(S.lastTmx.length / 1024).toFixed(0)} KB）` : ''}`;
+    setSaveStatus('saved', `${silent ? '草稿已自动保存' : '草稿已保存'} · ${t}${S.lastTmx ? ` · 地图 ${(S.lastTmx.length / 1024).toFixed(0)} KB` : ''}`);
+    lastAutoSaveFailureToastAt = 0;
     if (!silent) toast('项目已保存到本机', 'success');
+    return true;
   } catch (e) {
-    if (!silent) toast('项目保存失败：' + e.message, 'error');
-    else console.warn('自动保存失败', e);
+    const detail = String(e?.message || e || '未知错误').replace(/\s+/g, ' ').slice(0, 180);
+    setSaveStatus('error', `${silent ? '自动保存失败' : '项目保存失败'}：${detail}。建议立即导出项目文件备份。`);
+    console.warn(silent ? '自动保存失败' : '项目保存失败', e);
+    const now = Date.now();
+    if (!silent) toast(`项目保存失败：${detail}。可先导出项目文件备份。`, 'error', 7000, { action: { label: '导出备份', fn: () => exportProject() } });
+    else if (now - lastAutoSaveFailureToastAt > 45000) {
+      lastAutoSaveFailureToastAt = now;
+      toast(`自动保存失败：${detail}。当前编辑可能尚未可靠保存。`, 'error', 7000, { action: { label: '导出备份', fn: () => exportProject() } });
+    }
+    return false;
   }
 }
 let autoSaveTimer = null;
@@ -5600,6 +5641,8 @@ async function loadProject() {
       if (!p) { toast('没有找到本机项目草稿'); return; }
       busy(true, '正在恢复项目…', '', null, { cancellable: false });
       await restoreProject(p, '项目草稿');
+      // 3.30.0：成功恢复后移除一次性「立即恢复」入口，保存状态由独立 saveStatus 展示。
+      $('projectInfo').textContent = '已恢复本机项目草稿，可继续编辑。';
     } catch (e) { toast('项目恢复失败：' + e.message, 'error'); }
     finally { busy(false); }
   });
@@ -8188,5 +8231,5 @@ function applyThemeAnimated(choice, fromEl) {
   }, 240);
 }
 
-if (/[?&]debug\b/.test(location.search)) window.__tmx = { S, Engine, currentSpawns, dims, getMatrix, patchTmxUnits, parseTmx, uiChoice, uiConfirm, globalUndo, globalRedo, removeSpawnIndex, spawnFairness, buildCcMap, ccMapFor, verifySpawnMapping, orderBySlot, makePlayerOne, showSlotTable, buildMapPngInfo, drawExportPng, showMapPngPreview, normalizeSlots, analyzeMap, doctorVerdicts, buildGrid, labelGrid, territoryBfs, showMapDoctor, setTerritoryLayer, hasManualWork, backupCurrent, restorePrevious, generate, loadPresets, saveUserPreset, applyUserPreset, deleteUserPreset, renderPresetOptions, syncTmxUnits, exportPair, rushAnalysis, costField, tmxTerrainMasks, setRoutesLayer, generateBestOf, buildPoster, showPoster, saveProject, wallLayerFor, shapeState, selectShape, ShapeWorker, shapeSeed, generateShapePipeline, queueShapePreview, showSaveAs, ExportLoc, patchTmxItems, resourcePoolGids, planNearSpawnResources, pickResourcePoints, groupSpawnOrbits, autoApplyNearSpawnResources, HistoryStore, pushHistorySnapshot, showHistory, randomizeParams, surpriseGenerate, removeNearSpawnResourceAt, mutateTmx, measure, setMeasure, densityInfo, openCmdk, closeCmdk, cmdkScore, CMDS, measureProfile, applyTheme, resolveTheme, readThemeChoice, cycleSlot, THEMES, THEME_CHOICES, openThemeMenu, closeThemeMenu, setFxEnabled, rollMapName, spawnUndoAction, profileHover, encodeRecipe, decodeRecipe, applyRecipe, recipeData, copyRecipe, pasteRecipe, health, runHealthBadge, loupe, setFocusMode, focusOn, saveViewShot, captureEditorState, restoreEditorState, restoreAfterAbort, resetAll, analyzeSymmetry, setSymmetryLayer, tourSpawn, closeSpawnCard, tour, playerRows, isFFA, tuneFairness, optimizeSpawnLayout, analyzeSpots, setSpotLayer, repairSpawnSymmetry, mapUnfinished, finishRemainingSteps, ccExtendableCap, onTeamModeChange, extendCcTileset, rushAnalysisFFA, recipeFrom, mapRecipeCode, flyViewTo, setPresetValue, ENGINE_MAX_CC, MAX_SPAWN_POINTS, projectPayload, restoreProject, loadTmxBytes, themeGridMove, showCompare, mapDigest, cmp, stageCompare, commitCompare, showSeedGallery, applyThemeAnimated, releaseImportedName, showShapeOverview, seedFavs, toggleSeedFav, get routeCache() { return routeCache; } };
+if (/[?&]debug\b/.test(location.search)) window.__tmx = { runtimeDiagnostics, S, Engine, currentSpawns, dims, getMatrix, patchTmxUnits, parseTmx, uiChoice, uiConfirm, globalUndo, globalRedo, removeSpawnIndex, spawnFairness, buildCcMap, ccMapFor, verifySpawnMapping, orderBySlot, makePlayerOne, showSlotTable, buildMapPngInfo, drawExportPng, showMapPngPreview, normalizeSlots, analyzeMap, doctorVerdicts, buildGrid, labelGrid, territoryBfs, showMapDoctor, setTerritoryLayer, hasManualWork, backupCurrent, restorePrevious, generate, loadPresets, saveUserPreset, applyUserPreset, deleteUserPreset, renderPresetOptions, syncTmxUnits, exportPair, rushAnalysis, costField, tmxTerrainMasks, setRoutesLayer, generateBestOf, buildPoster, showPoster, saveProject, wallLayerFor, shapeState, selectShape, ShapeWorker, shapeSeed, generateShapePipeline, queueShapePreview, showSaveAs, ExportLoc, patchTmxItems, resourcePoolGids, planNearSpawnResources, pickResourcePoints, groupSpawnOrbits, autoApplyNearSpawnResources, HistoryStore, pushHistorySnapshot, showHistory, randomizeParams, surpriseGenerate, removeNearSpawnResourceAt, mutateTmx, measure, setMeasure, densityInfo, openCmdk, closeCmdk, cmdkScore, CMDS, measureProfile, applyTheme, resolveTheme, readThemeChoice, cycleSlot, THEMES, THEME_CHOICES, openThemeMenu, closeThemeMenu, setFxEnabled, rollMapName, spawnUndoAction, profileHover, encodeRecipe, decodeRecipe, applyRecipe, recipeData, copyRecipe, pasteRecipe, health, runHealthBadge, loupe, setFocusMode, focusOn, saveViewShot, captureEditorState, restoreEditorState, restoreAfterAbort, resetAll, analyzeSymmetry, setSymmetryLayer, tourSpawn, closeSpawnCard, tour, playerRows, isFFA, tuneFairness, optimizeSpawnLayout, analyzeSpots, setSpotLayer, repairSpawnSymmetry, mapUnfinished, finishRemainingSteps, ccExtendableCap, onTeamModeChange, extendCcTileset, rushAnalysisFFA, recipeFrom, mapRecipeCode, flyViewTo, setPresetValue, ENGINE_MAX_CC, MAX_SPAWN_POINTS, projectPayload, restoreProject, loadTmxBytes, themeGridMove, showCompare, mapDigest, cmp, stageCompare, commitCompare, showSeedGallery, applyThemeAnimated, releaseImportedName, showShapeOverview, seedFavs, toggleSeedFav, get routeCache() { return routeCache; } };
 boot();

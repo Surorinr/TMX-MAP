@@ -8,9 +8,21 @@
 
 ---
 
-**版本：3.27.0**（Android：`3.27.0-offline` / versionCode **41**　｜　PC：`3.27.0`）　｜　上一版本：3.26.0（versionCode 40）
+**版本：3.30.0**（Android：`3.30.0-offline` / versionCode **44**　｜　PC：`3.30.0`）　｜　上一版本：3.29.0（versionCode 43）
 
-> **3.28.0 本轮更新摘要：第二十二轮 · 主题切换闪帧修复 + 画布重绘去重 + 快速连点稳定性优化**
+> **3.30.0 本轮更新摘要：自动保存可见化 · 恢复入口保护 · 运行时错误诊断**
+>
+> - **修复草稿状态覆盖**：自动保存不再覆盖 `projectInfo` 中的「立即恢复」入口；保存状态放到独立的无障碍状态行。
+> - **保存失败有反馈**：自动保存 / 手动保存失败会显示具体原因；自动保存错误按 45 秒节流，提示可直接触发「导出备份」，降低因 IndexedDB 配额或写入失败造成编辑丢失的风险。
+> - **运行时诊断**：新增未处理脚本错误与 Promise 拒绝的统一记录和节流提示；不吞掉错误，完整上下文仍留在控制台，调试模式可查看最近一条诊断。
+> - **工程可用性**：补齐 Unix 下 `gradlew` 可执行权限；Android / Web / PC 版本号统一滚动。
+> - **版本**：Android `3.30.0-offline` / versionCode `44`，PC `3.30.0`，前端项目记录版本 `3300`。
+>
+> 本轮回归以当前实际运行结果为准；完整实现与限制见下方「3.30.0 更新说明」。上一版本保留在「3.29.0 更新说明」。
+
+---
+
+> **3.28.0 更新摘要：第二十二轮 · 主题切换闪帧修复 + 画布重绘去重 + 快速连点稳定性优化**
 >
 > - **修复闪烁**：取消整页 View Transition 截图和扩散式涟漪遮罩，避免动态背景 / Canvas 画面与快照不同步，以及旧过渡清理新过渡标记的竞态。
 > - **平滑切换**：对页面主表面、卡片、按钮、输入框等可插值颜色属性使用 180ms 轻量过渡；不创建全屏动画合成层，不引入额外的全屏截图开销；遵循系统「减少动态效果」设置。
@@ -20,6 +32,95 @@
 > - **版本**：Android `3.28.0-offline` / versionCode `42`，PC `3.28.0`，前端项目记录版本 `3280`。
 >
 > 完整修复思路、实现方法和测试结果见下方「3.28.0 更新说明」；上一版本说明保留在「3.27.0 更新说明」。
+
+---
+
+## 3.30.0 更新说明
+
+本轮重点是让保存失败可被用户感知、保留崩溃恢复入口，并让无法被业务逻辑捕获的脚本异常更易诊断。未修改地形生成算法、出生点 / 队伍映射、TMX 数据结构或配方码编码方式。
+
+### 一、发现并修复的问题
+
+1. **保存状态和恢复入口共用一个 DOM 节点**：`saveProject()` 成功时会把 `#projectInfo` 改为「已自动保存」，启动时用于恢复上次草稿的「立即恢复」链接因此可能被后续自动保存覆盖。现在增加独立的 `#saveStatus` 状态行；`#projectInfo` 专注显示草稿提示 / 恢复入口，两者不再相互覆盖。
+2. **自动保存失败只写控制台**：IndexedDB 不可用、存储配额不足或事务失败时，静默自动保存以前只有 `console.warn`，用户界面仍可能留着上一次的成功信息。现在成功与失败会分别显示状态；失败文案包含原因，并提示立即导出项目文件。自动保存的错误弹窗以 45 秒为间隔节流，连续重复失败不会刷屏。
+3. **未处理运行时错误对用户不可见**：新增 `error` 与 `unhandledrejection` 监听器，记录错误摘要、来源文件 / 行号和时间；控制台仍保留完整错误，界面提示最多每 7 秒一次，避免一连串同类错误把操作界面淹没。没有调用 `preventDefault()`，不会把错误吞掉。
+4. **Unix 下 Gradle Wrapper 权限**：将 `gradlew` 标记为可执行；在有 Gradle 分发包和 Android SDK 的环境可直接执行 `./gradlew :app:assembleDebug`，而不必先手动 `bash gradlew`。
+
+### 二、实现细节
+
+| 文件 | 修改 | 目的 |
+|---|---|---|
+| `app/src/main/assets/index.html` | 为保存状态增加独立 `#saveStatus`，包含 `role="status"` 与 `aria-live="polite"` | 读屏器能获知保存状态；恢复草稿入口不被保存结果覆盖 |
+| `app/src/main/assets/style.css` | 添加主题变量驱动的成功 / 失败状态外观，使用 `--ok`、`--danger` 与 `color-mix()` | 不为每套主题硬编码颜色，亮 / 暗主题保持可读 |
+| `app/src/main/assets/app.js` | 新增 `setSaveStatus()`；`saveProject()` 返回成功布尔值、呈现失败原因、提供导出备份快捷操作；新增运行时错误记录与节流提示 | 保存状态准确、失败可操作、诊断不会反复刷屏 |
+| `tools/smoke-test.mjs` | 检查新状态行、保存失败备份动作、错误监听与 Android / Web / PC 版本一致性 | 避免下次版本滚动遗漏关键入口 |
+| `app/build.gradle.kts` | Android `versionCode 44` / `3.30.0-offline` | 保证 Android 升级版本单调递增 |
+| `desktop/Cargo.toml`、`Cargo.lock`、`tauri.conf.json`、`worker.js`、`desktop-bridge.js` | 同步到 `3.30.0` | 避免帮助页、打包元数据与实际前端版本不一致 |
+
+### 三、兼容性与行为边界
+
+- 项目载荷仅更新 `APP_VERSION` / `PROJECT_FORMAT` 元数据为 `3.30.0` / `3300`；保存结构没有变化，旧项目照常读取。
+- `saveStatus` 仅承载最近一次保存结果，不会替代 `projectInfo` 中的草稿恢复操作。
+- 运行时监听只捕获未处理异常。已由原有业务代码处理并提示的生成 / 导入 / 导出错误，仍走原来的错误路径。
+- 自动保存失败后不会假装保存成功；建议先用「导出备份」创建外部项目文件。导出仍依赖宿主存储权限 / 目标文件夹可用性。
+
+### 四、本轮验证
+
+| 检查 | 本轮执行结果 |
+|---|---|
+| `node --check app/src/main/assets/app.js`、`worker.js`、`desktop-bridge.js`、`tools/smoke-test.mjs` | **通过** |
+| `node tools/smoke-test.mjs` | **通过：54 项检查**，含版本同步 / 保存状态 / 错误诊断新检查项 |
+| `node tools/land-ratio-test.js` | **通过**：225 组比例 + 270 组镜像，最大比例误差 0.50%，failures=0 |
+| `node tools/shape-sweep.js` | **通过**：1080 个形态 / 对称 / 尺寸 / 种子组合，bad=0 |
+| `node tools/near-res-tests/run_all.js` | **通过**：TMX CSV / gzip 往返、资源点算法、镜像与确定性检查全部通过 |
+| Playwright / Chromium 交互回归 | **环境阻塞，未验证**：Chromium 导航本机测试页时返回 `ERR_BLOCKED_BY_ADMINISTRATOR` |
+| Android `./gradlew :app:assembleDebug` | **环境阻塞，未验证**：Wrapper 尝试下载 Gradle 8.10.2 时 DNS 返回 `UnknownHostException: services.gradle.org`；本轮没有 Android SDK / 依赖完整性证据，不能宣称编译通过 |
+
+---
+
+## 3.29.0 更新说明
+
+本轮为第二十三轮全量代码审查，聚焦「确认代码健康度 + 版本滚动」。未改变任何运行时行为与生成结果，3.28.0 及更早版本的项目文件、TMX 导出与配方码完全兼容。
+
+### 一、审查范围与方法
+
+对五个层做静态审查，采用「先定位关键函数，再逐段精读 + 跨文件交叉核对」，并辅以三套既有自动化回归：
+
+1. **前端应用逻辑**（app.js，约 556KB）：序列化 / 反序列化、配方码 encode/decode、TMX 导入导出、主题切换、种子画廊、出生点 / 资源点管理、legacy 版本标记。
+2. **地形生成引擎**（terrain-shapes.js，约 80KB）：15 套形态、倒角距离场、水陆骨架保护、连通域、陆地比例调整、对称镜像、后处理。
+3. **Web Worker**（worker.js / shape-worker.js）：消息协议、transferable 归还、并发安全。
+4. **Android 原生层**（MainActivity.kt）：WebView 配置、JS Bridge、文件保存、导出目录权限、生命周期。
+5. **PC 原生层**（main.rs / desktop-bridge.js）：Tauri 命令、路径穿越防护、导出写入、中文路径。
+
+### 二、审查结论
+
+**未发现必须修复的功能性缺陷。** 三套自动化回归全部通过：
+
+| 测试 | 规模 | 结果 |
+|---|---|---|
+| 静态冒烟 | 版本 / UI / 资源 / 路径穿越 / 各版本锚点 | **PASSED**（含本轮新增 2 个 3.29.0 锚点） |
+| land-ratio-test | 225 组比例 + 270 组镜像 | 最大比例误差 **0.50%**，failures=0 |
+| shape-sweep | 1080 例（形态 × 对称 × 尺寸 × 种子） | **bad=0**（无异常 / 严格对称 / 无封闭口袋） |
+
+历史上 3.26.0 排查出的三类缺陷（导入后沿用导入文件名、配方码旧版标记误报、出生点上限文案）经复查已确认为修复状态：`releaseImportedName()`、`RECIPE_SHAPES_*` 版本判别、`MAX_SPAWN_POINTS = 100` 与 CSS `::before` 文案「最多支持 100 个」均在位且一致。
+
+### 三、本轮完善内容
+
+1. **desktop-bridge.js 顶部注释**：由历史遗留的「PC 版桥接（3.5.0）」改为「随主版本同步维护，当前 3.29.0」，消除与 worker.js 版本标注不一致的误导。
+2. **Worker / 桥接层版本标注**：worker.js 同步为「3.29.0 版本同步」。
+3. **README 头部版本行**：由漏更新的 `3.27.0` 修正为 `3.29.0`（上一轮更新摘要时漏改的版本行，本轮修复）。
+4. **版本滚动**：Android `3.29.0-offline` / versionCode `43`；PC `3.29.0`；前端 `APP_VERSION = '3.29.0'` / `PROJECT_FORMAT = 3290`；Cargo.toml / Cargo.lock / tauri.conf.json 同步。
+
+### 四、版本号位置
+
+| 位置 | 值 |
+|---|---|
+| `app/build.gradle.kts` | versionCode `43` / versionName `3.29.0-offline` |
+| `desktop/Cargo.toml` / `Cargo.lock` / `tauri.conf.json` | `3.29.0` |
+| `app/src/main/assets/app.js` | `APP_VERSION = '3.29.0'` / `PROJECT_FORMAT = 3290` |
+| `app/src/main/assets/worker.js` | `3.29.0 版本同步` |
+| `app/src/main/assets/desktop-bridge.js` | 随主版本同步维护，当前 3.29.0 |
+| `tools/smoke-test.mjs` | 版本断言 v3.29.0 / 3290 + 2 个 3.29.0 锚点 |
 
 ---
 

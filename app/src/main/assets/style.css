@@ -1,5 +1,5 @@
 /* =====================================================================
- * TMX MapForge Offline 3.28.0 · 设计系统（历史增补见文件末尾对应分节；主题切换稳定性修复见 3.28.0）
+ * TMX MapForge Offline 3.30.0 · 设计系统（主题切换稳定性修复见 3.28.0；保存反馈优化见 3.30.0）
  * 重写说明：旧版样式由 2.4/2.5/2.6/3.0/3.0.3/3.0.7 多轮覆盖叠加而成，颜色大量硬编码，
  * 「亮白」主题下工具栏/图例/小地图/遮罩/输入框仍是深色。现统一为 CSS 变量驱动的三套主题。
  * ===================================================================== */
@@ -156,6 +156,10 @@ button.danger{background:linear-gradient(180deg,#e65454,#c63b3b);border-color:#f
 .hint,.mini-status{margin:6px 0 4px;color:var(--muted);font-size:11.5px;line-height:1.55}
 .mini-status code{color:color-mix(in srgb,var(--accent) 70%,var(--text));background:var(--input);padding:1px 5px;border-radius:5px;font-size:10.5px;border:1px solid var(--line)}
 .mini-status em,.footer-note em{color:var(--gold);font-style:normal}
+.save-status{margin:7px 0;padding:7px 9px;border:1px solid color-mix(in srgb,var(--ok) 30%,var(--line));border-radius:8px;background:color-mix(in srgb,var(--ok) 7%,var(--card));color:var(--text-2);overflow-wrap:anywhere}
+.save-status::before{content:"✓";display:inline-block;margin-right:7px;color:var(--ok);font-weight:800}
+.save-status[data-state="error"]{border-color:color-mix(in srgb,var(--danger) 52%,var(--line));background:color-mix(in srgb,var(--danger) 8%,var(--card));color:var(--text)}
+.save-status[data-state="error"]::before{content:"!";color:var(--danger)}
 body[data-tone="light"] .mini-status em,body[data-tone="light"] .footer-note em{color:#b07a00}
 .hint-demo{display:inline-block;padding:0 6px;border-radius:6px;font-weight:700;font-size:11px}
 .on-demo{color:#fff;background:var(--accent)}

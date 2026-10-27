@@ -11,7 +11,8 @@ import { extname, relative, isAbsolute, resolve, dirname, sep } from 'node:path'
 import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const ROOT = resolve(HERE, '..', 'app', 'src', 'main', 'assets');
+const PROJECT_ROOT = resolve(HERE, '..');
+const ROOT = resolve(PROJECT_ROOT, 'app', 'src', 'main', 'assets');
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
   '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
@@ -62,7 +63,20 @@ try {
     htmlRes.text(), appRes.text(), cssRes.text(), workerRes.text(), shapeWorkerRes.text(), tsRes.text()
   ]);
   check('首页通过本地 HTTP 正常提供', htmlRes.status === 200 && html.includes('<html'));
-  check('前端版本为 v3.28.0', app.includes("const APP_VERSION = '3.28.0'") && app.includes('const PROJECT_FORMAT = 3280'));
+  check('前端版本为 v3.30.0 / 项目格式 3300', app.includes("const APP_VERSION = '3.30.0'") && app.includes('const PROJECT_FORMAT = 3300'));
+  check('3.30.0 Worker / PC 桥接标注已同步', worker.includes('3.30.0 版本同步') && (await readFile(resolve(ROOT, 'desktop-bridge.js'), 'utf8')).includes('当前 3.30.0'));
+  const [gradleConfig, cargoConfig, cargoLock, tauriConfig] = await Promise.all([
+    readFile(resolve(PROJECT_ROOT, 'app/build.gradle.kts'), 'utf8'),
+    readFile(resolve(PROJECT_ROOT, 'desktop/Cargo.toml'), 'utf8'),
+    readFile(resolve(PROJECT_ROOT, 'desktop/Cargo.lock'), 'utf8'),
+    readFile(resolve(PROJECT_ROOT, 'desktop/tauri.conf.json'), 'utf8')
+  ]);
+  check('Android / Web / PC 的版本号一致', gradleConfig.includes('versionCode = 44') && gradleConfig.includes('versionName = "3.30.0-offline"') && cargoConfig.includes('version = "3.30.0"') && cargoLock.includes('name = "tmx-mapforge-desktop"\nversion = "3.30.0"') && tauriConfig.includes('"version": "3.30.0"'));
+  const saveBlockStart = app.indexOf('async function saveProject(silent = false)');
+  const saveBlockEnd = app.indexOf('let autoSaveTimer', saveBlockStart);
+  const saveBlock = saveBlockStart >= 0 && saveBlockEnd > saveBlockStart ? app.slice(saveBlockStart, saveBlockEnd) : '';
+  check('3.30.0 自动保存独立状态 / 失败可导出备份 / 恢复入口不被覆盖', html.includes('id="saveStatus"') && app.includes('function setSaveStatus') && app.includes("label: '导出备份'") && app.includes('草稿已自动保存') && css.includes('.save-status[data-state="error"]') && !!saveBlock && !saveBlock.includes("$('projectInfo').textContent") && app.includes('成功恢复后移除一次性「立即恢复」入口'));
+  check('3.30.0 未处理脚本错误与异步拒绝有节流提示，且保留诊断上下文', app.includes("window.addEventListener('error'") && app.includes("window.addEventListener('unhandledrejection'") && app.includes('const runtimeDiagnostics ='));
   check('3.28.0 主题切换不使用整页 View Transition / 涟漪遮罩，连点由单计时器收尾', app.includes('let themeTransitionTimer = 0, themeTransitionToken = 0') && app.includes('let themeCycleTimer = 0, themeVisualInitialized = false') && app.includes('function applyThemeAnimated') && app.includes('renderMapImmediately()') && !app.includes('document.startViewTransition') && !app.includes('function themeWash') && css.includes('html.theme-switching body') && !css.includes('::view-transition-new(root)') && !css.includes('.theme-wash{'));
   // 3.26.0
   const i18nRes = await fetch(base + '/i18n.js'); const i18n = await i18nRes.text();

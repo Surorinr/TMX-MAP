@@ -1,5 +1,5 @@
 /*
- * 铁锈战争地图生成器 · PC 版桥接（3.5.0）
+ * 铁锈战争地图生成器 · PC 版桥接（随主版本同步维护，当前 3.30.0）
  *
  * Android 与 PC 共用同一份前端（index.html / style.css / app.js / worker.js / wasm-pkg）。
  * 本文件只在 PC 版（Rust + Tauri 2，存在 window.__TAURI__）中生效，Android 上立即返回、不做任何事。

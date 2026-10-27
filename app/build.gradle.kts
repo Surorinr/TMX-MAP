@@ -48,8 +48,10 @@ android {
         // 3.25.0-offline (39) → 3.26.0-offline (40)：第二十轮审查修复 + 新旧对比 / 种子画廊 + 6 套新主题 + 9 种界面语言
         // 3.26.0-offline (40) → 3.27.0-offline (41)：第二十一轮 · 4 套衍生地形形态 + 形态总览 / 种子收藏 + 6 套新主题
         // 3.27.0-offline (41) → 3.28.0-offline (42)：主题切换闪帧 / 连续点击竞态修复 + 画布去重重绘 + 轻量颜色过渡
-        versionCode = 42
-        versionName = "3.28.0-offline"
+        // 3.28.0-offline (42) → 3.29.0-offline (43)：第二十三轮全量审查确认 + 跨文件版本标注同步
+        // 3.29.0-offline (43) → 3.30.0-offline (44)：自动保存状态独立显示 / 失败备份入口 / 未处理错误提示
+        versionCode = 44
+        versionName = "3.30.0-offline"
     }
     signingConfigs {
         create("release") {
