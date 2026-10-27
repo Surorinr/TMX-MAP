@@ -1,6 +1,7 @@
 /*
  * 铁锈战争地图生成器 · TMX MapForge Offline
- * 版本 3.27.0 —— 第二十一轮：新增 4 套衍生地形形态（环礁 / 三角洲 / 高原要塞 / 沼泽，配方码格式版本 4 仅用于新形态）、
+ * 版本 3.28.0 —— 第二十二轮：修复主题切换闪帧 / 快速连点过渡竞态、合并重复画布重绘；保留 3.27.0 的地形与配方兼容性。
+ * 上一版 3.27.0：新增 4 套衍生地形形态（环礁 / 三角洲 / 高原要塞 / 沼泽，配方码格式版本 4 仅用于新形态）、
  *              「形态总览」（Shift+G）、种子收藏、6 套新主题（水墨 / 钢铁 / 薄荷 · 雪夜 / 霓虹 / 麦浪）、形态卡片新角标与动效。
  * 版本 3.26.0 —— 第二十轮审查：修复导入后新地图沿用导入文件名、配方码旧版标记误报、出生点上限文案；新增「新旧对比」
  *              （X）、「形态种子画廊」（G）、主题圆形揭示过渡、6 套新主题（砂岩 / 石墨 / 战地 · 雷暴 / 萤林 / 晴空）、
@@ -101,8 +102,8 @@
  *   Pointer    —— 统一手势状态机：平移 / 双指缩放 / 画笔 / 多边形 / 放置 / 拖动出生点 / 长按删除
  *   Project    —— IndexedDB 项目存储（可保存大体积 TMX），兼容旧版 localStorage 草稿
  */
-const APP_VERSION = '3.27.0';
-const PROJECT_FORMAT = 3270; // 3.27.0：仅记录写入版本（读取时不校验），旧项目仍可读取（项目结构本轮无变化）
+const APP_VERSION = '3.28.0';
+const PROJECT_FORMAT = 3280; // 3.28.0：仅记录写入版本（读取时不校验），项目结构不变，旧项目仍可读取
 const $ = id => document.getElementById(id);
 const MAX_SPAWN_POINTS = 100; // 3.19.0：50 → 100（51～100 号槽位的指挥中心瓦片在导出时自动补进 TMX，见 extendCcTileset）
 const ENGINE_MAX_CC = 50;     // 3.19.0：WASM 引擎与内置蓝图只有 50 个指挥中心槽位；超出部分由 JS 智能布点补齐
@@ -2038,8 +2039,18 @@ function wallCanvasFor(m, kind = 'brush') {
 }
 
 /* ------------------------------------------------------------------ 渲染：视图 */
-let renderQueued = false;
-function scheduleRender() { if (renderQueued) return; renderQueued = true; requestAnimationFrame(() => { renderQueued = false; renderMap(); }); }
+let renderQueued = false, renderFrameId = 0;
+function scheduleRender() {
+  if (renderQueued) return;
+  renderQueued = true;
+  renderFrameId = requestAnimationFrame(() => { renderQueued = false; renderFrameId = 0; renderMap(); });
+}
+/** 主题切换等需要立即同步画布的场景：撤销排队帧再重绘，避免紧接着重复绘制一次。 */
+function renderMapImmediately() {
+  if (renderQueued && renderFrameId) cancelAnimationFrame(renderFrameId);
+  renderQueued = false; renderFrameId = 0;
+  renderMap();
+}
 function fitCanvas() {
   const c = $('map'), rect = c.getBoundingClientRect(), dpr = Math.min(2, window.devicePixelRatio || 1);
   const w = Math.max(1, Math.floor(rect.width * dpr)), h = Math.max(1, Math.floor(rect.height * dpr));
@@ -6023,7 +6034,7 @@ function flashInput(id) { const el = $(id); el.classList.remove('flash-input'); 
  *         新增 5 套动态主题与「昼夜流转」，主题按钮改为打开选择面板。 */
 const themeById = id => THEMES.find(t => t.id === id);
 const themeChoiceById = id => THEME_CHOICES.find(t => t.id === id);
-let themeCycleTimer = 0;
+let themeCycleTimer = 0, themeVisualInitialized = false;
 function systemPrefersLight() { try { return !!window.matchMedia?.('(prefers-color-scheme: light)').matches; } catch { return false; } }
 function cycleSlot(hour) { let slot = THEME_CYCLE[0]; for (const it of THEME_CYCLE) if (hour >= it[0]) slot = it; return slot; }
 function resolveTheme(choice, now = new Date()) {
@@ -6050,41 +6061,47 @@ function themeLabel() {
   if (S.themeChoice === 'cycle') return `${c.name}（${cycleSlot(new Date().getHours())[2]} · ${t.name}）`;
   return S.themeChoice === 'system' ? `${c.name}（${t.name}）` : t.name;
 }
-function applyTheme(choice, announce = false, persist = announce) {
+function applyTheme(choice, announce = false, persist = announce, renderNow = false) {
   if (!themeChoiceById(choice)) choice = 'dark';
-  S.themeChoice = choice;
   const id = resolveTheme(choice), t = themeById(id), b = document.body;
+  // S.themeId 初始值默认为 dark，但首次启动时 DOM / 系统栏还未同步；不能把这一帧误判成无变化。
+  const visualChanged = !themeVisualInitialized || S.themeId !== id;
+  S.themeChoice = choice;
   S.themeId = id;
-  b.dataset.theme = id;
-  b.dataset.tone = t.tone;
-  if (t.fx) b.dataset.fx = id; else delete b.dataset.fx;
-  document.querySelector('meta[name=theme-color]').setAttribute('content', t.bar);
-  canvasBg = cssVar('--canvas-bg') || '#050b14';
-  canvasClear = !!t.fx;
+  // 只有真实配色发生变化才改写全局样式 / 原生系统栏；例如「跟随系统」切为外观相同的「深空」时，
+  // 只更新所选模式与提示，不触发 WebView 样式树和系统栏的重复刷新。
+  if (visualChanged) {
+    b.dataset.theme = id;
+    b.dataset.tone = t.tone;
+    if (t.fx) b.dataset.fx = id; else delete b.dataset.fx;
+    const themeMeta = document.querySelector('meta[name=theme-color]');
+    if (themeMeta && themeMeta.content !== t.bar) themeMeta.setAttribute('content', t.bar);
+    canvasBg = cssVar('--canvas-bg') || '#050b14';
+    canvasClear = !!t.fx;
+    themeVisualInitialized = true;
+    try { window.AndroidBridge?.setSystemBars?.(t.bar, t.tone === 'light'); } catch { /* 旧版桥接 */ }
+  }
   if (persist) try { choice === 'system' ? localStorage.removeItem(THEME_KEY) : localStorage.setItem(THEME_KEY, choice); } catch { /* ignore */ }
-  try { window.AndroidBridge?.setSystemBars?.(t.bar, t.tone === 'light'); } catch { /* 旧版桥接 */ }
   const label = themeLabel();
-  $('themeToggle').title = `主题：${label}（点击选择）`;
-  $('themeToggle').setAttribute('aria-label', `选择主题，当前：${label}`);
+  const toggle = $('themeToggle');
+  if (toggle) {
+    toggle.title = `主题：${label}（点击选择）`;
+    toggle.setAttribute('aria-label', `选择主题，当前：${label}`);
+  }
   clearInterval(themeCycleTimer); themeCycleTimer = 0;
   if (choice === 'cycle') themeCycleTimer = setInterval(refreshAutoTheme, 60000);
   renderThemeMenu();
   if (announce) toast(`主题：${label}${t.fx && !fxEnabled() ? '（动态背景已暂停）' : ''}`);
-  scheduleRender();
+  // 每次主题变更只重绘一次。主题面板点击使用同步绘制，避免动态图层透明化后旧画布多保留一帧。
+  if (visualChanged) {
+    if (renderNow) renderMapImmediately();
+    else scheduleRender();
+  }
 }
 /** 自动主题（跟随系统 / 昼夜流转）的实际主题变了才重新应用；不写存储、不弹提示 */
 function refreshAutoTheme() {
   if (S.themeChoice !== 'system' && S.themeChoice !== 'cycle') return;
   if (resolveTheme(S.themeChoice) !== S.themeId) applyTheme(S.themeChoice, false, false);
-}
-function themeWash(fromEl) {
-  if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
-  const r = fromEl?.getBoundingClientRect?.(); if (!r) return;
-  const w = document.createElement('div');
-  w.className = 'theme-wash';
-  w.style.left = (r.left + r.width / 2) + 'px'; w.style.top = (r.top + r.height / 2) + 'px';
-  document.body.appendChild(w);
-  setTimeout(() => w.remove(), 800);
 }
 function buildThemeMenu() {
   const m = $('themeMenu'); if (!m || m.dataset.built) return;
@@ -6099,7 +6116,7 @@ function buildThemeMenu() {
   m.addEventListener('click', e => {
     const it = e.target.closest('[data-theme-id]');
     if (it) { // 面板保持打开，方便连续试几套
-      if (it.dataset.themeId !== S.themeChoice) applyThemeAnimated(it.dataset.themeId, it); // 3.26.0：圆形揭示过渡
+      if (it.dataset.themeId !== S.themeChoice) applyThemeAnimated(it.dataset.themeId, it); // 3.28.0：稳定的轻量颜色过渡
       return;
     }
     if (e.target.closest('#themeFxToggle')) { const on = !fxEnabled(); setFxEnabled(on); toast(on ? '动态背景：开' : '动态背景：已暂停'); }
@@ -6333,7 +6350,7 @@ function showHelp() {
       <div><kbd>K</kbd></div><div>落点热力：暖色 = 宽敞、冷色 = 拥挤，准星为最佳落点，可一键放置</div>
       <div><kbd>X</kbd></div><div>新旧对比：拖动分界线对照上一张与当前地图，查看健康度 / 公平度等指标的变化，不满意可一键换回</div>
       <div><kbd>G</kbd></div><div>形态种子画廊：同一套参数一次预览 6 个种子的轮廓，挑中后固定种子或直接生成</div>
-      <div><kbd>Shift</kbd>+<kbd>G</kbd></div><div>形态总览（3.27.0）：以当前参数一次预览全部 15 套地形形态，横向比较后选用；画廊里的 ☆ 可按形态收藏种子</div>
+      <div><kbd>Shift</kbd>+<kbd>G</kbd></div><div>形态总览：以当前参数一次预览全部 15 套地形形态，横向比较后选用；画廊里的 ☆ 可按形态收藏种子</div>
       <div><kbd>,</kbd> / <kbd>.</kbd></div><div>出生点巡视：飞到上一个 / 下一个出生点，并显示该玩家的领地、资源与接敌数据</div>
       <div><kbd>Ctrl</kbd>+<kbd>V</kbd></div><div>在画布区粘贴配方码（TMX1-…）：直接打开「使用配方码」</div>
       <div><kbd>[</kbd> / <kbd>]</kbd></div><div>画笔变小 / 变大</div>
@@ -8126,24 +8143,49 @@ async function showSeedGallery() {
   if (k === 'gen') generate(); else toast(`已固定形态种子 ${picked}`, 'success', 2400);
 }
 
-/* ------------------------------------------------------------------ ③ 主题切换：圆形揭示过渡
- * 支持 View Transitions 的 WebView / 浏览器（Chromium 111+）里，新主题从点击的色板处以圆形扩散揭开，整页（含画布）一次性
- * 平滑过渡；不支持时保留 3.16.0 的「色晕」效果。系统「减少动态效果」时直接切换。 */
-function applyThemeAnimated(id, fromEl) {
-  const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-  if (reduce || typeof document.startViewTransition !== 'function' || !fromEl?.getBoundingClientRect) { themeWash(fromEl); applyTheme(id, true); return; }
-  const r = fromEl.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2;
+/* ------------------------------------------------------------------ ③ 主题切换：稳定的轻量过渡（3.28.0）
+ * 不再为整页（尤其是持续绘制的 Canvas / 动态背景）建立 View Transition 快照。
+ * 部分 Android WebView 在快速连续选择主题时，会因旧过渡被取消而清理新过渡的标记，出现一帧闪白 / 闪旧主题；
+ * 同时旧实现安排一次 RAF 重绘后又同步 renderMap，重地图会被重复绘制。
+ * 现在只对关键表面属性做短过渡，颜色改变后一次同步重绘画布；用递增 token + 单个计时器收尾，连点不会互相清理状态。 */
+let themeTransitionTimer = 0, themeTransitionToken = 0;
+function applyThemeAnimated(choice, fromEl) {
+  if (!themeChoiceById(choice) || choice === S.themeChoice) return;
   const root = document.documentElement;
-  root.style.setProperty('--vt-x', x + 'px'); root.style.setProperty('--vt-y', y + 'px');
-  root.style.setProperty('--vt-r', Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y)) + 'px');
-  root.classList.add('vt-theme');
-  try {
-    const vt = document.startViewTransition(() => { applyTheme(id, true); try { renderMap(); } catch { /* 下一帧照常重绘 */ } });
-    const done = () => { clearTimeout(t); root.classList.remove('vt-theme'); };
-    // 兜底：后台标签页 / 渲染被节流时 finished 可能迟迟不结算，最多 1.2 秒后清理过渡标记
-    const t = setTimeout(done, 1200);
-    vt.finished.then(done, done);
-  } catch { root.classList.remove('vt-theme'); applyTheme(id, true); }
+  const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  const alreadySwitching = !!themeTransitionTimer && root.classList.contains('theme-switching');
+  const targetId = resolveTheme(choice);
+  clearTimeout(themeTransitionTimer); themeTransitionTimer = 0;
+  const token = ++themeTransitionToken;
+  if (reduce) {
+    root.classList.remove('theme-switching');
+    applyTheme(choice, true, true, true);
+    return;
+  }
+  if (targetId === S.themeId) {
+    // 比如「跟随系统」切为当前外观相同的具体主题：仅更新选择与持久化。
+    // 若另一个颜色过渡仍在进行，保留它并延长清理时间，不在中途强制跳到终态。
+    applyTheme(choice, true, true, false);
+    if (alreadySwitching) {
+      themeTransitionTimer = setTimeout(() => {
+        if (token !== themeTransitionToken) return;
+        root.classList.remove('theme-switching'); themeTransitionTimer = 0;
+      }, 240);
+    }
+    return;
+  }
+  if (!alreadySwitching) {
+    root.classList.remove('theme-switching');
+    root.classList.add('theme-switching');
+    // 建立旧主题的过渡起点；连续切换时不移除该类，避免属性动画被重置到起始值。
+    void root.offsetWidth;
+  }
+  // 首次切换同步重绘一次；快速连点期间将重绘合并到同一 RAF，只绘制最后选中的主题。
+  applyTheme(choice, true, true, !alreadySwitching);
+  themeTransitionTimer = setTimeout(() => {
+    if (token !== themeTransitionToken) return;
+    root.classList.remove('theme-switching'); themeTransitionTimer = 0;
+  }, 240);
 }
 
 if (/[?&]debug\b/.test(location.search)) window.__tmx = { S, Engine, currentSpawns, dims, getMatrix, patchTmxUnits, parseTmx, uiChoice, uiConfirm, globalUndo, globalRedo, removeSpawnIndex, spawnFairness, buildCcMap, ccMapFor, verifySpawnMapping, orderBySlot, makePlayerOne, showSlotTable, buildMapPngInfo, drawExportPng, showMapPngPreview, normalizeSlots, analyzeMap, doctorVerdicts, buildGrid, labelGrid, territoryBfs, showMapDoctor, setTerritoryLayer, hasManualWork, backupCurrent, restorePrevious, generate, loadPresets, saveUserPreset, applyUserPreset, deleteUserPreset, renderPresetOptions, syncTmxUnits, exportPair, rushAnalysis, costField, tmxTerrainMasks, setRoutesLayer, generateBestOf, buildPoster, showPoster, saveProject, wallLayerFor, shapeState, selectShape, ShapeWorker, shapeSeed, generateShapePipeline, queueShapePreview, showSaveAs, ExportLoc, patchTmxItems, resourcePoolGids, planNearSpawnResources, pickResourcePoints, groupSpawnOrbits, autoApplyNearSpawnResources, HistoryStore, pushHistorySnapshot, showHistory, randomizeParams, surpriseGenerate, removeNearSpawnResourceAt, mutateTmx, measure, setMeasure, densityInfo, openCmdk, closeCmdk, cmdkScore, CMDS, measureProfile, applyTheme, resolveTheme, readThemeChoice, cycleSlot, THEMES, THEME_CHOICES, openThemeMenu, closeThemeMenu, setFxEnabled, rollMapName, spawnUndoAction, profileHover, encodeRecipe, decodeRecipe, applyRecipe, recipeData, copyRecipe, pasteRecipe, health, runHealthBadge, loupe, setFocusMode, focusOn, saveViewShot, captureEditorState, restoreEditorState, restoreAfterAbort, resetAll, analyzeSymmetry, setSymmetryLayer, tourSpawn, closeSpawnCard, tour, playerRows, isFFA, tuneFairness, optimizeSpawnLayout, analyzeSpots, setSpotLayer, repairSpawnSymmetry, mapUnfinished, finishRemainingSteps, ccExtendableCap, onTeamModeChange, extendCcTileset, rushAnalysisFFA, recipeFrom, mapRecipeCode, flyViewTo, setPresetValue, ENGINE_MAX_CC, MAX_SPAWN_POINTS, projectPayload, restoreProject, loadTmxBytes, themeGridMove, showCompare, mapDigest, cmp, stageCompare, commitCompare, showSeedGallery, applyThemeAnimated, releaseImportedName, showShapeOverview, seedFavs, toggleSeedFav, get routeCache() { return routeCache; } };

@@ -1,5 +1,5 @@
 /* =====================================================================
- * TMX MapForge Offline 3.17.0 · 设计系统（3.2.0 ～ 3.17.0 增补见文件末尾对应分节；3.16.0 动态主题之后是 3.17.0 新组件）
+ * TMX MapForge Offline 3.28.0 · 设计系统（历史增补见文件末尾对应分节；主题切换稳定性修复见 3.28.0）
  * 重写说明：旧版样式由 2.4/2.5/2.6/3.0/3.0.3/3.0.7 多轮覆盖叠加而成，颜色大量硬编码，
  * 「亮白」主题下工具栏/图例/小地图/遮罩/输入框仍是深色。现统一为 CSS 变量驱动的三套主题。
  * ===================================================================== */
@@ -1478,11 +1478,6 @@ body.fx-off .theme-dot{animation:none;opacity:.55}
 .tm-fx{margin:8px 2px 0!important;padding:0 4px;font-size:12.5px!important}
 .tm-fx small{display:block;font-size:10.5px;color:var(--faint)}
 
-/* 换主题时从按钮位置扩散的一圈「涟漪」 */
-.theme-wash{position:fixed;z-index:90;left:0;top:0;width:24px;height:24px;margin:-12px 0 0 -12px;border-radius:50%;pointer-events:none;
-  background:radial-gradient(circle,color-mix(in srgb,var(--accent) 35%,transparent),transparent 70%);animation:themeWash .7s var(--ease-out) forwards}
-@keyframes themeWash{from{transform:scale(1);opacity:.95}to{transform:scale(70);opacity:0}}
-
 @media(max-width:650px){
   .theme-menu{position:fixed;top:calc(58px + 6px + env(safe-area-inset-top,0px));right:10px;left:auto;width:min(316px,calc(100vw - 20px));transform-origin:calc(100% - 90px) 0}
 }
@@ -1494,12 +1489,53 @@ body.fx-off .theme-dot{animation:none;opacity:.55}
 @supports not (color: color-mix(in srgb, red, blue)) {
   .tm-grid .current{border-color:var(--accent);background:var(--btn-hover)}
   .tm-grid [data-theme-id]:hover,.tm-grid [data-theme-id]:focus-visible{background:var(--btn-hover)}
-  .theme-wash{background:radial-gradient(circle,var(--accent),transparent 70%);opacity:.3}
 }
 @media (prefers-reduced-motion: reduce){
   .theme-menu.show [data-theme-id]{animation:none!important;opacity:1;transform:none}
-  .tm-sw i,.theme-dot,.theme-wash{animation:none!important}
-  .theme-wash{display:none}
+  .tm-sw i,.theme-dot{animation:none!important}
+}
+
+/* 3.28.0：轻量主题过渡。避开全页截图动画，减轻 Android WebView 上 canvas / 动态背景切换的闪帧。
+   只过渡可平滑插值的颜色属性，不加全局 will-change、不创建独立合成层，避免大地图上额外显存开销。 */
+html.theme-switching body,
+html.theme-switching .topbar,
+html.theme-switching .sidebar,
+html.theme-switching .map-panel,
+html.theme-switching .status-bar,
+html.theme-switching .panel,
+html.theme-switching .card,
+html.theme-switching .modal-card,
+html.theme-switching .theme-menu,
+html.theme-switching .tm-grid [data-theme-id],
+html.theme-switching button,
+html.theme-switching input,
+html.theme-switching select,
+html.theme-switching textarea {
+  transition-property: background-color, color, border-color, box-shadow;
+  transition-duration: 180ms;
+  transition-timing-function: ease-out;
+}
+html.theme-switching body[data-fx] .theme-fx,
+html.theme-switching body[data-fx] .theme-fx *,
+html.theme-switching body[data-fx] .theme-fx *::before,
+html.theme-switching body[data-fx] .theme-fx *::after {
+  animation-play-state: paused !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  html.theme-switching body,
+  html.theme-switching .topbar,
+  html.theme-switching .sidebar,
+  html.theme-switching .map-panel,
+  html.theme-switching .status-bar,
+  html.theme-switching .panel,
+  html.theme-switching .card,
+  html.theme-switching .modal-card,
+  html.theme-switching .theme-menu,
+  html.theme-switching .tm-grid [data-theme-id],
+  html.theme-switching button,
+  html.theme-switching input,
+  html.theme-switching select,
+  html.theme-switching textarea { transition-duration: 0ms !important; }
 }
 
 /* =====================================================================
@@ -1930,11 +1966,6 @@ body[data-tone="light"] .cmp-d.g{color:#11885c}body[data-tone="light"] .cmp-d.b{
 .gal-pick{font-size:12.5px;color:var(--muted)}
 .gal-pick b{color:var(--accent);font-variant-numeric:tabular-nums}
 
-/* —— 主题切换：圆形揭示（View Transitions） —— */
-html.vt-theme::view-transition-old(root),html.vt-theme::view-transition-new(root){animation:none;mix-blend-mode:normal}
-html.vt-theme::view-transition-new(root){animation:vtReveal .6s cubic-bezier(.2,.8,.2,1) both}
-@keyframes vtReveal{from{clip-path:circle(0 at var(--vt-x,50%) var(--vt-y,0))}to{clip-path:circle(var(--vt-r,150vmax) at var(--vt-x,50%) var(--vt-y,0))}}
-
 @media (prefers-reduced-motion: reduce){
   .gal-tile,.cmp-table tbody tr,.cmp-verdict,.gal-reroll svg.spin{animation:none!important}
   .gal-tile,.gal-cv canvas,.cmp-stage.intro .cmp-prev,.cmp-stage.intro .cmp-handle,.cmp-handle i{transition:none!important}
@@ -1984,7 +2015,7 @@ body:is([data-lang="de"],[data-lang="ru"],[data-lang="fr"]) .gen-row button:not(
 body:is([data-lang="de"],[data-lang="ru"],[data-lang="fr"]) .action-row button{font-size:11.5px}
 
 /* =====================================================================
- * 3.27.0：再新增 3 套静态主题（水墨 / 钢铁 / 薄荷）与 3 套动态主题（雪夜 / 霓虹 / 麦浪）
+ * 3.27.0：新增 3 套静态主题（水墨 / 钢铁 / 薄荷）与 3 套动态主题（雪夜 / 霓虹 / 麦浪）; 3.28.0：主题切换稳定性优化
  * 配色约束（与 3.26.0 相同的三条）：
  *  · 强调色与已有 14 套错开：水墨 = 朱砂红、钢铁 = 深绯红、薄荷 = 翡翠绿、雪夜 = 灯火金 + 冰蓝、霓虹 = 霓虹玫红 + 电青、麦浪 = 麦秆褐金；
  *  · 白字对比度不足 4.5 的亮强调色（雪夜金、霓虹玫红）把主按钮 / 激活态文字改为深色 --accent-ink；

@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
 """
 TMX MapForge Offline · 真实浏览器回归测试（3.14.0 新增，3.15.0 扩充第 9 节，3.16.0 扩充第 10 节：动态主题，
-3.17.0 扩充第 11 节：第十五轮审查修复 + 配方码 / 实时体检徽章 / 触屏放大镜 / 专注模式 / 视图截图）
+3.17.0 扩充第 11 节：第十五轮审查修复 + 配方码 / 实时体检徽章 / 触屏放大镜 / 专注模式 / 视图截图；3.28.0 扩充第 16 节主题快速连切回归）
 
 用 Playwright + Chromium 加载 assets 目录里的真实前端，点击真实按钮、跑真实的 WASM 引擎，
 断言 3.14.0 修复的缺陷与新增功能。与 tools/smoke-test.mjs（只检查静态资源）互补。
 
-依赖：pip install playwright && playwright install chromium
+依赖：pip install playwright；优先自动使用系统 Chromium，找不到时使用 Playwright 管理的 Chromium（可通过 CHROMIUM_EXECUTABLE 指定路径）
 用法：python3 tools/browser-tests/run.py          （自动在随机端口起一个静态服务器，不需要手动启动）
       ONLY=11 python3 tools/browser-tests/run.py （3.17.0：只跑第 11 节，调试新用例时省时间）
 退出码：全部通过为 0，否则为 1。
 说明：这是桌面 Chromium 测试，不等价于 Android WebView / Tauri WebView 真机测试。
 """
-import asyncio, http.server, socketserver, threading, sys, os, json, zipfile, tempfile
+import asyncio, http.server, socketserver, threading, sys, os, json, zipfile, tempfile, shutil
 from functools import partial
 from playwright.async_api import async_playwright
 
@@ -649,6 +649,14 @@ async def sec16(b, base):
     sc = await pg.evaluate("getComputedStyle(document.querySelector('.theme-fx .fx-c'),'::after').opacity")
     await pg.evaluate("window.__tmx.setFxEnabled(true)")
     check('16h 主题面板分组 9 / 11 / 2；暂停动态背景时霓虹扫描线强制不可见', g == [9, 11, 2] and sc == '0', f'{g} {sc}')
+    # 16h2 快速连续切换：不调用全页快照 API；最后一次选择生效且过渡状态最终可清理。
+    rapid = await pg.evaluate("""(async()=>{let vtCalls=0;const native=document.startViewTransition;
+      document.startViewTransition=()=>{vtCalls++;throw new Error('ViewTransition should not be used for theme switching')};
+      try { const T=window.__tmx; T.applyThemeAnimated('ink',document.querySelector('[data-theme-id=ink]')); T.applyThemeAnimated('neon',document.querySelector('[data-theme-id=neon]')); T.applyThemeAnimated('wheat',document.querySelector('[data-theme-id=wheat]')); }
+      finally { if(native) document.startViewTransition=native; else delete document.startViewTransition; }
+      await new Promise(r=>setTimeout(r,320));
+      return [document.body.dataset.theme,localStorage.getItem('tmx_theme'),document.documentElement.classList.contains('theme-switching'),document.documentElement.classList.contains('vt-theme'),document.querySelector('.theme-wash')!==null,vtCalls]})()""")
+    check('16h2 快速连切主题不启用整页快照 / 无残留遮罩或过渡标记 / 最后选择生效', rapid == ['wheat','wheat',False,False,False,0], str(rapid))
     # 16i 英文界面：新形态 / 新主题 / 新按钮被翻译
     await pg.evaluate("window.I18N.set('en')"); await pg.wait_for_timeout(400)
     r = await pg.evaluate("[document.querySelector('#shapeGrid [data-shape=\"wetland\"] .shape-name').textContent, document.getElementById('shapeOverview').innerText.trim()]")
@@ -660,7 +668,11 @@ async def sec16(b, base):
 async def main():
     srv = serve(); base = f'http://127.0.0.1:{srv.server_address[1]}/index.html?debug'
     async with async_playwright() as p:
-        b = await p.chromium.launch(args=['--no-sandbox'])
+        # Prefer an explicitly configured executable, then the system Chromium; fall back to Playwright's managed browser.
+        browser_exe = os.environ.get('CHROMIUM_EXECUTABLE') or shutil.which('chromium') or shutil.which('chromium-browser') or shutil.which('google-chrome')
+        launch_opts = {'args': ['--no-sandbox']}
+        if browser_exe: launch_opts['executable_path'] = browser_exe
+        b = await p.chromium.launch(**launch_opts)
         if os.environ.get('ONLY') == '16':
             await sec16(b, base); await b.close(); srv.shutdown()
             print('SECTION 16 ' + ('PASSED' if not FAILED else f'FAILED ({len(FAILED)}): {FAILED}')); sys.exit(1 if FAILED else 0)

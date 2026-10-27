@@ -20,3 +20,14 @@ python3 tools/browser-tests/run.py
 后台运行时请用 `setsid nohup … &`，并注意不要用 `pkill -f run.py`（会连同发出命令的 shell 一起结束）。
 
 **局限**：桌面 Chromium 不等于 Android WebView / Tauri WebView；Kotlin / Rust 原生层不在此测试范围内。
+
+
+### 浏览器可执行文件选择（3.28.0）
+
+测试脚本会先尝试 `CHROMIUM_EXECUTABLE` 环境变量指定的浏览器，再自动检测系统上的 `chromium` / `chromium-browser` / `google-chrome`，最后才使用 Playwright 安装的浏览器。例如：
+
+```bash
+CHROMIUM_EXECUTABLE=/usr/bin/chromium ONLY=16 python3 tools/browser-tests/run.py
+```
+
+部分受限容器会禁止 Chromium 打开本机 HTTP 页面（报 `ERR_BLOCKED_BY_ADMINISTRATOR`）；这是测试运行环境限制，并不等价于 App 的运行错误。
